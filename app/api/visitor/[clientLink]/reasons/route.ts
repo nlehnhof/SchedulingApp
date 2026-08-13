@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
+import { errorResponse } from '@/lib/error-response';
 
 // The visitor link is the client's UUID for now (Constraints: "link-scoped, can't
 // see other clients"). Swap to a dedicated short slug column later if a
@@ -15,7 +16,7 @@ export async function GET(
     .eq('client_id', params.clientLink)
     .order('order', { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorResponse(error, 'Could not load booking options.');
   return NextResponse.json({
     reasons: (reasons ?? []).map((r) => ({
       id: r.id,

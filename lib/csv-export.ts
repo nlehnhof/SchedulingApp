@@ -1,7 +1,18 @@
 import { createServiceClient } from './supabase';
 import { sendEmail } from './email';
 
-function csvEscape(value: string): string {
+export function csvEscape(value: string): string {
+  // Formula-injection (aka "CSV injection") guard: Excel/Sheets treat a
+  // cell starting with =, +, -, or @ as a formula to evaluate. Visitor-
+  // supplied fields (name, phone, notes) flow into this file unsanitized
+  // otherwise, so a malicious visitor name like `=HYPERLINK("http://evil")`
+  // would execute when the client opens the export. Prepending a single
+  // quote is the standard mitigation (OWASP CSV Injection cheat sheet) —
+  // spreadsheet apps treat it as "force text" rather than showing a stray
+  // character in the cell.
+  if (/^[=+\-@]/.test(value)) {
+    value = `'${value}`;
+  }
   if (/[",\n]/.test(value)) {
     return `"${value.replace(/"/g, '""')}"`;
   }

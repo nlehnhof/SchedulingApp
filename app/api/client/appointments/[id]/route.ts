@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { appointmentEditSchema } from '@/lib/validation';
+import { errorResponse } from '@/lib/error-response';
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const client = await requireClient();
@@ -24,7 +25,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     p_notes: body.notes ?? null,
   });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorResponse(error, 'Could not save appointment changes.');
 
   const row = Array.isArray(data) ? data[0] : data;
   if (row?.result_status === 'conflict') {
@@ -51,7 +52,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
     .eq('id', params.id)
     .eq('client_id', client.clientId); // scope to this client, no cross-tenant deletes
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorResponse(error, 'Could not delete appointment.');
   if (!count) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json({ status: 'deleted' });
 }

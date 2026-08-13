@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { ruleSchema } from '@/lib/validation';
+import { errorResponse } from '@/lib/error-response';
 
 export async function GET() {
   const client = await requireClient();
@@ -12,7 +13,7 @@ export async function GET() {
     .from('rules')
     .select('*')
     .eq('client_id', client.clientId);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorResponse(error, 'Could not load rules.');
   return NextResponse.json({ rules: data });
 }
 
@@ -41,6 +42,6 @@ export async function POST(req: Request) {
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorResponse(error, 'Could not save rule.');
   return NextResponse.json(data);
 }

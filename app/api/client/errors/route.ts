@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
+import { errorResponse } from '@/lib/error-response';
 
 export async function GET() {
   const client = await requireClient();
@@ -14,6 +15,6 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(100);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorResponse(error, 'Could not load the error log.');
   return NextResponse.json({ errors: data });
 }

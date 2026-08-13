@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { requireCron } from '@/lib/require-cron';
 import { createServiceClient } from '@/lib/supabase';
+import { errorResponse } from '@/lib/error-response';
 
 // Scheduled daily on Render. Deletes expired appointments (30-day retention,
 // see Constraints) and prunes error_log entries older than 30 days.
@@ -23,10 +24,7 @@ export async function POST(req: Request) {
     ]);
 
   if (aptError || logError) {
-    return NextResponse.json(
-      { error: aptError?.message ?? logError?.message },
-      { status: 500 }
-    );
+    return errorResponse(aptError ?? logError, 'Cleanup job failed.');
   }
 
   return NextResponse.json({

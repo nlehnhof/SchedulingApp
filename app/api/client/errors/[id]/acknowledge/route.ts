@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
+import { errorResponse } from '@/lib/error-response';
 
 export async function POST(
   _req: Request,
@@ -18,7 +19,7 @@ export async function POST(
     .select()
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return errorResponse(error, 'Could not acknowledge this error.');
   if (!data) return NextResponse.json({ error: 'not_found' }, { status: 404 });
   return NextResponse.json(data);
 }

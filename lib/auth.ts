@@ -2,14 +2,17 @@ import type { NextAuthOptions } from 'next-auth';
 import GoogleProvider from 'next-auth/providers/google';
 import CredentialsProvider from 'next-auth/providers/credentials';
 import { createServiceClient } from './supabase';
+import { safeCompare } from './safe-compare';
+import { isRateLimited } from './rate-limit';
 
 // Client auth: Google OAuth with Calendar scopes (Constraints: client auth = Google OAuth,
 // scope calendar.readonly + calendar read/write per SCHEDULING_APP_ORCHESTRATION.md #7).
 //
 // A second, admin/password provider is added below for click-through testing before a real
-// Google Cloud OAuth app exists. It is INSECURE (hardcoded-style default credentials, no
-// rate limiting, no lockout) and must stay disabled (ALLOW_ADMIN_LOGIN unset/false) for any
-// real client rollout — see README "Admin login (testing only)" for the full warning.
+// Google Cloud OAuth app exists. It is a fixed, low-entropy default credential — even with
+// the rate limiting and constant-time comparison added below (security review 2026-08-13),
+// it must stay disabled (ALLOW_ADMIN_LOGIN unset/false) for any real client rollout — see
+// README "Admin login (testing only)" for the full warning.
 const providers: NextAuthOptions['providers'] = [
   GoogleProvider({
     clientId: process.env.GOOGLE_CLIENT_ID!,
@@ -39,13 +42,24 @@ if (process.env.ALLOW_ADMIN_LOGIN === 'true') {
         username: { label: 'Username', type: 'text' },
         password: { label: 'Password', type: 'password' },
       },
-      async authorize(credentials) {
+      async authorize(credentials, req) {
+        // Rate-limit by caller IP before even checking the password, so this
+        // can't be brute-forced by scripting repeated sign-in attempts.
+        const ip =
+          (req?.headers as Record<string, string> | undefined)?.['x-forwarded-for']
+            ?.split(',')[0]
+            ?.trim() || 'unknown';
+        if (isRateLimited(`admin-login:${ip}`, 5, 5 * 60 * 1000)) {
+          throw new Error('Too many attempts. Try again in a few minutes.');
+        }
+
         const expectedUsername = process.env.ADMIN_USERNAME || 'admin';
         const expectedPassword = process.env.ADMIN_PASSWORD || 'admin1';
-        if (
-          credentials?.username === expectedUsername &&
-          credentials?.password === expectedPassword
-        ) {
+        const usernameOk =
+          !!credentials?.username && safeCompare(credentials.username, expectedUsername);
+        const passwordOk =
+          !!credentials?.password && safeCompare(credentials.password, expectedPassword);
+        if (usernameOk && passwordOk) {
           // No real Google account behind this login, so no Google Calendar
           // sync will run for it (google_refresh_token stays null) — fine
           // for clicking through rules/reasons/schedule/booking/export.

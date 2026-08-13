@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireClient } from '@/lib/require-client';
 import { exportSchema } from '@/lib/validation';
 import { exportMonthlyCSV } from '@/lib/csv-export';
+import { errorResponse } from '@/lib/error-response';
 
 export async function POST(req: Request) {
   const client = await requireClient();
@@ -15,7 +16,10 @@ export async function POST(req: Request) {
   try {
     await exportMonthlyCSV(client.clientId, parsed.data.month);
     return NextResponse.json({ status: 'export_queued' });
-  } catch (err: any) {
-    return NextResponse.json({ status: 'error', message: err?.message }, { status: 500 });
+  } catch (err) {
+    // Was previously `{ status: 'error', message: ... }` — the frontend's
+    // postJSON helper only ever reads the `error` field, so that shape
+    // silently never surfaced the real message. Fixed as part of this pass.
+    return errorResponse(err, 'Export failed. Please try again.');
   }
 }
