@@ -36,16 +36,17 @@ pass as of this commit.
 ```bash
 npm install
 cp .env.example .env.local   # fill in Supabase, Google OAuth, Resend, NextAuth secrets
-npm run db:migrate            # apply supabase/migrations/0001-0005 in order (see below)
+npm run db:migrate            # apply supabase/migrations/0001-0007 in order (see below)
 npm run db:seed               # optional: seed one test client + default reasons + a 9-5 rule
 npm run dev                   # http://localhost:3000
 npm test                      # runs the availability-calculator unit tests (vitest)
 ```
 
 If you're running migrations by hand in the Supabase SQL Editor rather than via
-`db:migrate`/the Supabase CLI, run all six files in order: `0001_init.sql`,
+`db:migrate`/the Supabase CLI, run all seven files in order: `0001_init.sql`,
 `0002_booking_function.sql`, `0003_rls.sql`, `0004_error_log_ack.sql`,
-`0005_service_role_grants.sql`, `0006_update_appointment_function.sql`. **0005 matters even
+`0005_service_role_grants.sql`, `0006_update_appointment_function.sql`,
+`0007_client_onboarding_and_tier.sql`. **0005 matters even
 though it looks redundant** — tables created through the SQL Editor don't always inherit the
 default grants Supabase normally sets up for `service_role` automatically, which shows up as
 `permission denied for table X` (Postgres error 42501) the first time the app queries
@@ -142,7 +143,40 @@ a whole DnD dependency for four list items.
   started" above)
 - `supabase/migrations/0006_update_appointment_function.sql` — conflict-checked appointment
   edit function, same locking approach as `book_appointment`
+- `supabase/migrations/0007_client_onboarding_and_tier.sql` — adds `tutorial_completed_at`,
+  `tier` (`free`/`premium`), `display_name`, `accent_color`, `logo_url`, `slug` (+ unique
+  index), and `sms_reminders_enabled` to `clients` — see "Premium tier" below
 - `scripts/seed.js` — seeds one test client + default reasons + a 9-5 rule
+
+## Onboarding tutorial
+
+A server-persisted (not localStorage) first-run tour, gated on `clients.tutorial_completed_at`
+being `NULL` — shows regardless of whether rules/reasons already exist, so it also covers a
+client whose data was set up via the API/seed script before ever opening the dashboard UI.
+`POST /api/client/onboarding/complete` marks it seen; the `?` icon next to the "Gather"
+wordmark in `DashboardNav` replays it on demand without touching that column again.
+
+## Premium tier (feature-flag only — no billing)
+
+`clients.tier` is `free` or `premium`, set directly in the DB (no payment processing this
+pass). Every premium-gated route checks it server-side via `requireClient()`
+(`lib/require-client.ts`, which reads it from the NextAuth session — itself refreshed from the
+`clients` row on every request, see `lib/auth.ts`), never from client-supplied input.
+
+- **Branding + custom slug** (`/dashboard/branding`, `PATCH`/`GET /api/client/branding`,
+  `GET /api/client/slug-available`) — display name, accent color, logo URL, and a short
+  `/visit/<slug>` link as an alternative to the raw client UUID. `lib/resolve-client-link.ts`
+  is the single place that resolves a `[clientLink]` URL param to a client id (UUID always
+  works; a slug only resolves while that client's tier is currently `premium`) — every visitor
+  route and the visitor page itself go through it.
+- **Analytics** (`/dashboard/analytics`, `GET /api/client/analytics`) — booking volume by
+  week, busiest days/hours, appointment status breakdown, and reason popularity over a rolling
+  180-day window, aggregated server-side.
+- **SMS reminders — scaffolded, not functional.** `app/api/cron/sms-reminders/route.ts` and
+  `lib/sms.ts` exist and are wired into the same `tier`/opt-in-gated query + per-appointment
+  try/catch pattern as the rest of the cron jobs, but there's no real SMS provider connected —
+  `lib/sms.ts`'s `sendSms()` always throws (see its header comment for how to wire one up). Safe
+  to schedule as-is; it will just report `sent: 0` until a provider is configured.
 
 ## Local development with Docker (optional)
 
@@ -167,8 +201,8 @@ option if Render is later pointed at the Dockerfile instead.
 3. Build command: `npm install && npm run build`. Start command: `npm start`.
 4. Instance type: Starter ($7/mo) for always-on (free tier spins down after 15 min idle).
 5. Add environment variables from `.env.example` in the Render dashboard.
-6. Add three separate Render **Cron Jobs** (a different resource type from the Web Service),
-   each guarded by the `x-cron-secret` header `lib/require-cron.ts` checks for:
+6. Add Render **Cron Jobs** (a different resource type from the Web Service), each guarded by
+   the `x-cron-secret` header `lib/require-cron.ts` checks for:
    ```bash
    # every 30 min
    curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/google-sync
@@ -176,4 +210,7 @@ option if Render is later pointed at the Dockerfile instead.
    curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/cleanup
    # 1st of the month
    curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/export-monthly
+   # optional — safe to schedule even before an SMS provider is configured;
+   # see "Premium tier" above. Once a provider is real, run this daily.
+   curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/sms-reminders
    ```

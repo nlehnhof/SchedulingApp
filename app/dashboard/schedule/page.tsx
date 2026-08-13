@@ -109,12 +109,16 @@ export default function SchedulePage() {
           onSelectDate={setSelectedDate}
           onMonthChange={(year, month) => setMonthCursor({ year, month })}
         />
-        <div className="mt-3 flex gap-4 text-xs text-text-secondary">
+        <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-secondary">
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-success" /> Confirmed
           </span>
           <span className="flex items-center gap-1">
             <span className="h-2 w-2 rounded-full bg-danger" /> Conflict
+          </span>
+          <span className="flex items-center gap-1">
+            <span className="h-2 w-2 rounded-full border border-text-secondary/50 bg-text-secondary/20" />
+            Dimmed = no availability
           </span>
         </div>
       </div>

@@ -7,15 +7,31 @@ import type { AppointmentReason } from '@/lib/types';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 
+const KEY = '/api/client/reasons';
+
+async function patchReason(id: string, body: Record<string, unknown>) {
+  const res = await fetch(`/api/client/reasons/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    throw new Error(json?.error ? (typeof json.error === 'string' ? json.error : JSON.stringify(json.error)) : 'Request failed');
+  }
+  return json;
+}
+
 export default function ReasonsPage() {
-  const { data, error, isLoading } = useSWR<{ reasons: AppointmentReason[] }>(
-    '/api/client/reasons',
-    fetcher
-  );
+  const { data, error, isLoading } = useSWR<{ reasons: AppointmentReason[] }>(KEY, fetcher);
   const [name, setName] = useState('');
   const [duration, setDuration] = useState('15');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editingName, setEditingName] = useState('');
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const reasons = data?.reasons ?? [];
 
@@ -24,14 +40,14 @@ export default function ReasonsPage() {
     setSubmitError(null);
     setSaving(true);
     try {
-      await postJSON('/api/client/reasons', {
+      await postJSON(KEY, {
         name,
         durationMin: Number(duration),
         order: reasons.length,
       });
       setName('');
       setDuration('15');
-      mutate('/api/client/reasons');
+      mutate(KEY);
     } catch (err: any) {
       setSubmitError(err.message ?? 'Failed to save reason');
     } finally {
@@ -40,12 +56,12 @@ export default function ReasonsPage() {
   }
 
   async function handleDurationChange(reason: AppointmentReason, durationMin: number) {
-    await postJSON('/api/client/reasons', {
-      name: reason.name,
-      durationMin,
-      order: reason.order,
-    });
-    mutate('/api/client/reasons');
+    try {
+      await patchReason(reason.id, { durationMin });
+      mutate(KEY);
+    } catch (err: any) {
+      setSubmitError(err.message ?? 'Failed to update duration');
+    }
   }
 
   async function moveReason(index: number, delta: number) {
@@ -53,11 +69,50 @@ export default function ReasonsPage() {
     if (target < 0 || target >= reasons.length) return;
     const a = reasons[index];
     const b = reasons[target];
-    await Promise.all([
-      postJSON('/api/client/reasons', { name: a.name, durationMin: a.duration_min, order: b.order }),
-      postJSON('/api/client/reasons', { name: b.name, durationMin: b.duration_min, order: a.order }),
-    ]);
-    mutate('/api/client/reasons');
+    try {
+      await Promise.all([
+        patchReason(a.id, { order: b.order }),
+        patchReason(b.id, { order: a.order }),
+      ]);
+      mutate(KEY);
+    } catch (err: any) {
+      setSubmitError(err.message ?? 'Failed to reorder');
+    }
+  }
+
+  function startRename(reason: AppointmentReason) {
+    setEditingId(reason.id);
+    setEditingName(reason.name);
+    setSubmitError(null);
+  }
+
+  async function saveRename(reason: AppointmentReason) {
+    const trimmed = editingName.trim();
+    if (!trimmed || trimmed === reason.name) {
+      setEditingId(null);
+      return;
+    }
+    try {
+      await patchReason(reason.id, { name: trimmed });
+      setEditingId(null);
+      mutate(KEY);
+    } catch (err: any) {
+      setSubmitError(err.message ?? 'Failed to rename reason');
+    }
+  }
+
+  async function handleDelete(id: string) {
+    setDeleteError(null);
+    try {
+      const res = await fetch(`/api/client/reasons/${id}`, { method: 'DELETE' });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error ?? 'Failed to delete reason');
+      mutate(KEY);
+    } catch (err: any) {
+      setDeleteError(err.message ?? 'Failed to delete reason');
+    } finally {
+      setConfirmDeleteId(null);
+    }
   }
 
   return (
@@ -66,6 +121,7 @@ export default function ReasonsPage() {
 
       {isLoading && <p className="text-sm text-text-secondary">Loading…</p>}
       {error && <p className="text-sm text-danger">Failed to load reasons.</p>}
+      {deleteError && <p className="text-sm text-danger">{deleteError}</p>}
 
       <ul className="flex flex-col gap-2">
         {reasons.map((reason, i) => (
@@ -73,8 +129,41 @@ export default function ReasonsPage() {
             key={reason.id}
             className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-sm"
           >
-            <div className="flex flex-col">
-              <span className="font-medium">{reason.name}</span>
+            <div className="flex flex-col gap-1">
+              {editingId === reason.id ? (
+                <div className="flex items-center gap-1">
+                  <input
+                    autoFocus
+                    value={editingName}
+                    onChange={(e) => setEditingName(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') saveRename(reason);
+                      if (e.key === 'Escape') setEditingId(null);
+                    }}
+                    className="rounded border border-border px-1.5 py-0.5 text-sm font-medium"
+                  />
+                  <button
+                    onClick={() => saveRename(reason)}
+                    className="rounded px-1.5 py-0.5 text-xs text-success hover:bg-accent-soft/20"
+                  >
+                    Save
+                  </button>
+                  <button
+                    onClick={() => setEditingId(null)}
+                    className="rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-accent-soft/20"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => startRename(reason)}
+                  className="w-fit text-left font-medium hover:underline"
+                  title="Click to rename"
+                >
+                  {reason.name}
+                </button>
+              )}
               <span className="text-xs text-text-secondary">
                 <input
                   type="number"
@@ -89,7 +178,7 @@ export default function ReasonsPage() {
                 min
               </span>
             </div>
-            <div className="flex gap-1">
+            <div className="flex items-center gap-1">
               <button
                 onClick={() => moveReason(i, -1)}
                 disabled={i === 0}
@@ -106,9 +195,38 @@ export default function ReasonsPage() {
               >
                 ↓
               </button>
+              {confirmDeleteId === reason.id ? (
+                <span className="flex items-center gap-1">
+                  <button
+                    onClick={() => handleDelete(reason.id)}
+                    className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="rounded px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
+                  >
+                    Cancel
+                  </button>
+                </span>
+              ) : (
+                <button
+                  onClick={() => setConfirmDeleteId(reason.id)}
+                  aria-label={`Delete ${reason.name}`}
+                  className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                >
+                  Delete
+                </button>
+              )}
             </div>
           </li>
         ))}
+        {reasons.length === 0 && !isLoading && (
+          <p className="text-sm text-text-secondary">
+            No reasons yet — add at least one below so visitors have something to book.
+          </p>
+        )}
       </ul>
 
       <form onSubmit={handleAdd} className="flex items-end gap-2 border-t border-border pt-4">

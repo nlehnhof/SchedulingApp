@@ -81,10 +81,24 @@ export default function Calendar({
           if (!date) return <div key={`empty-${i}`} />;
           const meta = dayMap.get(date);
           const isSelected = date === selectedDate;
+          // A screen-reader user tabbing through day cells previously got
+          // no equivalent to the confirmed/conflict dots or the dimmed
+          // "no availability" styling — this is the only description of
+          // that state they'd have (PLAN.md Section 1/2 item 9).
+          const dateLabel = new Date(date).toLocaleDateString(undefined, {
+            weekday: 'long',
+            month: 'long',
+            day: 'numeric',
+          });
+          const parts = [dateLabel];
+          if (meta?.confirmedCount) parts.push(`${meta.confirmedCount} confirmed`);
+          if (meta?.redFlagCount) parts.push(`${meta.redFlagCount} conflict${meta.redFlagCount === 1 ? '' : 's'}`);
+          if (meta && !meta.hasAvailability) parts.push('no availability');
           return (
             <button
               key={date}
               onClick={() => onSelectDate(date)}
+              aria-label={parts.join(', ')}
               className={`flex h-14 flex-col items-center justify-center rounded-md border text-sm transition-colors ${
                 isSelected
                   ? 'border-accent bg-accent text-white'

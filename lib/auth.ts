@@ -107,14 +107,23 @@ export const authOptions: NextAuthOptions = {
     async session({ session }) {
       if (!session.user?.email) return session;
       const supabase = createServiceClient();
+      // JWT session strategy, but this callback still does a fresh DB
+      // round-trip on every getServerSession() call (scoped by email, as
+      // before) — so tier/tutorialCompletedAt are never stale/cached in the
+      // token itself. That matters because every premium-gated route reads
+      // tier from the session rather than re-querying: it must always
+      // reflect the client row's *current* value, never something a
+      // request could influence (see PLAN.md Section 5).
       const { data: client } = await supabase
         .from('clients')
-        .select('id, timezone')
+        .select('id, timezone, tier, tutorial_completed_at')
         .eq('email', session.user.email)
         .maybeSingle();
       if (client) {
         (session as any).clientId = client.id;
         (session as any).timezone = client.timezone;
+        (session as any).tier = client.tier ?? 'free';
+        (session as any).tutorialCompletedAt = client.tutorial_completed_at ?? null;
       }
       return session;
     },

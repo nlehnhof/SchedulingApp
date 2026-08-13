@@ -41,6 +41,29 @@ function toFormValues(rule: Rule): RuleFormValues {
   };
 }
 
+// Rules previously rendered as a flat, unsorted list with no grouping by
+// type or day, even though day-specific vs. all-days precedence and
+// capacity-rule interactions matter for understanding what a visitor will
+// actually see (PLAN.md Section 1/2 item 10).
+const RULE_TYPE_ORDER: Record<Rule['rule_type'], number> = {
+  available_hours: 0,
+  max_per_window: 1,
+  first_n_only: 2,
+};
+
+function sortRules(rules: Rule[]): Rule[] {
+  return [...rules].sort((a, b) => {
+    const typeDiff = RULE_TYPE_ORDER[a.rule_type] - RULE_TYPE_ORDER[b.rule_type];
+    if (typeDiff !== 0) return typeDiff;
+    if (a.rule_type === 'available_hours') {
+      // "All days" (null) first as the base rule, then day-specific
+      // overrides in weekday order.
+      return (a.day_of_week ?? -1) - (b.day_of_week ?? -1);
+    }
+    return 0;
+  });
+}
+
 function toRequestBody(values: RuleFormValues): Record<string, unknown> {
   const dayOfWeek = values.dayOfWeek === 'all' ? null : Number(values.dayOfWeek);
   const body: Record<string, unknown> = { ruleType: values.ruleType };
@@ -116,9 +139,15 @@ export default function RulesPage() {
 
       {isLoading && <p className="text-sm text-text-secondary">Loading…</p>}
       {error && <p className="text-sm text-danger">Failed to load rules.</p>}
+      {!!data?.rules.length && (
+        <p className="text-sm text-text-secondary">
+          Day-specific hours override an all-days rule for that day; capacity rules (max per
+          window, first N only) apply on top of your hours.
+        </p>
+      )}
 
       <ul className="flex flex-col gap-2">
-        {data?.rules.map((rule) => (
+        {sortRules(data?.rules ?? []).map((rule) => (
           <li
             key={rule.id}
             className="flex items-center justify-between rounded-md border border-border p-3 text-sm"

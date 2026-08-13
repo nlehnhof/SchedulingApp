@@ -1,3 +1,16 @@
+export interface Client {
+  id: string;
+  email: string;
+  timezone: string;
+  tier: 'free' | 'premium';
+  display_name: string | null;
+  accent_color: string | null;
+  logo_url: string | null;
+  slug: string | null;
+  sms_reminders_enabled: boolean;
+  tutorial_completed_at: string | null;
+}
+
 export interface AppointmentReason {
   id: string;
   client_id: string;

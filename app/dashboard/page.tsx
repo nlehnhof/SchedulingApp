@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
@@ -10,6 +11,8 @@ interface DashboardResponse {
   appointments: Appointment[];
   rules: Rule[];
   errors: ErrorLogEntry[];
+  client: { id: string; displayName: string | null; slug: string | null; tier: 'free' | 'premium' } | null;
+  hasReasons: boolean;
   stats: {
     total: number;
     this_month: number;
@@ -39,9 +42,38 @@ export default function DashboardHome() {
     return start >= now && start <= in7Days;
   });
 
+  const hasRules = data.rules.length > 0;
+
   return (
     <div className="flex flex-col gap-8">
       <h1 className="font-serif text-xl font-semibold text-text-primary">Dashboard</h1>
+
+      {/* Previously there was no way to find your own visitor booking link
+          from the UI at all — it was only ever printed to the console by
+          scripts/seed.js (PLAN.md Section 1/2 item 1, the single
+          highest-value fix identified). */}
+      {data.client && <BookingLinkCard client={data.client} />}
+
+      {(!data.hasReasons || !hasRules) && (
+        <div className="flex flex-col gap-2 rounded-md border border-accent/40 bg-accent-soft/25 p-4 text-sm">
+          {!data.hasReasons && (
+            <p>
+              <Link href="/dashboard/reasons" className="font-medium text-accent-hover hover:underline">
+                Add your first appointment reason
+              </Link>{' '}
+              so visitors have something to book.
+            </p>
+          )}
+          {!hasRules && (
+            <p>
+              <Link href="/dashboard/rules" className="font-medium text-accent-hover hover:underline">
+                Add your first availability rule
+              </Link>{' '}
+              so visitors can actually book you.
+            </p>
+          )}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Appointments this month" value={data.stats.this_month} />
@@ -87,6 +119,55 @@ export default function DashboardHome() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+function BookingLinkCard({
+  client,
+}: {
+  client: { id: string; displayName: string | null; slug: string | null; tier: 'free' | 'premium' };
+}) {
+  const [copied, setCopied] = useState(false);
+  const path = client.tier === 'premium' && client.slug ? client.slug : client.id;
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const link = `${origin}/visit/${path}`;
+
+  async function copyLink() {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Clipboard API can fail (permissions, non-HTTPS context); the link
+      // text is already selectable/visible as a fallback.
+    }
+  }
+
+  return (
+    <div className="rounded-lg border border-border bg-surface p-4">
+      <div className="text-xs uppercase tracking-wide text-text-secondary">Your booking link</div>
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <code className="rounded bg-background px-2 py-1 text-sm text-text-primary">{link}</code>
+        <button
+          onClick={copyLink}
+          className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent-soft/15"
+        >
+          {copied ? 'Copied!' : 'Copy link'}
+        </button>
+      </div>
+      <p className="mt-2 text-xs text-text-secondary">
+        Share this with visitors — anyone with this link can book an appointment with you.
+        {client.tier !== 'premium' && (
+          <>
+            {' '}
+            <Link href="/dashboard/branding" className="text-accent-hover hover:underline">
+              Upgrade to premium
+            </Link>{' '}
+            for a short, custom link instead of this long id.
+          </>
+        )}
+      </p>
     </div>
   );
 }

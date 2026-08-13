@@ -21,6 +21,11 @@ interface VisitorSlot extends DisplaySlot {
   reason: string;
 }
 
+interface Branding {
+  accentColor: string | null;
+  logoUrl: string | null;
+}
+
 const detailsSchema = z.object({
   visitorName: z.string().min(1, 'Required'),
   visitorPhone: z.string().min(3, 'Required'),
@@ -29,14 +34,24 @@ const detailsSchema = z.object({
 type DetailsForm = z.infer<typeof detailsSchema>;
 
 type Step = 'reason' | 'datetime' | 'details' | 'confirmation';
+const STEPS: Step[] = ['reason', 'datetime', 'details', 'confirmation'];
+const STEP_LABELS: Record<Step, string> = {
+  reason: 'Reason',
+  datetime: 'Date & time',
+  details: 'Your details',
+  confirmation: 'Confirmed',
+};
 
 export default function VisitorBookingPage({ params }: { params: { clientLink: string } }) {
   const { clientLink } = params;
   const [step, setStep] = useState<Step>('reason');
   const [clientName, setClientName] = useState<string | null>(null);
+  const [branding, setBranding] = useState<Branding | null>(null);
   const [reasons, setReasons] = useState<VisitorReason[]>([]);
+  const [reasonsLoading, setReasonsLoading] = useState(true);
   const [selectedReason, setSelectedReason] = useState<VisitorReason | null>(null);
   const [slots, setSlots] = useState<VisitorSlot[]>([]);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<VisitorSlot | null>(null);
   const [details, setDetails] = useState<DetailsForm | null>(null);
@@ -45,24 +60,42 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
     null
   );
   const [loading, setLoading] = useState(false);
+  // Previously this replaced the *entire* page (including the header and
+  // whatever the visitor had already picked) on any transient fetch
+  // failure. Now it's a dismissible banner layered above the current step,
+  // so an in-progress reason/slot selection survives a blip (PLAN.md
+  // Section 1/2 item 8).
   const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
+    setReasonsLoading(true);
     fetcher<{ reasons: VisitorReason[] }>(`/api/visitor/${clientLink}/reasons`)
-      .then((r) => setReasons(r.reasons))
-      .catch(() => setLoadError('Could not load this booking page.'));
+      .then((r) => {
+        setReasons(r.reasons);
+        setReasonsLoading(false);
+      })
+      .catch(() => {
+        setLoadError('Could not load this booking page. Please try again.');
+        setReasonsLoading(false);
+      });
   }, [clientLink]);
 
   useEffect(() => {
     if (!selectedReason) return;
-    fetcher<{ clientName: string; slots: VisitorSlot[] }>(
+    setAvailabilityLoading(true);
+    fetcher<{ clientName: string; branding: Branding | null; slots: VisitorSlot[] }>(
       `/api/visitor/${clientLink}/availability?reasonId=${selectedReason.id}`
     )
       .then((r) => {
         setClientName(r.clientName);
+        setBranding(r.branding);
         setSlots(r.slots);
+        setAvailabilityLoading(false);
       })
-      .catch(() => setLoadError('Could not load availability.'));
+      .catch(() => {
+        setLoadError('Could not load availability. Please try again.');
+        setAvailabilityLoading(false);
+      });
   }, [clientLink, selectedReason]);
 
   const datesWithSlots = useMemo(() => {
@@ -109,22 +142,73 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
     }
   }
 
-  if (loadError) {
-    return (
-      <main className="mx-auto max-w-lg p-6">
-        <p className="text-sm text-danger">{loadError}</p>
-      </main>
-    );
-  }
+  // Applied as inline styles (not swapped Tailwind classes, which are
+  // compiled statically and can't take an arbitrary per-client hex value)
+  // to the page's primary call-to-action controls — the most visible,
+  // lowest-risk way to reflect a premium client's accent color without a
+  // full runtime theming system (PLAN.md Section 4 feature 1). Only ever
+  // set when the availability response includes branding — a free-tier or
+  // downgraded client's page renders with the default look.
+  const accentStyle = branding?.accentColor ? { backgroundColor: branding.accentColor } : undefined;
+
+  const stepIndex = STEPS.indexOf(step);
 
   return (
     <main className="mx-auto max-w-lg p-6">
+      {branding?.logoUrl && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={branding.logoUrl}
+          alt=""
+          className="mb-3 h-12 w-auto object-contain"
+          onError={(e) => {
+            (e.currentTarget as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      )}
       {clientName && <p className="mb-1 text-sm text-text-secondary">Booking with {clientName}</p>}
-      <h1 className="mb-6 font-serif text-xl font-semibold text-text-primary">Book an appointment</h1>
+      <h1 className="mb-4 font-serif text-xl font-semibold text-text-primary">Book an appointment</h1>
+
+      {/* Step progress indicator (PLAN.md Section 1/2 item 8) — a
+          first-time visitor previously had no sense of how many steps
+          remained. */}
+      <ol className="mb-6 flex items-center gap-2" aria-label="Booking progress">
+        {STEPS.map((s, i) => (
+          <li key={s} className="flex items-center gap-2">
+            <span
+              aria-current={s === step ? 'step' : undefined}
+              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+                i <= stepIndex ? 'bg-accent text-white' : 'bg-border text-text-secondary'
+              }`}
+              style={i <= stepIndex ? accentStyle : undefined}
+            >
+              {i + 1}
+            </span>
+            <span className={`text-xs ${i === stepIndex ? 'text-text-primary' : 'text-text-secondary'}`}>
+              {STEP_LABELS[s]}
+            </span>
+            {i < STEPS.length - 1 && <span className="mx-1 h-px w-4 bg-border" />}
+          </li>
+        ))}
+      </ol>
+
+      {loadError && (
+        <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-danger/30 bg-danger/10 p-3 text-sm text-danger">
+          <span>{loadError}</span>
+          <button onClick={() => setLoadError(null)} aria-label="Dismiss" className="shrink-0 font-medium">
+            ✕
+          </button>
+        </div>
+      )}
 
       {step === 'reason' && (
         <div className="flex flex-col gap-2">
-          {reasons.length === 0 && <p className="text-sm text-text-secondary">Loading options…</p>}
+          {reasonsLoading && <p className="text-sm text-text-secondary">Loading options…</p>}
+          {!reasonsLoading && !loadError && reasons.length === 0 && (
+            <p className="text-sm text-text-secondary">
+              No booking reasons are available yet. Please check back later.
+            </p>
+          )}
           {reasons.map((reason) => (
             <button
               key={reason.id}
@@ -143,6 +227,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
       {step === 'datetime' && selectedReason && (
         <div className="flex flex-col gap-4">
           <p className="text-sm text-text-secondary">{selectedReason.name}</p>
+          {availabilityLoading && <p className="text-sm text-text-secondary">Loading availability…</p>}
           <div className="flex flex-wrap gap-2">
             {datesWithSlots.map((date) => (
               <button
@@ -151,11 +236,12 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
                 className={`rounded-md border px-3 py-2 text-sm ${
                   date === selectedDate ? 'border-accent bg-accent text-white' : 'border-border'
                 }`}
+                style={date === selectedDate ? accentStyle : undefined}
               >
                 {new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
               </button>
             ))}
-            {datesWithSlots.length === 0 && (
+            {!availabilityLoading && datesWithSlots.length === 0 && (
               <p className="text-sm text-text-secondary">No availability in the next 30 days.</p>
             )}
           </div>
@@ -170,7 +256,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
             <Button variant="ghost" onClick={() => setStep('reason')}>
               Back
             </Button>
-            <Button disabled={!selectedSlot} onClick={() => setStep('details')}>
+            <Button disabled={!selectedSlot} onClick={() => setStep('details')} style={accentStyle}>
               Continue
             </Button>
           </div>
@@ -196,7 +282,13 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
             — {selectedReason?.name}
           </p>
           <Input label="Name" {...register('visitorName')} error={errors.visitorName?.message} />
-          <Input label="Phone" {...register('visitorPhone')} error={errors.visitorPhone?.message} />
+          <Input
+            label="Phone"
+            type="tel"
+            inputMode="tel"
+            {...register('visitorPhone')}
+            error={errors.visitorPhone?.message}
+          />
           <Input label="Notes (optional)" {...register('notes')} />
 
           {conflict && (
@@ -235,7 +327,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
             <Button type="button" variant="ghost" onClick={() => setStep('datetime')}>
               Back
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} style={accentStyle}>
               {loading ? 'Booking…' : 'Confirm booking'}
             </Button>
           </div>

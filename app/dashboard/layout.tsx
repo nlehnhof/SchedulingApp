@@ -1,6 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
-import DashboardNav from '@/components/DashboardNav';
+import DashboardChrome from '@/components/DashboardChrome';
 import SignInButton from '@/components/SignInButton';
 import AdminLoginForm from '@/components/AdminLoginForm';
 
@@ -32,10 +32,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
     );
   }
 
+  const tier: 'free' | 'premium' = (session as any).tier === 'premium' ? 'premium' : 'free';
+  const tutorialCompletedAt = (session as any).tutorialCompletedAt ?? null;
+
   return (
-    <div className="flex min-h-screen flex-col bg-background md:flex-row">
-      <DashboardNav email={session.user?.email} />
-      <main className="flex-1 p-4 md:p-8">{children}</main>
-    </div>
+    <DashboardChrome email={session.user?.email} tier={tier} tutorialCompletedAt={tutorialCompletedAt}>
+      {children}
+    </DashboardChrome>
   );
 }

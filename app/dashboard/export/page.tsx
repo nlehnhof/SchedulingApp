@@ -22,8 +22,15 @@ export default function ExportPage() {
   const [month, setMonth] = useState(months[0].value);
   const [status, setStatus] = useState<'idle' | 'queued' | 'error'>('idle');
   const [message, setMessage] = useState('');
+  // Confirm-then-send + a `sending` guard: previously one click fired an
+  // email immediately with no disabled state, so a double-click sent two
+  // real emails via Resend (PLAN.md Section 1/2 item 6).
+  const [confirming, setConfirming] = useState(false);
+  const [sending, setSending] = useState(false);
 
   async function handleExport() {
+    if (sending) return;
+    setSending(true);
     setStatus('idle');
     try {
       await postJSON('/api/client/export', { month });
@@ -32,20 +39,48 @@ export default function ExportPage() {
     } catch (err: any) {
       setStatus('error');
       setMessage(err.message ?? 'Export failed.');
+    } finally {
+      setSending(false);
+      setConfirming(false);
     }
   }
 
   return (
     <div className="flex max-w-md flex-col gap-4">
       <h1 className="font-serif text-xl font-semibold text-text-primary">Export</h1>
-      <Select label="Month" value={month} onChange={(e) => setMonth(e.target.value)}>
+      <Select
+        label="Month"
+        value={month}
+        onChange={(e) => {
+          setMonth(e.target.value);
+          setConfirming(false);
+        }}
+      >
         {months.map((m) => (
           <option key={m.value} value={m.value}>
             {m.label}
           </option>
         ))}
       </Select>
-      <Button onClick={handleExport}>Export this month</Button>
+
+      {!confirming ? (
+        <Button onClick={() => setConfirming(true)} disabled={sending}>
+          Export this month
+        </Button>
+      ) : (
+        <div className="flex flex-col gap-2 rounded-md border border-accent/40 bg-accent-soft/25 p-3 text-sm">
+          <p>This will email a CSV of {month}&apos;s appointments to your account email — continue?</p>
+          <div className="flex gap-2">
+            <Button onClick={handleExport} disabled={sending}>
+              {sending ? 'Sending…' : 'Yes, send it'}
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirming(false)} disabled={sending}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
       {status === 'queued' && <p className="text-sm text-success">Sent — {message}</p>}
       {status === 'error' && <p className="text-sm text-danger">{message}</p>}
     </div>
