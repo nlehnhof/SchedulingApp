@@ -1,0 +1,25 @@
+# This app talks to Supabase through its client SDK (a REST API call, via
+# NEXT_PUBLIC_SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY), not a raw Postgres connection —
+# so unlike a typical Node+Postgres app, there's no generic `postgres:15` container here.
+# Two ways to run this locally:
+#
+#   1. (Recommended, matches Render in production) Point at a real hosted Supabase
+#      project — the free tier is enough for dev. Fill in .env.local with that
+#      project's URL/keys per .env.example, then:
+#        docker compose up --build
+#
+#   2. Fully offline: install the Supabase CLI and run `supabase start` in this folder.
+#      That spins up its own Docker Compose stack (Postgres, Studio, Auth, Storage) and
+#      prints a local URL + keys — point .env.local at those instead, apply this repo's
+#      migrations with `supabase db reset`, then run this compose file against that.
+#
+# Either way, this file only needs to run the Next.js app itself — Supabase is external
+# to it in both cases.
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
