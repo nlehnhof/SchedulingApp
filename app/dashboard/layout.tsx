@@ -34,9 +34,16 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   const tier: 'free' | 'premium' = (session as any).tier === 'premium' ? 'premium' : 'free';
   const tutorialCompletedAt = (session as any).tutorialCompletedAt ?? null;
+  const adminEmail = process.env.ADMIN_EMAIL || 'admin@local.test';
+  const isAdminTestAccount = adminLoginEnabled && session.user?.email === adminEmail;
 
   return (
-    <DashboardChrome email={session.user?.email} tier={tier} tutorialCompletedAt={tutorialCompletedAt}>
+    <DashboardChrome
+      email={session.user?.email}
+      tier={tier}
+      tutorialCompletedAt={tutorialCompletedAt}
+      isAdminTestAccount={isAdminTestAccount}
+    >
       {children}
     </DashboardChrome>
   );

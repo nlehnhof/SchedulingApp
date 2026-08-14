@@ -53,6 +53,7 @@ export default function DashboardHome() {
           scripts/seed.js (PLAN.md Section 1/2 item 1, the single
           highest-value fix identified). */}
       {data.client && <BookingLinkCard client={data.client} />}
+      {data.client && data.client.tier !== 'premium' && <PremiumFeaturesCard />}
 
       {(!data.hasReasons || !hasRules) && (
         <div className="flex flex-col gap-2 rounded-md border border-accent/40 bg-accent-soft/25 p-4 text-sm">
@@ -168,6 +169,56 @@ function BookingLinkCard({
           </>
         )}
       </p>
+    </div>
+  );
+}
+
+const PREMIUM_FEATURES = [
+  {
+    title: 'Custom branding',
+    description: 'Your business name, accent color, and logo on your booking page instead of the default look.',
+    href: '/dashboard/branding',
+  },
+  {
+    title: 'Custom booking link',
+    description: 'A short, memorable link like /visit/dr-smith instead of a long id.',
+    href: '/dashboard/branding',
+  },
+  {
+    title: 'Analytics dashboard',
+    description: 'Booking volume, busiest days/hours, and which reasons visitors book most.',
+    href: '/dashboard/analytics',
+  },
+  {
+    title: 'SMS appointment reminders',
+    description: 'Automatic text reminders before each appointment, to cut down on no-shows.',
+    href: '/dashboard/branding',
+  },
+];
+
+// Free-tier clients otherwise only discover premium features one at a time,
+// by clicking into Branding or Analytics and hitting a locked panel — this
+// gives a single place to see and understand all four before deciding to
+// upgrade, without granting any access (every link still lands on a
+// locked/upsell view for a free client; nothing here is a shortcut around
+// the server-side tier check).
+function PremiumFeaturesCard() {
+  return (
+    <div className="rounded-lg border border-accent-soft bg-accent-soft/10 p-4">
+      <div className="text-xs uppercase tracking-wide text-text-secondary">Premium features</div>
+      <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {PREMIUM_FEATURES.map((f) => (
+          <li key={f.title}>
+            <Link href={f.href} className="block rounded-md border border-border bg-surface p-3 hover:bg-accent-soft/15">
+              <div className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
+                <span aria-hidden="true">🔒</span>
+                {f.title}
+              </div>
+              <p className="mt-1 text-xs text-text-secondary">{f.description}</p>
+            </Link>
+          </li>
+        ))}
+      </ul>
     </div>
   );
 }

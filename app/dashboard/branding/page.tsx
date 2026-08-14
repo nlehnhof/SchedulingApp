@@ -78,7 +78,8 @@ export default function BrandingPage() {
           <p className="text-sm font-medium text-text-primary">This is a premium feature.</p>
           <p className="mt-1 text-sm text-text-secondary">
             Upgrade to Premium to customize your booking page with your own business name, accent
-            color, logo, and a short, memorable link (e.g. /visit/your-name instead of a long id).
+            color, logo, and a short, memorable link (e.g. /visit/your-name instead of a long id) —
+            plus SMS appointment reminders to cut down on no-shows.
           </p>
         </div>
       </div>

@@ -13,18 +13,25 @@ export default function DashboardChrome({
   email,
   tier,
   tutorialCompletedAt,
+  isAdminTestAccount,
   children,
 }: {
   email?: string | null;
   tier: 'free' | 'premium';
   tutorialCompletedAt: string | null;
+  isAdminTestAccount?: boolean;
   children: React.ReactNode;
 }) {
   const [tourOpen, setTourOpen] = useState(tutorialCompletedAt === null);
 
   return (
     <div className="flex min-h-screen flex-col bg-background md:flex-row">
-      <DashboardNav email={email} tier={tier} onReplayTutorial={() => setTourOpen(true)} />
+      <DashboardNav
+        email={email}
+        tier={tier}
+        isAdminTestAccount={isAdminTestAccount}
+        onReplayTutorial={() => setTourOpen(true)}
+      />
       <main className="flex-1 p-4 md:p-8">{children}</main>
       <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />
     </div>
