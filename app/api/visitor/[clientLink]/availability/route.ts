@@ -79,6 +79,7 @@ export async function GET(
         start: s.start, // full ISO, needed by the booking request
         end: s.end,
         reason: reason.name,
+        available: s.available, // TimeSlotGrid disables any slot missing this
       })),
   });
 }

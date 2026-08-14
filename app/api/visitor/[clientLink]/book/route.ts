@@ -36,6 +36,7 @@ export async function POST(
       clientId: resolved.clientId,
       visitorName: body.visitorName,
       visitorPhone: body.visitorPhone,
+      visitorEmail: body.visitorEmail,
       reasonId: body.reasonId,
       startTime: body.startTime,
       notes: body.notes,

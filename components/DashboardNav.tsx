@@ -29,6 +29,7 @@ const OPERATE_LINKS: NavLink[] = [
 ];
 const PREMIUM_LINKS: NavLink[] = [
   { href: '/dashboard/branding', label: 'Branding', premium: true },
+  { href: '/dashboard/reminders', label: 'Reminders', premium: true },
   { href: '/dashboard/analytics', label: 'Analytics', premium: true },
 ];
 

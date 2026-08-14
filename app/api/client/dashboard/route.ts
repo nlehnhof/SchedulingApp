@@ -26,7 +26,7 @@ export async function GET() {
         .eq('client_id', client.clientId)
         .order('created_at', { ascending: false })
         .limit(50),
-      supabase.from('appointment_reasons').select('id').eq('client_id', client.clientId).limit(1),
+      supabase.from('appointment_reasons').select('id, name').eq('client_id', client.clientId),
       // Fetched here (rather than a separate round-trip from the client)
       // so DashboardHome has what it needs to render the "Your booking
       // link" card (PLAN.md Section 2 item 1) and empty-state nudges
@@ -43,6 +43,11 @@ export async function GET() {
     appointments: all,
     rules: rules ?? [],
     errors: allErrors,
+    // So the Home page's "Upcoming" AppointmentCards can show the reason
+    // name instead of falling back to the raw reason_id UUID — same lookup
+    // app/dashboard/schedule/page.tsx already builds from its own reasons
+    // fetch, just supplied here since Home doesn't otherwise load reasons.
+    reasons: reasons ?? [],
     client: clientRow
       ? {
           id: clientRow.id,

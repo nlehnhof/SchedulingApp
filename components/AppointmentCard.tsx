@@ -32,7 +32,9 @@ export default function AppointmentCard({
             {start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} –{' '}
             {end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
           </div>
-          <div className="text-text-secondary">{reasonName ?? appointment.reason_id}</div>
+          <div className="text-text-secondary">
+            {appointment.visitor_name} — {reasonName ?? appointment.reason_id}
+          </div>
         </div>
         {/* Previously only revealed via group-hover, which meant no
             keyboard-focus or touch-tap equivalent existed — unusable on a
@@ -80,6 +82,11 @@ export default function AppointmentCard({
           <div>
             <span className="font-medium">Phone:</span> {appointment.visitor_phone}
           </div>
+          {appointment.visitor_email && (
+            <div>
+              <span className="font-medium">Email:</span> {appointment.visitor_email}
+            </div>
+          )}
           {appointment.notes && (
             <div>
               <span className="font-medium">Notes:</span> {appointment.notes}

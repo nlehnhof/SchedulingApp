@@ -27,6 +27,7 @@ function makeAppointment(startISO: string, endISO: string): Appointment {
     client_id: 'client-1',
     visitor_name: 'Jane',
     visitor_phone: '555-1234',
+    visitor_email: 'jane@example.com',
     reason_id: reason.id,
     start_time: startISO,
     end_time: endISO,

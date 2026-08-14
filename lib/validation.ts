@@ -31,6 +31,7 @@ export const reasonUpdateSchema = z
 export const bookSchema = z.object({
   visitorName: z.string().min(1).max(255),
   visitorPhone: z.string().min(3).max(20),
+  visitorEmail: z.string().email().max(255),
   reasonId: z.string().uuid(),
   startTime: z.string().datetime({ offset: true }).or(z.string().min(1)),
   notes: z.string().max(2000).optional(),

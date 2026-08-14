@@ -1,11 +1,13 @@
 import { createServiceClient } from './supabase';
 import { getAvailableSlots, nextAvailableSlot } from './availability';
+import { sendBookingConfirmationEmail } from './email';
 import type { Appointment, AppointmentReason, BookingResult, GoogleBlock, Rule } from './types';
 
 export interface BookAppointmentInput {
   clientId: string;
   visitorName: string;
   visitorPhone: string;
+  visitorEmail: string;
   reasonId: string;
   startTime: string; // ISO
   notes?: string;
@@ -28,6 +30,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     p_reason_id: input.reasonId,
     p_start_time: input.startTime,
     p_notes: input.notes ?? null,
+    p_visitor_email: input.visitorEmail,
   });
 
   if (error) throw error;
@@ -35,6 +38,53 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
   const row = Array.isArray(data) ? data[0] : data;
 
   if (row?.result_status === 'booked') {
+    // Premium-tier automatic confirmation email (feature request: "should
+    // automatically come from the client's email"). Best-effort — a failed
+    // send must never fail a booking that already succeeded, so this is
+    // isolated in its own try/catch and logged to error_log the same way
+    // lib/google-calendar.ts logs a sync failure, rather than thrown.
+    const [{ data: client }, { data: reason }] = await Promise.all([
+      supabase
+        .from('clients')
+        .select('email, display_name, tier')
+        .eq('id', input.clientId)
+        .single(),
+      supabase
+        .from('appointment_reasons')
+        .select('name, duration_min')
+        .eq('id', input.reasonId)
+        .single(),
+    ]);
+
+    // Left undefined (not false) unless a send was actually attempted, so
+    // the visitor UI can tell "not premium, nothing attempted" apart from
+    // "attempted and failed" rather than collapsing both to "not sent".
+    let confirmationEmailSent: boolean | undefined;
+
+    if (client?.tier === 'premium' && reason) {
+      try {
+        const start = new Date(input.startTime);
+        const end = new Date(start.getTime() + reason.duration_min * 60_000);
+        await sendBookingConfirmationEmail({
+          visitorEmail: input.visitorEmail,
+          visitorName: input.visitorName,
+          clientDisplayName: client.display_name || client.email,
+          clientEmail: client.email,
+          reasonName: reason.name,
+          start,
+          end,
+        });
+        confirmationEmailSent = true;
+      } catch (err: any) {
+        confirmationEmailSent = false;
+        await supabase.from('error_log').insert({
+          client_id: input.clientId,
+          error_type: 'booking_confirmation_email_failed',
+          message: err?.message ?? String(err),
+        });
+      }
+    }
+
     return {
       status: 'booked',
       appointment: {
@@ -42,6 +92,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         start: row.result_start,
         end: row.result_end,
       },
+      confirmationEmailSent,
     };
   }
 

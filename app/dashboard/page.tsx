@@ -13,6 +13,7 @@ interface DashboardResponse {
   errors: ErrorLogEntry[];
   client: { id: string; displayName: string | null; slug: string | null; tier: 'free' | 'premium' } | null;
   hasReasons: boolean;
+  reasons: { id: string; name: string }[];
   stats: {
     total: number;
     this_month: number;
@@ -43,6 +44,7 @@ export default function DashboardHome() {
   });
 
   const hasRules = data.rules.length > 0;
+  const reasonNameById = new Map(data.reasons.map((r) => [r.id, r.name]));
 
   return (
     <div className="flex flex-col gap-8">
@@ -115,7 +117,7 @@ export default function DashboardHome() {
         ) : (
           <div className="flex flex-col gap-2">
             {upcoming.map((apt) => (
-              <AppointmentCard key={apt.id} appointment={apt} />
+              <AppointmentCard key={apt.id} appointment={apt} reasonName={reasonNameById.get(apt.reason_id)} />
             ))}
           </div>
         )}
@@ -190,9 +192,14 @@ const PREMIUM_FEATURES = [
     href: '/dashboard/analytics',
   },
   {
-    title: 'SMS appointment reminders',
+    title: 'Booking confirmation emails',
+    description: 'Every visitor gets an automatic confirmation under your business name — no setup needed.',
+    href: '/dashboard/reminders',
+  },
+  {
+    title: 'Text message reminders',
     description: 'Automatic text reminders before each appointment, to cut down on no-shows.',
-    href: '/dashboard/branding',
+    href: '/dashboard/reminders',
   },
 ];
 

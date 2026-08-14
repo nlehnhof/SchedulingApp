@@ -29,6 +29,7 @@ interface Branding {
 const detailsSchema = z.object({
   visitorName: z.string().min(1, 'Required'),
   visitorPhone: z.string().min(3, 'Required'),
+  visitorEmail: z.string().email('Enter a valid email'),
   notes: z.string().optional(),
 });
 type DetailsForm = z.infer<typeof detailsSchema>;
@@ -55,7 +56,11 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<VisitorSlot | null>(null);
   const [details, setDetails] = useState<DetailsForm | null>(null);
-  const [confirmed, setConfirmed] = useState<{ start: string; end: string } | null>(null);
+  const [confirmed, setConfirmed] = useState<{
+    start: string;
+    end: string;
+    confirmationEmailSent?: boolean;
+  } | null>(null);
   const [conflict, setConflict] = useState<{ message?: string; nextAvailable?: { start: string; end: string } } | null>(
     null
   );
@@ -119,18 +124,20 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
       const result = await postJSON<{
         status: 'booked' | 'conflict';
         appointment?: { start: string; end: string };
+        confirmationEmailSent?: boolean;
         message?: string;
         nextAvailable?: { start: string; end: string };
       }>(`/api/visitor/${clientLink}/book`, {
         visitorName: details.visitorName,
         visitorPhone: details.visitorPhone,
+        visitorEmail: details.visitorEmail,
         reasonId: selectedReason.id,
         startTime,
         notes: details.notes,
       });
 
       if (result.status === 'booked' && result.appointment) {
-        setConfirmed(result.appointment);
+        setConfirmed({ ...result.appointment, confirmationEmailSent: result.confirmationEmailSent });
         setStep('confirmation');
       } else {
         setConflict({ message: result.message, nextAvailable: result.nextAvailable });
@@ -289,6 +296,14 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
             {...register('visitorPhone')}
             error={errors.visitorPhone?.message}
           />
+          <Input
+            label="Email"
+            type="email"
+            inputMode="email"
+            autoComplete="email"
+            {...register('visitorEmail')}
+            error={errors.visitorEmail?.message}
+          />
           <Input label="Notes (optional)" {...register('notes')} />
 
           {conflict && (
@@ -351,6 +366,24 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
           <p className="text-sm text-text-secondary">
             The client will contact you at {details?.visitorPhone} if anything changes.
           </p>
+          {/* confirmationEmailSent is only present at all when a send was
+              actually attempted (premium client) — undefined means nothing
+              was attempted, so no line renders. true/false report the real
+              outcome rather than assuming success just because the client
+              is premium (booking itself always succeeds either way — a
+              failed confirmation email never blocks the booking). */}
+          {confirmed.confirmationEmailSent === true && (
+            <p className="text-sm text-text-secondary">
+              We&apos;ve also sent a confirmation to {details?.visitorEmail}.
+            </p>
+          )}
+          {confirmed.confirmationEmailSent === false && (
+            <p className="text-sm text-text-secondary">
+              We tried to send a confirmation to {details?.visitorEmail} but it didn&apos;t go
+              through — your appointment is still booked, and{' '}
+              {clientName ?? 'the client'} can see it.
+            </p>
+          )}
         </div>
       )}
     </main>

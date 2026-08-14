@@ -35,6 +35,7 @@ export interface Appointment {
   client_id: string;
   visitor_name: string;
   visitor_phone: string;
+  visitor_email: string | null;
   reason_id: string;
   start_time: string; // ISO
   end_time: string; // ISO
@@ -73,6 +74,10 @@ export interface BookingResult {
     start: string;
     end: string;
   };
+  // Only present when a confirmation email was actually attempted (premium
+  // client). Absent entirely for a free-tier client — that's how the
+  // visitor UI tells "not applicable" apart from "attempted and failed".
+  confirmationEmailSent?: boolean;
   message?: string;
   nextAvailable?: Slot;
 }

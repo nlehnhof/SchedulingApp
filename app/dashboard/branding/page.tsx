@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import useSWR, { mutate } from 'swr';
-import { fetcher, postJSON } from '@/lib/fetcher';
+import { fetcher } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 
@@ -13,7 +14,6 @@ interface BrandingData {
   logo_url: string | null;
   slug: string | null;
   tier: 'free' | 'premium';
-  sms_reminders_enabled: boolean;
 }
 
 const KEY = '/api/client/branding';
@@ -26,7 +26,6 @@ export default function BrandingPage() {
   const [accentColor, setAccentColor] = useState('');
   const [logoUrl, setLogoUrl] = useState('');
   const [slug, setSlug] = useState('');
-  const [smsRemindersEnabled, setSmsRemindersEnabled] = useState(false);
   const [slugStatus, setSlugStatus] = useState<'idle' | 'checking' | 'available' | 'taken' | 'invalid'>(
     'idle'
   );
@@ -40,7 +39,6 @@ export default function BrandingPage() {
     setAccentColor(data.accent_color ?? '');
     setLogoUrl(data.logo_url ?? '');
     setSlug(data.slug ?? '');
-    setSmsRemindersEnabled(data.sms_reminders_enabled);
   }, [data]);
 
   // Debounced slug availability check (PLAN.md Section 4 feature 2).
@@ -78,8 +76,7 @@ export default function BrandingPage() {
           <p className="text-sm font-medium text-text-primary">This is a premium feature.</p>
           <p className="mt-1 text-sm text-text-secondary">
             Upgrade to Premium to customize your booking page with your own business name, accent
-            color, logo, and a short, memorable link (e.g. /visit/your-name instead of a long id) —
-            plus SMS appointment reminders to cut down on no-shows.
+            color, logo, and a short, memorable link (e.g. /visit/your-name instead of a long id).
           </p>
         </div>
       </div>
@@ -95,13 +92,25 @@ export default function BrandingPage() {
     setSaved(false);
     setSaving(true);
     try {
-      await postJSON(KEY, {
-        displayName: displayName.trim() || undefined,
-        accentColor: accentColor.trim() || undefined,
-        logoUrl: logoUrl.trim() || undefined,
-        slug: slug.trim() || undefined,
-        smsRemindersEnabled,
+      // The branding route only accepts PATCH (it's a partial update of an
+      // existing client row, not a create) — postJSON is hardcoded to POST
+      // for the app's create-style routes, so this calls fetch directly,
+      // matching the pattern reasons/page.tsx already uses for its own
+      // PATCH-by-id route.
+      const res = await fetch(KEY, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          displayName: displayName.trim() || undefined,
+          accentColor: accentColor.trim() || undefined,
+          logoUrl: logoUrl.trim() || undefined,
+          slug: slug.trim() || undefined,
+        }),
       });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(json?.error ? JSON.stringify(json.error) : `Failed to save branding (${res.status})`);
+      }
       setSaved(true);
       mutate(KEY);
     } catch (err: any) {
@@ -160,20 +169,13 @@ export default function BrandingPage() {
         )}
       </div>
 
-      <label className="flex items-center gap-2 rounded-md border border-border p-3 text-sm">
-        <input
-          type="checkbox"
-          checked={smsRemindersEnabled}
-          onChange={(e) => setSmsRemindersEnabled(e.target.checked)}
-        />
-        <span>
-          SMS appointment reminders
-          <span className="block text-xs text-text-secondary">
-            Not yet live in this deployment — this saves your preference now so reminders start as
-            soon as SMS sending is wired up, with no further action from you.
-          </span>
-        </span>
-      </label>
+      <p className="text-xs text-text-secondary">
+        Looking for confirmation emails or text reminders?{' '}
+        <Link href="/dashboard/reminders" className="text-accent-hover hover:underline">
+          They moved to Reminders &amp; Confirmations
+        </Link>
+        .
+      </p>
 
       {saveError && <p className="text-sm text-danger">{saveError}</p>}
       {saved && <p className="text-sm text-success">Branding saved.</p>}
