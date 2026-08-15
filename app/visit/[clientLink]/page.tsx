@@ -5,6 +5,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { fetcher, postJSON } from '@/lib/fetcher';
+import { parseLocalDateOnly } from '@/lib/date-format';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import TimeSlotGrid, { DisplaySlot } from '@/components/TimeSlotGrid';
@@ -245,7 +246,11 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
                 }`}
                 style={date === selectedDate ? accentStyle : undefined}
               >
-                {new Date(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                {/* parseLocalDateOnly(), not `new Date(date)` — `date` is a
+                    plain 'YYYY-MM-DD' string, which `new Date()` parses as
+                    UTC midnight and can display a day early in any timezone
+                    behind UTC. See lib/date-format.ts. */}
+                {parseLocalDateOnly(date).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
               </button>
             ))}
             {!availabilityLoading && datesWithSlots.length === 0 && (

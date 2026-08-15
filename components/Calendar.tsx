@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { parseLocalDateOnly } from '@/lib/date-format';
 
 export interface CalendarDayMeta {
   date: string; // 'YYYY-MM-DD'
@@ -85,7 +86,12 @@ export default function Calendar({
           // no equivalent to the confirmed/conflict dots or the dimmed
           // "no availability" styling — this is the only description of
           // that state they'd have (PLAN.md Section 1/2 item 9).
-          const dateLabel = new Date(date).toLocaleDateString(undefined, {
+          // parseLocalDateOnly(), NOT `new Date(date)` — `date` is a plain
+          // 'YYYY-MM-DD' string, and the no-offset ISO date form parses as
+          // UTC midnight (unlike a full datetime string, which parses as
+          // local), so `new Date(date)` silently showed the previous day
+          // in any timezone behind UTC. See lib/date-format.ts.
+          const dateLabel = parseLocalDateOnly(date).toLocaleDateString(undefined, {
             weekday: 'long',
             month: 'long',
             day: 'numeric',

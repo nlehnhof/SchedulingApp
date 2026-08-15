@@ -23,7 +23,13 @@ export interface AppointmentReason {
 export interface Rule {
   id: string;
   client_id: string;
-  rule_type: 'available_hours' | 'max_per_window' | 'first_n_only';
+  rule_type:
+    | 'available_hours'
+    | 'max_per_window'
+    | 'first_n_only'
+    | 'blackout'
+    | 'buffer_time'
+    | 'min_notice';
   day_of_week: number | null; // 0=Sunday .. 6=Saturday, null = all days
   start_time: string | null; // 'HH:MM:SS'
   end_time: string | null;

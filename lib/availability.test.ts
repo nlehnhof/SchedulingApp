@@ -54,6 +54,36 @@ describe('getAvailableSlots', () => {
     expect(slots.every((s) => s.available)).toBe(true);
   });
 
+  // Regression guard for the Saturday/Sunday display bug: slot.start/end
+  // must stay a naive local string (no 'Z'/offset) that round-trips through
+  // a Postgres `timestamp` (no time zone) column without shifting days. If
+  // this starts failing, someone likely reintroduced `.toISOString()` in
+  // lib/availability.ts's slots.push() — see lib/date-format.ts for why
+  // that silently rolls late-day slots into the next calendar day.
+  it('emits naive local datetime strings with no UTC offset', () => {
+    const day = new Date('2026-08-15T00:00:00'); // a Saturday
+    const lateHours: Rule = {
+      ...allDaysHours,
+      id: 'rule-late',
+      start_time: '22:00:00',
+      end_time: '23:00:00',
+    };
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [lateHours],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    expect(slots.length).toBeGreaterThan(0);
+    for (const slot of slots) {
+      expect(slot.start).not.toMatch(/Z$/);
+      expect(slot.start.slice(0, 10)).toBe('2026-08-15'); // still Saturday
+    }
+  });
+
   it('marks a slot unavailable when it overlaps a booked appointment', () => {
     const day = new Date('2026-08-17T00:00:00');
     const bookedStart = new Date(day);
@@ -161,6 +191,125 @@ describe('getAvailableSlots', () => {
     });
 
     expect(slots[0].start.slice(11, 16)).not.toBe('09:00');
+  });
+
+  it('generates no slots on a blacked-out day', () => {
+    const day = new Date('2026-08-17T00:00:00'); // Monday
+    const blackoutRule: Rule = {
+      id: 'rule-blackout',
+      client_id: 'client-1',
+      rule_type: 'blackout',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { start_date: '2026-08-17', end_date: '2026-08-17' },
+    };
+
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [allDaysHours, blackoutRule],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    expect(slots).toHaveLength(0);
+  });
+
+  it('a multi-day blackout range does not affect days outside it', () => {
+    const start = new Date('2026-08-17T00:00:00'); // Monday
+    const end = new Date('2026-08-19T00:00:00'); // Wednesday
+    const blackoutRule: Rule = {
+      id: 'rule-blackout',
+      client_id: 'client-1',
+      rule_type: 'blackout',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { start_date: '2026-08-17', end_date: '2026-08-18' },
+    };
+
+    const slots = getAvailableSlots({
+      startDate: start,
+      endDate: end,
+      reason,
+      rules: [allDaysHours, blackoutRule],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    // Only Wednesday (08-19) should have generated slots.
+    expect(slots.every((s) => s.start.slice(0, 10) === '2026-08-19')).toBe(true);
+    expect(slots.length).toBeGreaterThan(0);
+  });
+
+  it('enforces a buffer_time rule around a booked appointment', () => {
+    const day = new Date('2026-08-17T00:00:00');
+    const bufferRule: Rule = {
+      id: 'rule-buffer',
+      client_id: 'client-1',
+      rule_type: 'buffer_time',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { buffer_minutes: 15 },
+    };
+
+    const bookedStart = new Date(day);
+    bookedStart.setHours(9, 15, 0, 0);
+    const bookedEnd = new Date(day);
+    bookedEnd.setHours(9, 30, 0, 0);
+
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [allDaysHours, bufferRule],
+      booked: [makeAppointment(bookedStart.toISOString(), bookedEnd.toISOString())],
+      googleBlocks: [],
+    });
+
+    // 09:00-09:15 slot: within 15-min buffer before the 09:15 booking.
+    const buffered = slots.find((s) => s.start.slice(11, 16) === '09:00');
+    expect(buffered?.available).toBe(false);
+    expect(buffered?.reason).toBe('buffer_time_conflict');
+
+    // 09:45-10:00 slot: outside the buffer on the far side of the booking.
+    const clear = slots.find((s) => s.start.slice(11, 16) === '09:45');
+    expect(clear?.available).toBe(true);
+  });
+
+  it('enforces a min_notice rule relative to an injected "now"', () => {
+    const day = new Date('2026-08-17T00:00:00'); // Monday
+    const now = new Date(day);
+    now.setHours(8, 0, 0, 0); // 1 hour before the 09:00 window opens
+    const minNoticeRule: Rule = {
+      id: 'rule-notice',
+      client_id: 'client-1',
+      rule_type: 'min_notice',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { notice_hours: 2 }, // requires booking by 06:00, but it's already 08:00
+    };
+
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [allDaysHours, minNoticeRule],
+      booked: [],
+      googleBlocks: [],
+      now,
+    });
+
+    expect(slots.every((s) => !s.available)).toBe(true);
+    expect(slots.every((s) => s.reason === 'min_notice_not_met')).toBe(true);
   });
 });
 

@@ -25,6 +25,19 @@ function summarize(rule: Rule): string {
     const windowMin = (rule.config as any)?.window_minutes ?? 60;
     return `First ${firstN} only per ${windowMin} min`;
   }
+  if (rule.rule_type === 'blackout') {
+    const start = (rule.config as any)?.start_date;
+    const end = (rule.config as any)?.end_date;
+    return `Blocked ${start} to ${end}`;
+  }
+  if (rule.rule_type === 'buffer_time') {
+    const bufferMin = (rule.config as any)?.buffer_minutes;
+    return `${bufferMin} min buffer before & after appointments`;
+  }
+  if (rule.rule_type === 'min_notice') {
+    const hours = (rule.config as any)?.notice_hours;
+    return `Requires ${hours}h notice before booking`;
+  }
   return rule.rule_type;
 }
 
@@ -38,6 +51,12 @@ function toFormValues(rule: Rule): RuleFormValues {
     firstN: (rule.config as any)?.first_n != null ? String((rule.config as any).first_n) : '',
     windowMinutes:
       (rule.config as any)?.window_minutes != null ? String((rule.config as any).window_minutes) : '',
+    blackoutStartDate: (rule.config as any)?.start_date ?? '',
+    blackoutEndDate: (rule.config as any)?.end_date ?? '',
+    bufferMinutes:
+      (rule.config as any)?.buffer_minutes != null ? String((rule.config as any).buffer_minutes) : '',
+    noticeHours:
+      (rule.config as any)?.notice_hours != null ? String((rule.config as any).notice_hours) : '',
   };
 }
 
@@ -47,8 +66,11 @@ function toFormValues(rule: Rule): RuleFormValues {
 // actually see (PLAN.md Section 1/2 item 10).
 const RULE_TYPE_ORDER: Record<Rule['rule_type'], number> = {
   available_hours: 0,
-  max_per_window: 1,
-  first_n_only: 2,
+  blackout: 1,
+  max_per_window: 2,
+  first_n_only: 3,
+  buffer_time: 4,
+  min_notice: 5,
 };
 
 function sortRules(rules: Rule[]): Rule[] {
@@ -80,6 +102,15 @@ function toRequestBody(values: RuleFormValues): Record<string, unknown> {
       first_n: Number(values.firstN),
       window_minutes: Number(values.windowMinutes || 60),
     };
+  } else if (values.ruleType === 'blackout') {
+    body.config = {
+      start_date: values.blackoutStartDate,
+      end_date: values.blackoutEndDate,
+    };
+  } else if (values.ruleType === 'buffer_time') {
+    body.config = { buffer_minutes: Number(values.bufferMinutes || 0) };
+  } else if (values.ruleType === 'min_notice') {
+    body.config = { notice_hours: Number(values.noticeHours || 0) };
   }
   return body;
 }
@@ -141,8 +172,9 @@ export default function RulesPage() {
       {error && <p className="text-sm text-danger">Failed to load rules.</p>}
       {!!data?.rules.length && (
         <p className="text-sm text-text-secondary">
-          Day-specific hours override an all-days rule for that day; capacity rules (max per
-          window, first N only) apply on top of your hours.
+          Day-specific hours override an all-days rule for that day; blackout dates close a day
+          entirely regardless of hours; the remaining capacity/timing rules (max per window,
+          first N only, buffer time, minimum notice) apply on top of your hours.
         </p>
       )}
 

@@ -67,13 +67,16 @@ export default function SchedulePage() {
   async function handleEditSubmit(values: AppointmentEditValues) {
     if (!editingAppointment) return;
     setEditError(null);
+    // `values.startTime` already comes out of a <input type="datetime-local">
+    // as a naive local string (e.g. "2026-08-15T21:00") — wrapping it in
+    // `new Date(...).toISOString()` converted it to UTC before it crossed
+    // the Postgres `timestamp` (no time zone) column boundary, which
+    // silently dropped the offset and got re-read as local time again: a
+    // full round-trip shift by the server's UTC offset. Send it through as-is.
     const res = await fetch(`/api/client/appointments/${editingAppointment.id}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        ...values,
-        startTime: new Date(values.startTime).toISOString(),
-      }),
+      body: JSON.stringify(values),
     });
     const json = await res.json().catch(() => ({}));
     if (!res.ok) {
