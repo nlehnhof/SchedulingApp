@@ -26,6 +26,7 @@ const OPERATE_LINKS: NavLink[] = [
   { href: '/dashboard/schedule', label: 'Schedule' },
   { href: '/dashboard/errors', label: 'Errors' },
   { href: '/dashboard/export', label: 'Export' },
+  { href: '/dashboard/billing', label: 'Billing' },
 ];
 const PREMIUM_LINKS: NavLink[] = [
   { href: '/dashboard/branding', label: 'Branding', premium: true },

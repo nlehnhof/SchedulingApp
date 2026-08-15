@@ -164,7 +164,7 @@ function BookingLinkCard({
         {client.tier !== 'premium' && (
           <>
             {' '}
-            <Link href="/dashboard/branding" className="text-accent-hover hover:underline">
+            <Link href="/dashboard/billing" className="text-accent-hover hover:underline">
               Upgrade to premium
             </Link>{' '}
             for a short, custom link instead of this long id.
@@ -212,7 +212,12 @@ const PREMIUM_FEATURES = [
 function PremiumFeaturesCard() {
   return (
     <div className="rounded-lg border border-accent-soft bg-accent-soft/10 p-4">
-      <div className="text-xs uppercase tracking-wide text-text-secondary">Premium features</div>
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-xs uppercase tracking-wide text-text-secondary">Premium features</div>
+        <Link href="/dashboard/billing" className="text-xs font-medium text-accent-hover hover:underline">
+          Upgrade to premium
+        </Link>
+      </div>
       <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {PREMIUM_FEATURES.map((f) => (
           <li key={f.title}>
