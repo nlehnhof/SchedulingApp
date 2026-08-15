@@ -34,7 +34,9 @@ UI without a Google Cloud OAuth app, but this must stay off for any real client 
 
 Migrations must be applied **in order**: `0001_init` → `0002_booking_function` →
 `0003_rls` → `0004_error_log_ack` → `0005_service_role_grants` →
-`0006_update_appointment_function`. `0005` looks redundant but isn't — tables created via the
+`0006_update_appointment_function` → `0007_client_onboarding_and_tier` →
+`0008_visitor_email` → `0009_stripe_billing` → `0010_premium_grants` →
+`0011_client_calendar_selection`. `0005` looks redundant but isn't — tables created via the
 Supabase SQL Editor don't inherit default `service_role` grants, which surfaces as Postgres
 42501 `permission denied` errors even though RLS is correct.
 
@@ -73,7 +75,31 @@ rule takes precedence over an "all days" rule with `day_of_week: null`), `first_
 **Google Calendar sync is one-way and polling-based**, not webhook-based: a cron job
 (`app/api/cron/google-sync`) polls every 30 min per client's stored `google_refresh_token`
 and writes conflicts into an error log with `red_flag` status (`lib/google-calendar.ts`).
-There's also an on-demand "Retry Sync" action from the dashboard Errors page.
+There's also an on-demand "Retry Sync" action from the dashboard Errors page. Each client can
+pick which of their own Google calendars gets polled (`clients.google_calendar_id`, `0011`
+migration, defaults to `'primary'`) via `app/dashboard/calendar` /
+`app/api/client/calendar/route.ts`; `lib/google-calendar.ts`'s `listGoogleCalendars()` and
+`getGoogleCalendarEvents(refreshToken, calendarId)` both take the calendar id explicitly now
+rather than hardcoding `'primary'`. This is a core feature available to every tier, not
+premium-gated. Writing appointments back to Google Calendar is not implemented — sync is
+still read-only despite the OAuth scope including write access.
+
+**Premium tier has two independent sources, and every read must account for both.**
+`clients.tier` (`'free' | 'premium'`) is the column every route ultimately checks, but it can
+be set two ways: the Stripe webhook (`app/api/stripe/webhook/route.ts`, the only place that
+writes it for a real subscription) and the `premium_grants` table (`0010` migration) — an
+admin-managed allowlist of emails that get premium access indefinitely, independent of
+billing, checked live on every read rather than synced onto the column. `lib/premium-grants.ts`'s
+`getEffectiveTier(dbTier, email)` combines the two and is what every authorization/display
+decision must call instead of reading `tier` straight off a `clients` row. Session-based
+routes get this for free — `lib/auth.ts`'s session callback already runs `getEffectiveTier()`
+once per request, so anything going through `lib/require-client.ts` (branding, analytics,
+reminders, dashboard nav/home) sees the combined value automatically. Anonymous/cron code
+paths that query `clients.tier` directly (`lib/resolve-client-link.ts`, `lib/booking.ts`,
+`app/api/visitor/[clientLink]/availability/route.ts`, `app/api/cron/sms-reminders/route.ts`,
+`app/api/client/billing/route.ts`, `app/api/client/dashboard/route.ts`) call
+`getEffectiveTier()` explicitly instead. `premium_grants` is managed directly via the
+Supabase SQL Editor (insert/delete rows) — there's no admin UI for it.
 
 **API route conventions** (`app/api/client/*`, `app/api/visitor/*`): resolve identity first
 (`requireClient()` or the `[clientLink]` param) and short-circuit on the `NextResponse` case,
@@ -91,12 +117,14 @@ shared store (e.g. Upstash Redis) or the effective limit silently multiplies by 
 
 ## Structure
 
-- `app/dashboard/*` — client-facing pages (rules, reasons, schedule, errors, export), gated by
-  `app/dashboard/layout.tsx`'s server-side session check
+- `app/dashboard/*` — client-facing pages (rules, reasons, schedule, calendar, errors,
+  export, billing, branding, reminders, analytics), gated by `app/dashboard/layout.tsx`'s
+  server-side session check
 - `app/visit/[clientLink]` — 4-step visitor booking flow (reason → date/time → details →
   confirmation), including conflict "try this instead?" UI
 - `app/api/client/*` / `app/api/visitor/[clientLink]/*` / `app/api/cron/*` — see auth section
   above
-- `lib/` — all business logic and Supabase/Google/email integration; UI components read/write
-  through the `app/api/*` routes, not `lib/` directly, except where routes themselves import it
+- `lib/` — all business logic and Supabase/Google/email/Stripe integration; UI components
+  read/write through the `app/api/*` routes, not `lib/` directly, except where routes
+  themselves import it
 - `supabase/migrations/*.sql` — applied in numeric order (see Commands)
