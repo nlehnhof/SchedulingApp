@@ -81,8 +81,15 @@ migration, defaults to `'primary'`) via `app/dashboard/calendar` /
 `app/api/client/calendar/route.ts`; `lib/google-calendar.ts`'s `listGoogleCalendars()` and
 `getGoogleCalendarEvents(refreshToken, calendarId)` both take the calendar id explicitly now
 rather than hardcoding `'primary'`. This is a core feature available to every tier, not
-premium-gated. Writing appointments back to Google Calendar is not implemented — sync is
-still read-only despite the OAuth scope including write access.
+premium-gated. Bookings are also written back to the client's calendar: `lib/booking.ts`
+(on create) and `app/api/client/appointments/[id]/route.ts` (on edit/cancel) call
+`createGoogleCalendarEvent`/`updateGoogleCalendarEvent`/`deleteGoogleCalendarEvent`
+best-effort, storing the resulting id in `appointments.google_event_id` (`0012` migration) so
+edits/cancellations touch the same event instead of creating duplicates. A write-back failure
+never fails the booking/edit/cancel itself — it's logged to `error_log` as
+`google_writeback_failed`, same pattern as the confirmation-email send. `syncGoogleCalendarForClient`
+excludes a client's own `google_event_id`s from its poll results so a written-back event never
+red-flags the very appointment it came from.
 
 **Premium tier has two independent sources, and every read must account for both.**
 `clients.tier` (`'free' | 'premium'`) is the column every route ultimately checks, but it can

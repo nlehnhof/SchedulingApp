@@ -50,6 +50,7 @@ export interface Appointment {
   notes: string | null;
   status: 'confirmed' | 'red_flag';
   expires_at: string | null;
+  google_event_id: string | null;
 }
 
 export interface ErrorLogEntry {

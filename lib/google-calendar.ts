@@ -96,6 +96,94 @@ export async function getGoogleCalendarEvents(
     }));
 }
 
+export interface GoogleCalendarEventInput {
+  summary: string;
+  description?: string | null;
+  start: Date;
+  end: Date;
+}
+
+function eventBody(event: GoogleCalendarEventInput) {
+  return {
+    summary: event.summary,
+    description: event.description || undefined,
+    start: { dateTime: event.start.toISOString() },
+    end: { dateTime: event.end.toISOString() },
+  };
+}
+
+/**
+ * Creates an event on the client's selected Google calendar for a booked
+ * appointment. Returns the new event's id so the caller can store it
+ * (appointments.google_event_id, 0012 migration) and later update/delete
+ * the same event instead of creating a duplicate.
+ */
+export async function createGoogleCalendarEvent(
+  refreshToken: string,
+  calendarId: string,
+  event: GoogleCalendarEventInput
+): Promise<string> {
+  const accessToken = await refreshAccessToken(refreshToken);
+
+  const res = await fetch(EVENTS_URL(calendarId), {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(eventBody(event)),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to create Google Calendar event: ${res.status} ${await res.text()}`);
+  }
+  const json = await res.json();
+  return json.id as string;
+}
+
+/** Updates an existing written-back event, e.g. after the client edits an appointment. */
+export async function updateGoogleCalendarEvent(
+  refreshToken: string,
+  calendarId: string,
+  eventId: string,
+  event: GoogleCalendarEventInput
+): Promise<void> {
+  const accessToken = await refreshAccessToken(refreshToken);
+
+  const res = await fetch(`${EVENTS_URL(calendarId)}/${encodeURIComponent(eventId)}`, {
+    method: 'PATCH',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(eventBody(event)),
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to update Google Calendar event: ${res.status} ${await res.text()}`);
+  }
+}
+
+/**
+ * Deletes a written-back event, e.g. after the client cancels an appointment.
+ * A 404/410 means it's already gone on Google's side (deleted manually,
+ * calendar unlinked and relinked, etc.) — treated as success since there's
+ * nothing left to undo.
+ */
+export async function deleteGoogleCalendarEvent(
+  refreshToken: string,
+  calendarId: string,
+  eventId: string
+): Promise<void> {
+  const accessToken = await refreshAccessToken(refreshToken);
+
+  const res = await fetch(`${EVENTS_URL(calendarId)}/${encodeURIComponent(eventId)}`, {
+    method: 'DELETE',
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok && res.status !== 404 && res.status !== 410) {
+    throw new Error(`Failed to delete Google Calendar event: ${res.status} ${await res.text()}`);
+  }
+}
+
 /**
  * Poll one client's Google Calendar and red-flag any booked appointment that
  * now overlaps a manually-created calendar block. Mirrors the pseudocode in
@@ -125,6 +213,17 @@ export async function syncGoogleCalendarForClient(clientId: string): Promise<voi
     });
     return;
   }
+
+  // Exclude events this app itself wrote back (see createGoogleCalendarEvent)
+  // — otherwise every synced appointment would overlap its own event on
+  // Google's side and get red-flagged as a conflict against itself.
+  const { data: ownEvents } = await supabase
+    .from('appointments')
+    .select('google_event_id')
+    .eq('client_id', clientId)
+    .not('google_event_id', 'is', null);
+  const ownEventIds = new Set((ownEvents ?? []).map((row) => row.google_event_id));
+  events = events.filter((event) => !ownEventIds.has(event.id));
 
   for (const event of events) {
     const { data: overlaps } = await supabase

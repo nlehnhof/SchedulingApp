@@ -1,6 +1,7 @@
 import { createServiceClient } from './supabase';
 import { getAvailableSlots, nextAvailableSlot } from './availability';
 import { sendBookingConfirmationEmail } from './email';
+import { createGoogleCalendarEvent } from './google-calendar';
 import { getEffectiveTier } from './premium-grants';
 import type { Appointment, AppointmentReason, BookingResult, GoogleBlock, Rule } from './types';
 
@@ -47,7 +48,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     const [{ data: client }, { data: reason }] = await Promise.all([
       supabase
         .from('clients')
-        .select('email, display_name, tier')
+        .select('email, display_name, tier, google_refresh_token, google_calendar_id')
         .eq('id', input.clientId)
         .single(),
       supabase
@@ -85,6 +86,36 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         await supabase.from('error_log').insert({
           client_id: input.clientId,
           error_type: 'booking_confirmation_email_failed',
+          message: err?.message ?? String(err),
+        });
+      }
+    }
+
+    // Write the booking back to the client's Google Calendar, same
+    // best-effort pattern as the confirmation email above — a failed write
+    // must never fail a booking that already succeeded in Postgres.
+    if (client?.google_refresh_token && reason) {
+      try {
+        const start = new Date(row.result_start);
+        const end = new Date(row.result_end);
+        const eventId = await createGoogleCalendarEvent(
+          client.google_refresh_token,
+          client.google_calendar_id || 'primary',
+          {
+            summary: `${reason.name} — ${input.visitorName}`,
+            description: input.notes,
+            start,
+            end,
+          }
+        );
+        await supabase
+          .from('appointments')
+          .update({ google_event_id: eventId })
+          .eq('id', row.appointment_id);
+      } catch (err: any) {
+        await supabase.from('error_log').insert({
+          client_id: input.clientId,
+          error_type: 'google_writeback_failed',
           message: err?.message ?? String(err),
         });
       }

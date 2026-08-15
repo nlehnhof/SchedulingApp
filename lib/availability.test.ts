@@ -34,6 +34,7 @@ function makeAppointment(startISO: string, endISO: string): Appointment {
     notes: null,
     status: 'confirmed',
     expires_at: new Date(Date.now() + 30 * 86400000).toISOString(),
+    google_event_id: null,
   };
 }
 
