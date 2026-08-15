@@ -24,6 +24,7 @@ const SETUP_LINKS: NavLink[] = [
 ];
 const OPERATE_LINKS: NavLink[] = [
   { href: '/dashboard/schedule', label: 'Schedule' },
+  { href: '/dashboard/calendar', label: 'Calendar' },
   { href: '/dashboard/errors', label: 'Errors' },
   { href: '/dashboard/export', label: 'Export' },
   { href: '/dashboard/billing', label: 'Billing' },

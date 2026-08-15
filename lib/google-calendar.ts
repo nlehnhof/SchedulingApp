@@ -4,6 +4,7 @@ import type { GoogleBlock } from './types';
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const EVENTS_URL = (calendarId: string) =>
   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
+const CALENDAR_LIST_URL = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
   const res = await fetch(TOKEN_URL, {
@@ -23,11 +24,47 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
   return json.access_token as string;
 }
 
+export interface GoogleCalendarListEntry {
+  id: string;
+  summary: string;
+  primary: boolean;
+}
+
 /**
- * Fetch events on the client's primary calendar from 30 days ago to 30 days
- * from now (matches the polling window in SCHEDULING_APP_ORCHESTRATION.md #5).
+ * Lists every calendar on the client's Google account (their own calendars
+ * plus any they've been given access to), for the calendar-picker on
+ * app/dashboard/calendar. Same `calendar.readonly` scope already granted at
+ * sign-in (lib/auth.ts) covers this endpoint — no new consent needed.
  */
-export async function getGoogleCalendarEvents(refreshToken: string): Promise<GoogleBlock[]> {
+export async function listGoogleCalendars(refreshToken: string): Promise<GoogleCalendarListEntry[]> {
+  const accessToken = await refreshAccessToken(refreshToken);
+
+  const res = await fetch(CALENDAR_LIST_URL, {
+    headers: { Authorization: `Bearer ${accessToken}` },
+  });
+  if (!res.ok) {
+    throw new Error(`Failed to list Google calendars: ${res.status} ${await res.text()}`);
+  }
+  const json = await res.json();
+
+  return (json.items ?? []).map((cal: any) => ({
+    id: cal.id,
+    summary: cal.summary ?? cal.id,
+    primary: !!cal.primary,
+  }));
+}
+
+/**
+ * Fetch events on one of the client's Google calendars — which calendar is
+ * controlled by `clients.google_calendar_id` (0011 migration; defaults to
+ * 'primary' for every client that hasn't picked one) — from 30 days ago to
+ * 30 days from now (matches the polling window in
+ * SCHEDULING_APP_ORCHESTRATION.md #5).
+ */
+export async function getGoogleCalendarEvents(
+  refreshToken: string,
+  calendarId: string = 'primary'
+): Promise<GoogleBlock[]> {
   const accessToken = await refreshAccessToken(refreshToken);
 
   const timeMin = new Date();
@@ -35,7 +72,7 @@ export async function getGoogleCalendarEvents(refreshToken: string): Promise<Goo
   const timeMax = new Date();
   timeMax.setDate(timeMax.getDate() + 30);
 
-  const url = new URL(EVENTS_URL('primary'));
+  const url = new URL(EVENTS_URL(calendarId));
   url.searchParams.set('timeMin', timeMin.toISOString());
   url.searchParams.set('timeMax', timeMax.toISOString());
   url.searchParams.set('singleEvents', 'true');
@@ -71,7 +108,7 @@ export async function syncGoogleCalendarForClient(clientId: string): Promise<voi
 
   const { data: client } = await supabase
     .from('clients')
-    .select('id, google_refresh_token')
+    .select('id, google_refresh_token, google_calendar_id')
     .eq('id', clientId)
     .single();
 
@@ -79,7 +116,7 @@ export async function syncGoogleCalendarForClient(clientId: string): Promise<voi
 
   let events: GoogleBlock[];
   try {
-    events = await getGoogleCalendarEvents(client.google_refresh_token);
+    events = await getGoogleCalendarEvents(client.google_refresh_token, client.google_calendar_id || 'primary');
   } catch (err: any) {
     await supabase.from('error_log').insert({
       client_id: clientId,

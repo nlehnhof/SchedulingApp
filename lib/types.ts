@@ -9,6 +9,7 @@ export interface Client {
   slug: string | null;
   sms_reminders_enabled: boolean;
   tutorial_completed_at: string | null;
+  google_calendar_id: string;
 }
 
 export interface AppointmentReason {
