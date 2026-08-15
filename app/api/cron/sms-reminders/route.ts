@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { requireCron } from '@/lib/require-cron';
 import { createServiceClient } from '@/lib/supabase';
 import { sendSms, isSmsConfigured } from '@/lib/sms';
+import { getEffectiveTier } from '@/lib/premium-grants';
 
 /**
  * STUB — premium feature 3 (PLAN.md Section 4 feature 3), deliberately
@@ -41,10 +42,13 @@ export async function POST(req: Request) {
 
   // Gate at query time, not just in the UI — this is a backend job with no
   // session to check tier against (PLAN.md Section 4 feature 3 / Section 5).
-  const { data: optedInClients, error: clientError } = await supabase
+  // Fetches every opted-in client's raw tier + email rather than filtering
+  // `tier = 'premium'` in the query itself, because "premium" can now also
+  // come from a live premium_grants override (lib/premium-grants.ts) that
+  // SQL alone can't see — filtered below with getEffectiveTier() instead.
+  const { data: candidateClients, error: clientError } = await supabase
     .from('clients')
-    .select('id')
-    .eq('tier', 'premium')
+    .select('id, email, tier')
     .eq('sms_reminders_enabled', true);
 
   if (clientError) {
@@ -52,7 +56,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: 'error', error: 'Could not load clients.' }, { status: 500 });
   }
 
-  const clientIds = (optedInClients ?? []).map((c) => c.id);
+  const clientIds: string[] = [];
+  for (const c of candidateClients ?? []) {
+    if ((await getEffectiveTier(c.tier, c.email)) === 'premium') clientIds.push(c.id);
+  }
   if (clientIds.length === 0) {
     return NextResponse.json({ status: 'ok', sent: 0, failed: 0, total: 0 });
   }

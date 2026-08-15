@@ -3,11 +3,14 @@ import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { brandingSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
+import { getEffectiveTier } from '@/lib/premium-grants';
 
 // Read-only, open to any authenticated client (not premium-gated) — a
 // free-tier client still needs to see their own current tier/values so the
 // Branding page can render the locked/upsell panel with something to show.
-// No sensitive cross-tenant data here, just the caller's own row.
+// No sensitive cross-tenant data here, just the caller's own row. Also
+// backs the Reminders page (app/dashboard/reminders/page.tsx), which reuses
+// this same route rather than having its own.
 export async function GET() {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
@@ -15,18 +18,33 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('clients')
-    .select('id, display_name, accent_color, logo_url, slug, tier, sms_reminders_enabled')
+    .select('id, email, display_name, accent_color, logo_url, slug, tier, sms_reminders_enabled')
     .eq('id', client.clientId)
     .single();
 
   if (error) return errorResponse(error, 'Could not load branding settings.');
-  return NextResponse.json(data);
+
+  // Effective tier (raw column or a live premium_grants override — see
+  // lib/premium-grants.ts), so a comped client actually sees the
+  // Branding/Reminders forms instead of the locked upsell panel.
+  const tier = await getEffectiveTier(data.tier, data.email);
+  return NextResponse.json({
+    id: data.id,
+    display_name: data.display_name,
+    accent_color: data.accent_color,
+    logo_url: data.logo_url,
+    slug: data.slug,
+    tier,
+    sms_reminders_enabled: data.sms_reminders_enabled,
+  });
 }
 
 // The actual write path for premium features 1 (branding) and 2 (slug) —
 // both persist through this one route. Must check tier === 'premium'
 // server-side regardless of what the UI already hides, per PLAN.md
 // Section 5: a free-tier client hand-crafting this request must get a 403.
+// `client.tier` here already reflects premium_grants (lib/auth.ts's session
+// callback computes it), so a comped account can save branding too.
 export async function PATCH(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
@@ -57,7 +75,7 @@ export async function PATCH(req: Request) {
     .from('clients')
     .update(update)
     .eq('id', client.clientId)
-    .select('id, display_name, accent_color, logo_url, slug, tier, sms_reminders_enabled')
+    .select('id, email, display_name, accent_color, logo_url, slug, tier, sms_reminders_enabled')
     .single();
 
   if (error) {
@@ -67,5 +85,15 @@ export async function PATCH(req: Request) {
     }
     return errorResponse(error, 'Could not save branding changes.');
   }
-  return NextResponse.json(data);
+
+  const tier = await getEffectiveTier(data.tier, data.email);
+  return NextResponse.json({
+    id: data.id,
+    display_name: data.display_name,
+    accent_color: data.accent_color,
+    logo_url: data.logo_url,
+    slug: data.slug,
+    tier,
+    sms_reminders_enabled: data.sms_reminders_enabled,
+  });
 }

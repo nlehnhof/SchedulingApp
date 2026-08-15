@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { getAvailableSlots } from '@/lib/availability';
 import { resolveClientLink } from '@/lib/resolve-client-link';
+import { getEffectiveTier } from '@/lib/premium-grants';
 import type { Appointment, AppointmentReason, Rule } from '@/lib/types';
 
 export async function GET(
@@ -60,10 +61,12 @@ export async function GET(
   });
 
   // Custom branding (premium feature 1) is only ever returned when the
-  // client's *current* tier is premium — a downgraded client's page
-  // gracefully falls back to the default look instead of breaking
-  // (PLAN.md Section 4 feature 1 downgrade behavior).
-  const isPremium = client.tier === 'premium';
+  // client's *current effective* tier is premium — a downgraded client's
+  // page gracefully falls back to the default look instead of breaking
+  // (PLAN.md Section 4 feature 1 downgrade behavior). Anonymous route, no
+  // session, so the premium_grants override (lib/premium-grants.ts) has to
+  // be checked explicitly here too.
+  const isPremium = (await getEffectiveTier(client.tier, client.email)) === 'premium';
 
   return NextResponse.json({
     // display_name replaces the raw login email visitors used to see

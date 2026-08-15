@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
+import { getEffectiveTier } from '@/lib/premium-grants';
 
 export async function GET() {
   const client = await requireClient();
@@ -31,13 +32,19 @@ export async function GET() {
       // so DashboardHome has what it needs to render the "Your booking
       // link" card (PLAN.md Section 2 item 1) and empty-state nudges
       // (item 2) without a second request.
-      supabase.from('clients').select('id, display_name, slug, tier').eq('id', client.clientId).single(),
+      supabase.from('clients').select('id, email, display_name, slug, tier').eq('id', client.clientId).single(),
     ]);
 
   const all = appointments ?? [];
   const allErrors = errors ?? [];
   const now = new Date();
   const nextBooked = all.find((apt: any) => new Date(apt.start_time) >= now);
+
+  // Effective tier (raw column or a live premium_grants override — see
+  // lib/premium-grants.ts) so a comped client sees their custom slug link
+  // and doesn't get nagged by the premium upsell card like a real free-tier
+  // client would.
+  const tier = clientRow ? await getEffectiveTier(clientRow.tier, clientRow.email) : 'free';
 
   return NextResponse.json({
     appointments: all,
@@ -53,7 +60,7 @@ export async function GET() {
           id: clientRow.id,
           displayName: clientRow.display_name,
           slug: clientRow.slug,
-          tier: clientRow.tier,
+          tier,
         }
       : null,
     hasReasons: (reasons ?? []).length > 0,

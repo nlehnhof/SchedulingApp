@@ -4,6 +4,7 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import { createServiceClient } from './supabase';
 import { safeCompare } from './safe-compare';
 import { isRateLimited } from './rate-limit';
+import { getEffectiveTier } from './premium-grants';
 
 // Client auth: Google OAuth with Calendar scopes (Constraints: client auth = Google OAuth,
 // scope calendar.readonly + calendar read/write per SCHEDULING_APP_ORCHESTRATION.md #7).
@@ -122,7 +123,12 @@ export const authOptions: NextAuthOptions = {
       if (client) {
         (session as any).clientId = client.id;
         (session as any).timezone = client.timezone;
-        (session as any).tier = client.tier ?? 'free';
+        // Layers the premium_grants allowlist on top of the raw DB column —
+        // see lib/premium-grants.ts. This is the single place that decision
+        // gets made for every session-based (requireClient()) route, so a
+        // granted client shows as premium everywhere without clients.tier
+        // itself ever being touched.
+        (session as any).tier = await getEffectiveTier(client.tier ?? 'free', session.user.email);
         (session as any).tutorialCompletedAt = client.tutorial_completed_at ?? null;
       }
       return session;

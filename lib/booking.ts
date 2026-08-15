@@ -1,6 +1,7 @@
 import { createServiceClient } from './supabase';
 import { getAvailableSlots, nextAvailableSlot } from './availability';
 import { sendBookingConfirmationEmail } from './email';
+import { getEffectiveTier } from './premium-grants';
 import type { Appointment, AppointmentReason, BookingResult, GoogleBlock, Rule } from './types';
 
 export interface BookAppointmentInput {
@@ -61,7 +62,11 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     // "attempted and failed" rather than collapsing both to "not sent".
     let confirmationEmailSent: boolean | undefined;
 
-    if (client?.tier === 'premium' && reason) {
+    // Anonymous visitor flow (no session), so the premium_grants override
+    // has to be checked explicitly here too — see lib/premium-grants.ts.
+    const isPremium = client ? (await getEffectiveTier(client.tier, client.email)) === 'premium' : false;
+
+    if (isPremium && client && reason) {
       try {
         const start = new Date(input.startTime);
         const end = new Date(start.getTime() + reason.duration_min * 60_000);
