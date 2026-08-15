@@ -311,6 +311,51 @@ describe('getAvailableSlots', () => {
     expect(slots.every((s) => !s.available)).toBe(true);
     expect(slots.every((s) => s.reason === 'min_notice_not_met')).toBe(true);
   });
+
+  it('enforces a sequential_fill rule, revealing later slots as earlier ones book', () => {
+    const day = new Date('2026-08-17T00:00:00'); // Monday, 09:00-10:00 in 15-min slots
+    const sequentialFillRule: Rule = {
+      id: 'rule-sequential',
+      client_id: 'client-1',
+      rule_type: 'sequential_fill',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { max_gap_minutes: 15 },
+    };
+
+    // Nothing booked yet: only slots within 15 min of day start (09:00) are open.
+    const empty = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [allDaysHours, sequentialFillRule],
+      booked: [],
+      googleBlocks: [],
+    });
+    expect(empty.find((s) => s.start.slice(11, 16) === '09:00')?.available).toBe(true);
+    expect(empty.find((s) => s.start.slice(11, 16) === '09:15')?.available).toBe(true);
+    const blocked930 = empty.find((s) => s.start.slice(11, 16) === '09:30');
+    expect(blocked930?.available).toBe(false);
+    expect(blocked930?.reason).toBe('sequential_fill_gap_exceeded');
+
+    // Once 09:00-09:15 is booked, the frontier moves to 09:15 and 09:30 opens up.
+    const bookedStart = new Date(day);
+    bookedStart.setHours(9, 0, 0, 0);
+    const bookedEnd = new Date(day);
+    bookedEnd.setHours(9, 15, 0, 0);
+    const afterOneBooking = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [allDaysHours, sequentialFillRule],
+      booked: [makeAppointment(bookedStart.toISOString(), bookedEnd.toISOString())],
+      googleBlocks: [],
+    });
+    expect(afterOneBooking.find((s) => s.start.slice(11, 16) === '09:30')?.available).toBe(true);
+    expect(afterOneBooking.find((s) => s.start.slice(11, 16) === '09:45')?.available).toBe(false);
+  });
 });
 
 describe('nextAvailableSlot', () => {

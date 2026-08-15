@@ -15,6 +15,7 @@ const formSchema = z.object({
     'blackout',
     'buffer_time',
     'min_notice',
+    'sequential_fill',
   ]),
   dayOfWeek: z.string(), // 'all' or '0'..'6'
   startTime: z.string().optional(),
@@ -26,6 +27,7 @@ const formSchema = z.object({
   blackoutEndDate: z.string().optional(),
   bufferMinutes: z.string().optional(),
   noticeHours: z.string().optional(),
+  maxGapMinutes: z.string().optional(),
 });
 
 export type RuleFormValues = z.infer<typeof formSchema>;
@@ -44,6 +46,7 @@ const RULE_LABELS: Record<RuleFormValues['ruleType'], string> = {
   blackout: 'Blackout dates',
   buffer_time: 'Buffer time between appointments',
   min_notice: 'Minimum booking notice',
+  sequential_fill: 'Sequential fill (push visitors to earlier slots)',
 };
 
 const RULE_DESCRIPTIONS: Record<RuleFormValues['ruleType'], string> = {
@@ -59,6 +62,8 @@ const RULE_DESCRIPTIONS: Record<RuleFormValues['ruleType'], string> = {
     'Adds a cushion of minutes before and after every booked appointment during which no new appointment can be booked — handy for cleanup, prep, or travel time between visits.',
   min_notice:
     "Requires visitors to book at least this many hours ahead of time, so a slot can't be booked at the last minute (e.g. 2 hours' notice hides anything starting within the next 2 hours).",
+  sequential_fill:
+    'Only shows slots within this many minutes of the last booked appointment that day (or of the start of the day, if nothing is booked yet). Pushes visitors toward the earliest open time instead of leaving gaps — later slots reveal themselves as earlier ones fill up.',
 };
 
 export default function RuleEditor({
@@ -152,6 +157,15 @@ export default function RuleEditor({
 
       {ruleType === 'min_notice' && (
         <Input type="number" min={0} label="Minimum notice (hours)" {...register('noticeHours')} />
+      )}
+
+      {ruleType === 'sequential_fill' && (
+        <Input
+          type="number"
+          min={1}
+          label="Max gap from last appointment (minutes)"
+          {...register('maxGapMinutes')}
+        />
       )}
 
       <div className="flex justify-end gap-2">

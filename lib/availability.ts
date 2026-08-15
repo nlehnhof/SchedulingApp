@@ -84,6 +84,7 @@ export function getAvailableSlots({
   const blackoutRules = rules.filter((r) => r.rule_type === 'blackout');
   const bufferRule = rules.find((r) => r.rule_type === 'buffer_time');
   const minNoticeRule = rules.find((r) => r.rule_type === 'min_notice');
+  const sequentialFillRule = rules.find((r) => r.rule_type === 'sequential_fill');
 
   for (
     let date = new Date(startDate);
@@ -98,6 +99,25 @@ export function getAvailableSlots({
 
     const dayStart = parseTimeOnDate(date, availableHours.start_time);
     const dayEnd = parseTimeOnDate(date, availableHours.end_time);
+
+    // sequential_fill: the "frontier" is how far into the day bookings have
+    // progressed so far — the day's start until something is booked, then
+    // the latest booked appointment's end time on that same day. Slots are
+    // only offered within max_gap_minutes of the frontier, which nudges
+    // visitors toward the earliest open slot instead of cherry-picking a
+    // late one and leaving gaps behind it.
+    let sequentialFrontier: Date | null = null;
+    if (
+      sequentialFillRule?.config &&
+      typeof sequentialFillRule.config.max_gap_minutes === 'number'
+    ) {
+      const dayKey = dateOnly(date);
+      sequentialFrontier = booked.reduce((frontier, apt) => {
+        if (dateOnly(new Date(apt.start_time)) !== dayKey) return frontier;
+        const aptEnd = new Date(apt.end_time);
+        return aptEnd > frontier ? aptEnd : frontier;
+      }, dayStart);
+    }
 
     for (
       let slotStart = new Date(dayStart);
@@ -170,13 +190,20 @@ export function getAvailableSlots({
         withinMaxPerWindow = countInWindow < maxPerWindowRule.max_concurrent;
       }
 
+      let withinSequentialFill = true;
+      if (sequentialFrontier && sequentialFillRule?.config) {
+        const maxGapMs = (sequentialFillRule.config.max_gap_minutes as number) * 60 * 1000;
+        withinSequentialFill = slotStart.getTime() <= sequentialFrontier.getTime() + maxGapMs;
+      }
+
       const available =
         !isBooked &&
         !hasGoogleBlock &&
         !hasBufferConflict &&
         meetsMinNotice &&
         withinFirstN &&
-        withinMaxPerWindow;
+        withinMaxPerWindow &&
+        withinSequentialFill;
 
       slots.push({
         // toNaiveISOString(), NOT .toISOString() — see lib/date-format.ts's
@@ -201,7 +228,9 @@ export function getAvailableSlots({
                   ? 'min_notice_not_met'
                   : !withinFirstN
                     ? 'first_n_limit_reached'
-                    : 'max_per_window_reached',
+                    : !withinMaxPerWindow
+                      ? 'max_per_window_reached'
+                      : 'sequential_fill_gap_exceeded',
       });
     }
   }

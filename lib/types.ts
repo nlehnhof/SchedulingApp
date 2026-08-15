@@ -29,7 +29,8 @@ export interface Rule {
     | 'first_n_only'
     | 'blackout'
     | 'buffer_time'
-    | 'min_notice';
+    | 'min_notice'
+    | 'sequential_fill';
   day_of_week: number | null; // 0=Sunday .. 6=Saturday, null = all days
   start_time: string | null; // 'HH:MM:SS'
   end_time: string | null;

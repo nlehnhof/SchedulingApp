@@ -38,6 +38,10 @@ function summarize(rule: Rule): string {
     const hours = (rule.config as any)?.notice_hours;
     return `Requires ${hours}h notice before booking`;
   }
+  if (rule.rule_type === 'sequential_fill') {
+    const gap = (rule.config as any)?.max_gap_minutes;
+    return `Only shows slots within ${gap} min of the last booked appointment`;
+  }
   return rule.rule_type;
 }
 
@@ -57,6 +61,10 @@ function toFormValues(rule: Rule): RuleFormValues {
       (rule.config as any)?.buffer_minutes != null ? String((rule.config as any).buffer_minutes) : '',
     noticeHours:
       (rule.config as any)?.notice_hours != null ? String((rule.config as any).notice_hours) : '',
+    maxGapMinutes:
+      (rule.config as any)?.max_gap_minutes != null
+        ? String((rule.config as any).max_gap_minutes)
+        : '',
   };
 }
 
@@ -71,6 +79,7 @@ const RULE_TYPE_ORDER: Record<Rule['rule_type'], number> = {
   first_n_only: 3,
   buffer_time: 4,
   min_notice: 5,
+  sequential_fill: 6,
 };
 
 function sortRules(rules: Rule[]): Rule[] {
@@ -111,6 +120,8 @@ function toRequestBody(values: RuleFormValues): Record<string, unknown> {
     body.config = { buffer_minutes: Number(values.bufferMinutes || 0) };
   } else if (values.ruleType === 'min_notice') {
     body.config = { notice_hours: Number(values.noticeHours || 0) };
+  } else if (values.ruleType === 'sequential_fill') {
+    body.config = { max_gap_minutes: Number(values.maxGapMinutes || 0) };
   }
   return body;
 }

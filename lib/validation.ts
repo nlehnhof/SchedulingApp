@@ -5,9 +5,10 @@ import { z } from 'zod';
 // than adding new dedicated columns — see 0001_init.sql's `rules` table and
 // lib/availability.ts's getAvailableSlots(), which is what actually reads
 // each type's config fields:
-//   blackout    -> config.start_date / config.end_date ('YYYY-MM-DD', inclusive)
-//   buffer_time -> config.buffer_minutes (number)
-//   min_notice  -> config.notice_hours (number)
+//   blackout        -> config.start_date / config.end_date ('YYYY-MM-DD', inclusive)
+//   buffer_time     -> config.buffer_minutes (number)
+//   min_notice      -> config.notice_hours (number)
+//   sequential_fill -> config.max_gap_minutes (number)
 export const ruleSchema = z.object({
   ruleType: z.enum([
     'available_hours',
@@ -16,6 +17,7 @@ export const ruleSchema = z.object({
     'blackout',
     'buffer_time',
     'min_notice',
+    'sequential_fill',
   ]),
   dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
   startTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
