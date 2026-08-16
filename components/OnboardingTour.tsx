@@ -19,7 +19,7 @@ const STEPS: { title: string; body: string }[] = [
   {
     title: 'Add your reasons',
     body:
-      "Start on the Reasons page: add the reasons visitors can book you for — like \"Consultation\" or \"Follow-up\" — each with its own duration.",
+      "Start on the Reasons page: add the reasons visitors can book you for, like \"Consultation\" or \"Follow-up\", each with its own duration.",
   },
   {
     title: 'Set your hours',
@@ -29,7 +29,7 @@ const STEPS: { title: string; body: string }[] = [
   {
     title: 'Share your booking link',
     body:
-      'On the Home page you\'ll find a "Your booking link" card — that\'s what you share with visitors. Copy it into your email signature, text it, or post it anywhere.',
+      'On the Home page you\'ll find a "Your booking link" card. That\'s what you share with visitors. Copy it into your email signature, text it, or post it anywhere.',
   },
   {
     title: 'Manage bookings',
@@ -67,9 +67,9 @@ export default function OnboardingTour({ open, onClose }: { open: boolean; onClo
   return (
     <Modal open={open} onClose={complete} title={current.title} closeOnBackdropClick>
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-text">{current.body}</p>
+        <p className="text-body text-text">{current.body}</p>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-text-2">
+          <span className="font-mono text-data-sm text-text-2">
             Step {step + 1} of {STEPS.length}
           </span>
           <div className="flex gap-2">

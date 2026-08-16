@@ -49,7 +49,7 @@ Update this when an iteration completes. Do not rebuild anything already marked 
 - [x] `primitives` - Button, Card, Badge, Input, Select, Modal, Skeleton, Spinner, InfoTooltip, PremiumLockCard, icon swap
 - [x] `signature` - `Lightline`, `DayStrip`, plus `TimeSlotGrid`, `Calendar`, `MonthGridHeader`, `AppointmentCard`, `DatesMultiSelect`
 - [x] `visit` - `/visit/[clientLink]` booking flow and its layout
-- [ ] `dashboard-shell` - `DashboardNav`, `DashboardChrome`, `CollaboratorBanner`, `OnboardingTour`, dashboard layout signed-out state
+- [x] `dashboard-shell` - `DashboardNav`, `DashboardChrome`, `CollaboratorBanner`, `OnboardingTour`, dashboard layout signed-out state
 - [ ] `dashboard-home` - `/dashboard`
 - [ ] `dashboard-time` - `/dashboard/schedule`, `/dashboard/calendar` (the Lightline payoff)
 - [ ] `dashboard-setup` - `/dashboard/reasons`, `/dashboard/rules`, `RuleEditor`

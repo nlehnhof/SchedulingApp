@@ -1,60 +1,46 @@
 ---
-page: dashboard-shell
+page: dashboard-home
 layout: foundation
-phase: 4
+phase: 5
 ---
 
-Restyle the dashboard shell — `components/DashboardNav.tsx`, `components/DashboardChrome.tsx`,
-the signed-out state in `app/dashboard/layout.tsx`, `components/CollaboratorBanner.tsx`, and
-`components/OnboardingTour.tsx` — against the Nightshift system. This is the frame every
-dashboard page sits inside, so get it right once here rather than per-page.
-
-Read `.design/DESIGN.md` in full and `.design/PLAN.md` Phase 4 before starting. Read
-`components/DashboardNav.tsx` as it exists after Phases 0-1 (icon sweep already done: `List`
-for the mobile hamburger, `Question` for replay-tutorial) — reuse its existing structure and
-data (`SETUP_LINKS`, `OPERATE_LINKS`, `PREMIUM_LINKS`, `ELITE_LINKS`, the tier dev-toggle,
-the calendar switcher) and restyle rather than rearchitect.
+Restyle `app/dashboard/page.tsx` (the `/dashboard` home) against the Nightshift system and the
+Phase 4 shell it now sits inside. Read `.design/DESIGN.md` in full and `.design/PLAN.md`
+Phase 5 before starting. Read the current file in full first — it already has the booking-link
+card, `StatCard` component, `PremiumFeaturesCard` (icon already swapped to Phosphor `Lock` in
+Phase 1), and setup nudges; restyle in place rather than rearchitecting the data fetching.
 
 **Scope, exactly:**
 
-1. **Sidebar.** 224px wide (`md:w-56` already matches), `surface` on `canvas`, separated by a
-   `hairline` right border (already `md:border-r md:border-hairline` from Phase 0's mechanical
-   pass — verify, don't reintroduce `hairline-2` or `edge` there). Wordmark in `display-sm`
-   (currently `font-display text-lg font-semibold` — swap to the named `display-sm` scale
-   token).
-2. **Active nav item.** Replace the filled-pill treatment (`bg-lume/30 text-text`) with a 2px
-   `lume` left rail plus `bg-lume/8`. Inactive stays `text-text-2 hover:bg-lume/15` (or close
-   to it — keep the hover legible). Do this in both `renderGroup()` and the `Home` link.
-3. **Group headings.** `label` at `text-3` (currently `text-[10px] font-semibold uppercase
-   tracking-wide text-text-2/70` — replace with the named `label` scale token and `text-3`).
-4. **Mobile top bar and drawer.** Keep their current structure and their full account block
-   (email, calendar switcher, dev tier-toggle, sign-out) exactly as-is; only the styling
-   changes to match the restyled sidebar (wordmark size, group heading treatment, active-item
-   treatment reused inside the drawer's nav list too).
-5. **Signed-out state** (`app/dashboard/layout.tsx`). Center the wordmark, one sentence, one
-   `SignInButton`. Read the current signed-out branch before rewriting it — preserve whatever
-   copy/logic is there beyond the visual treatment.
-6. **Admin-login testing warning.** Keep its `rose` treatment; it is a real warning, not
-   decoration to be muted.
-7. **`CollaboratorBanner.tsx`.** Already restyled to `ice` in Phase 1 (semantic: "shared with
-   you"/collaborator affordance) — verify it still reads correctly against the restyled
-   sidebar/topbar and adjust spacing only if the new shell layout requires it.
-8. **`OnboardingTour.tsx`.** Restyle against the token system (it renders inside `Modal`, which
-   is already Nightshift-correct as of Phase 1 — verify the tour's own step content/copy
-   panels use `surface`/`hairline`/`lume` consistently, not leftover raw values).
+1. **Booking link card.** Promote it. It's the single most useful thing on the page and
+   currently reads like a footnote. Full width, `surface`, the link itself in `data` (mono),
+   with a copy button that confirms in place (it already does via the `copied` state — just
+   restyle, don't rebuild the interaction).
+2. **Stat row.** Drop the card boxes (`StatCard`'s current `rounded-lg border ... p-4`
+   treatment). Three stats in a row directly on `canvas`, value in `data-xl`, caption in
+   `label` at `text-2`, separated by vertical `hairline` rules (not gaps/boxes). Pending
+   errors turns `rose` when non-zero (already does via the `warn` prop — keep that logic,
+   restyle the color/weight).
+3. **Upcoming.** Add a `DayStrip` (from `components/DayStrip.tsx`, built in Phase 2) for
+   today above the appointment list, built from the same `data.stats`/appointments payload
+   this page already fetches. The list itself stays as `AppointmentCard` rows (already
+   restyled in Phase 2 — don't touch `AppointmentCard.tsx` itself here).
+4. **Setup nudges and premium features.** Keep both sections, restyle to the token system.
+   The premium features list already dropped the emoji lock for a Phosphor `Lock` icon in
+   Phase 1 — verify it still reads correctly against the new stat row treatment. Free-tier
+   gating logic (which nudges/features show) is untouched.
 
-**Out of bounds:** routes, API shapes, form field names, SWR keys, tier gating logic, anything
-under `lib/booking.ts` or `supabase/`. Do not touch `/dashboard/page.tsx` or any other
-dashboard route body content — that is Phase 5 onward. Do not touch the visitor booking flow
-or the marketing page.
+**Out of bounds:** routes, API shapes, SWR keys, tier gating logic, anything under
+`lib/booking.ts` or `supabase/`. Do not touch `DashboardNav`/`DashboardChrome` (Phase 4,
+already done) or any other `/dashboard/*` route body.
 
-**Done when:** the nav renders on one line per item with no wrap at 1024px, the drawer opens
-and closes, the tier lock pills read correctly at all three tiers (free/premium/elite),
-`npx tsc --noEmit` is clean, `npm run lint` is clean, and `npm test` passes.
+**Done when:** the page renders correctly at 375px and 1280px, the stat row's `rose` warn
+state still triggers correctly when `pending_errors > 0`, the copy-link button's confirm state
+still works, `npx tsc --noEmit` is clean, `npm run lint` is clean, and `npm test` passes.
 
-**Before finishing, write the Phase 5 baton to `.design/next-prompt.md`** using
-`.design/PLAN.md` Phase 5 as the body, with the design system block below copied in, and mark
-`dashboard-shell` complete in `.design/SURFACES.md` section 4. If you skip this, the loop
+**Before finishing, write the Phase 6 baton to `.design/next-prompt.md`** using
+`.design/PLAN.md` Phase 6 as the body, with the design system block below copied in, and mark
+`dashboard-home` complete in `.design/SURFACES.md` section 4. If you skip this, the loop
 stops.
 
 ---
