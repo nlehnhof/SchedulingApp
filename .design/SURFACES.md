@@ -50,7 +50,7 @@ Update this when an iteration completes. Do not rebuild anything already marked 
 - [x] `signature` - `Lightline`, `DayStrip`, plus `TimeSlotGrid`, `Calendar`, `MonthGridHeader`, `AppointmentCard`, `DatesMultiSelect`
 - [x] `visit` - `/visit/[clientLink]` booking flow and its layout
 - [x] `dashboard-shell` - `DashboardNav`, `DashboardChrome`, `CollaboratorBanner`, `OnboardingTour`, dashboard layout signed-out state
-- [ ] `dashboard-home` - `/dashboard`
+- [x] `dashboard-home` - `/dashboard`
 - [ ] `dashboard-time` - `/dashboard/schedule`, `/dashboard/calendar` (the Lightline payoff)
 - [ ] `dashboard-setup` - `/dashboard/reasons`, `/dashboard/rules`, `RuleEditor`
 - [ ] `dashboard-data` - `/dashboard/analytics`, `/dashboard/errors`, `/dashboard/export`
