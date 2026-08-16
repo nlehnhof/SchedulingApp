@@ -89,7 +89,17 @@ edits/cancellations touch the same event instead of creating duplicates. A write
 never fails the booking/edit/cancel itself — it's logged to `error_log` as
 `google_writeback_failed`, same pattern as the confirmation-email send. `syncGoogleCalendarForClient`
 excludes a client's own `google_event_id`s from its poll results so a written-back event never
-red-flags the very appointment it came from.
+red-flags the very appointment it came from. Every write to Google is tagged with an explicit
+`timeZone` (from `clients.timezone`, settable on `app/dashboard/calendar` alongside the
+calendar picker; defaults to `'UTC'` and is otherwise never auto-set, so a client must set it
+manually) rather than converted with `.toISOString()` — appointment times are naive local
+wall-clock values everywhere in this app (see `lib/date-format.ts`), so relabeling one as UTC
+without a real conversion silently shifts the event on Google's side by the client's actual UTC
+offset. The visitor-facing availability route and `lib/booking.ts`'s conflict-suggestion path
+also live-fetch the client's Google Calendar (`getGoogleCalendarEvents`, best-effort — falls
+back to no blocks on a Google outage) so a slot that's already taken on Google is never offered
+in the first place, rather than only being caught after the fact by the 30-min cron's
+`red_flag`.
 
 **Premium tier has two independent sources, and every read must account for both.**
 `clients.tier` (`'free' | 'premium'`) is the column every route ultimately checks, but it can

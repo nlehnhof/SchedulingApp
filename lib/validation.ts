@@ -104,6 +104,27 @@ export const brandingSchema = z.object({
 // string, so this stays loose rather than trying to fully validate the
 // shape — the route itself confirms the id is actually one of the caller's
 // own calendars before saving it (see app/api/client/calendar/route.ts).
-export const calendarSelectSchema = z.object({
-  calendarId: z.string().min(1).max(255),
-});
+// timezone is validated with Intl.DateTimeFormat rather than a hardcoded
+// list, so any real IANA zone name works (the dashboard picker only offers
+// a curated subset — see app/dashboard/calendar/page.tsx — but the server
+// doesn't need to be kept in lockstep with that list).
+export const calendarSelectSchema = z
+  .object({
+    calendarId: z.string().min(1).max(255).optional(),
+    timezone: z
+      .string()
+      .min(1)
+      .max(50)
+      .refine((tz) => {
+        try {
+          Intl.DateTimeFormat(undefined, { timeZone: tz });
+          return true;
+        } catch {
+          return false;
+        }
+      }, 'Not a recognized time zone')
+      .optional(),
+  })
+  .refine((v) => v.calendarId !== undefined || v.timezone !== undefined, {
+    message: 'At least one of calendarId, timezone is required',
+  });

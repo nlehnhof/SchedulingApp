@@ -1,4 +1,5 @@
 import { createServiceClient } from './supabase';
+import { toNaiveISOString } from './date-format';
 import type { GoogleBlock } from './types';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
@@ -101,14 +102,23 @@ export interface GoogleCalendarEventInput {
   description?: string | null;
   start: Date;
   end: Date;
+  // IANA zone name (clients.timezone) the start/end wall-clock values are
+  // expressed in. Required, and deliberately paired with a naive (no 'Z'/
+  // offset) dateTime rather than `.toISOString()`: appointment times are
+  // stored and passed around this whole app as naive local wall-clock
+  // values (see lib/date-format.ts's header comment), never true UTC. Using
+  // `.toISOString()` here would silently relabel that local time as UTC,
+  // shifting the event on Google's side by exactly the client's real UTC
+  // offset — e.g. a 9am appointment in Denver (UTC-6) showing up at 3am.
+  timeZone: string;
 }
 
 function eventBody(event: GoogleCalendarEventInput) {
   return {
     summary: event.summary,
     description: event.description || undefined,
-    start: { dateTime: event.start.toISOString() },
-    end: { dateTime: event.end.toISOString() },
+    start: { dateTime: toNaiveISOString(event.start).slice(0, 19), timeZone: event.timeZone },
+    end: { dateTime: toNaiveISOString(event.end).slice(0, 19), timeZone: event.timeZone },
   };
 }
 

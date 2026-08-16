@@ -1,7 +1,7 @@
 import { createServiceClient } from './supabase';
 import { getAvailableSlots, nextAvailableSlot } from './availability';
 import { sendBookingConfirmationEmail } from './email';
-import { createGoogleCalendarEvent } from './google-calendar';
+import { createGoogleCalendarEvent, getGoogleCalendarEvents } from './google-calendar';
 import { getEffectiveTier } from './premium-grants';
 import type { Appointment, AppointmentReason, BookingResult, GoogleBlock, Rule } from './types';
 
@@ -48,7 +48,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     const [{ data: client }, { data: reason }] = await Promise.all([
       supabase
         .from('clients')
-        .select('email, display_name, tier, google_refresh_token, google_calendar_id')
+        .select('email, display_name, tier, timezone, google_refresh_token, google_calendar_id')
         .eq('id', input.clientId)
         .single(),
       supabase
@@ -106,6 +106,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
             description: input.notes,
             start,
             end,
+            timeZone: client.timezone || 'UTC',
           }
         );
         await supabase
@@ -133,19 +134,41 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
   }
 
   // Conflict: suggest the next available slot for this reason.
-  const [{ data: reason }, { data: rules }, { data: booked }] = await Promise.all([
-    supabase
-      .from('appointment_reasons')
-      .select('*')
-      .eq('id', input.reasonId)
-      .single(),
-    supabase.from('rules').select('*').eq('client_id', input.clientId),
-    supabase
-      .from('appointments')
-      .select('*')
-      .eq('client_id', input.clientId)
-      .gt('expires_at', new Date().toISOString()),
-  ]);
+  const [{ data: reason }, { data: rules }, { data: booked }, { data: googleClient }] =
+    await Promise.all([
+      supabase
+        .from('appointment_reasons')
+        .select('*')
+        .eq('id', input.reasonId)
+        .single(),
+      supabase.from('rules').select('*').eq('client_id', input.clientId),
+      supabase
+        .from('appointments')
+        .select('*')
+        .eq('client_id', input.clientId)
+        .gt('expires_at', new Date().toISOString()),
+      supabase
+        .from('clients')
+        .select('google_refresh_token, google_calendar_id')
+        .eq('id', input.clientId)
+        .maybeSingle(),
+    ]);
+
+  // Same live-check as the visitor availability route — don't suggest a
+  // slot that's already taken on the client's Google Calendar. Best-effort:
+  // falls back to no live blocks on a Google outage rather than failing the
+  // whole conflict response.
+  let googleBlocks: GoogleBlock[] = [];
+  if (googleClient?.google_refresh_token) {
+    try {
+      googleBlocks = await getGoogleCalendarEvents(
+        googleClient.google_refresh_token,
+        googleClient.google_calendar_id || 'primary'
+      );
+    } catch {
+      googleBlocks = [];
+    }
+  }
 
   let nextAvailable;
   if (reason) {
@@ -159,7 +182,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       reason: reason as AppointmentReason,
       rules: (rules ?? []) as Rule[],
       booked: (booked ?? []) as Appointment[],
-      googleBlocks: [] as GoogleBlock[], // best-effort; caller may re-check against live calendar
+      googleBlocks,
     });
     nextAvailable = nextAvailableSlot(slots, searchStart);
   }

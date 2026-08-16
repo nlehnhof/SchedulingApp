@@ -1,9 +1,10 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { getAvailableSlots } from '@/lib/availability';
+import { getGoogleCalendarEvents } from '@/lib/google-calendar';
 import { resolveClientLink } from '@/lib/resolve-client-link';
 import { getEffectiveTier } from '@/lib/premium-grants';
-import type { Appointment, AppointmentReason, Rule } from '@/lib/types';
+import type { Appointment, AppointmentReason, GoogleBlock, Rule } from '@/lib/types';
 
 export async function GET(
   req: Request,
@@ -26,7 +27,7 @@ export async function GET(
     await Promise.all([
       supabase
         .from('clients')
-        .select('id, email, display_name, tier, accent_color, logo_url')
+        .select('id, email, display_name, tier, accent_color, logo_url, google_refresh_token, google_calendar_id')
         .eq('id', clientId)
         .maybeSingle(),
       supabase
@@ -50,14 +51,32 @@ export async function GET(
   const endDate = new Date();
   endDate.setDate(endDate.getDate() + 30); // "next 30 days" per orchestration doc
 
+  // Live-checked so a visitor is never offered a slot that's already taken
+  // on the client's Google Calendar (a manually-created event, or another
+  // app's booking on a shared calendar) — the 30-min cron sync alone only
+  // catches this *after* a conflicting booking already happened. Best-effort:
+  // a Google outage/expired token must never break the booking page, so a
+  // failed fetch just falls back to no live blocks (the cron sync's
+  // red_flag safety net still catches it within 30 min either way).
+  let googleBlocks: GoogleBlock[] = [];
+  if (client.google_refresh_token) {
+    try {
+      googleBlocks = await getGoogleCalendarEvents(
+        client.google_refresh_token,
+        client.google_calendar_id || 'primary'
+      );
+    } catch {
+      googleBlocks = [];
+    }
+  }
+
   const slots = getAvailableSlots({
     startDate,
     endDate,
     reason: reason as AppointmentReason,
     rules: (rules ?? []) as Rule[],
     booked: (booked ?? []) as Appointment[],
-    googleBlocks: [], // Google blocks are enforced by the cron sync (red_flag) + booking fn;
-    // omitted here to avoid a live Google API round-trip on every visitor page load.
+    googleBlocks,
   });
 
   // Custom branding (premium feature 1) is only ever returned when the

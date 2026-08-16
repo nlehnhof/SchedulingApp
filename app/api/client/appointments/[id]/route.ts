@@ -28,7 +28,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       .maybeSingle(),
     supabase
       .from('clients')
-      .select('google_refresh_token, google_calendar_id')
+      .select('timezone, google_refresh_token, google_calendar_id')
       .eq('id', client.clientId)
       .single(),
     supabase.from('appointment_reasons').select('name').eq('id', body.reasonId).maybeSingle(),
@@ -67,6 +67,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         description: body.notes,
         start: new Date(row.result_start),
         end: new Date(row.result_end),
+        timeZone: clientRow.timezone || 'UTC',
       };
       if (existing?.google_event_id) {
         await updateGoogleCalendarEvent(
