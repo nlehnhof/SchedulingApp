@@ -42,7 +42,7 @@ export default function AdminLoginForm() {
         onChange={(e) => setPassword(e.target.value)}
         required
       />
-      {error && <p className="text-sm text-danger">{error}</p>}
+      {error && <p className="text-sm text-rose">{error}</p>}
       <Button type="submit" variant="secondary" disabled={loading}>
         {loading ? 'Signing in…' : 'Sign in as admin (testing)'}
       </Button>

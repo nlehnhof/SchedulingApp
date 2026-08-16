@@ -9,8 +9,9 @@ import Input from '@/components/Input';
 import Card from '@/components/Card';
 import Spinner from '@/components/Spinner';
 import { useCalendar } from '@/components/CalendarContext';
+import { X, Square, CaretUp, CaretDown } from '@phosphor-icons/react';
 
-const ICON_BUTTON = 'flex h-11 w-11 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-accent-soft/20 disabled:opacity-30';
+const ICON_BUTTON = 'flex h-11 w-11 items-center justify-center rounded-md text-text-2 transition-colors hover:bg-lume/20 disabled:opacity-30';
 
 function ReasonExtras({
   reason,
@@ -51,7 +52,7 @@ function ReasonExtras({
   if (!canWrite && !reason.info_note && checkboxes.length === 0) return null;
 
   return (
-    <div className="mt-2 flex flex-col gap-2 border-t border-border pt-2">
+    <div className="mt-2 flex flex-col gap-2 border-t border-hairline pt-2">
       {canWrite ? (
         <Input
           label="Instructions for visitors"
@@ -62,7 +63,7 @@ function ReasonExtras({
         />
       ) : (
         reason.info_note && (
-          <p className="text-xs text-text-secondary">
+          <p className="text-xs text-text-2">
             <span className="font-medium">Note:</span> {reason.info_note}
           </p>
         )
@@ -70,7 +71,7 @@ function ReasonExtras({
 
       <div className="flex flex-col gap-1">
         {(canWrite || checkboxes.length > 0) && (
-          <span className="text-xs font-medium text-text-primary">Required checkboxes</span>
+          <span className="text-xs font-medium text-text">Required checkboxes</span>
         )}
         {checkboxes.map((label, i) =>
           canWrite ? (
@@ -80,26 +81,26 @@ function ReasonExtras({
                 onChange={(e) =>
                   setCheckboxes((prev) => prev.map((l, j) => (j === i ? e.target.value : l)))
                 }
-                className="w-full rounded border border-border px-1.5 py-0.5 text-xs"
+                className="w-full rounded border border-edge px-1.5 py-0.5 text-xs"
               />
               <button
                 onClick={() => setCheckboxes((prev) => prev.filter((_, j) => j !== i))}
                 aria-label={`Remove checkbox ${i + 1}`}
-                className="rounded px-1.5 py-0.5 text-xs text-danger hover:bg-danger/10"
+                className="rounded px-1.5 py-0.5 text-xs text-rose hover:bg-rose/10"
               >
-                ✕
+                <X size={12} weight="regular" />
               </button>
             </div>
           ) : (
-            <span key={i} className="text-xs text-text-secondary">
-              ☐ {label}
+            <span key={i} className="flex items-center gap-1 text-xs text-text-2">
+              <Square size={12} weight="regular" aria-hidden="true" /> {label}
             </span>
           )
         )}
         {canWrite && (
           <button
             onClick={() => setCheckboxes((prev) => [...prev, ''])}
-            className="w-fit rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-accent-soft/20"
+            className="w-fit rounded px-1.5 py-0.5 text-xs text-text-2 hover:bg-lume/20"
           >
             + Add checkbox
           </button>
@@ -116,7 +117,7 @@ function ReasonExtras({
           >
             {saving ? 'Saving…' : 'Save'}
           </Button>
-          {error && <span className="text-xs text-danger">{error}</span>}
+          {error && <span className="text-xs text-rose">{error}</span>}
         </div>
       )}
     </div>
@@ -239,11 +240,11 @@ export default function ReasonsPage() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-6">
-      <h1 className="font-serif text-xl font-semibold text-text-primary">Appointment Reasons</h1>
+      <h1 className="font-display text-xl font-semibold text-text">Appointment Reasons</h1>
 
       {isLoading && <Spinner />}
-      {error && <p className="text-sm text-danger">Failed to load reasons.</p>}
-      {deleteError && <p className="text-sm text-danger">{deleteError}</p>}
+      {error && <p className="text-sm text-rose">Failed to load reasons.</p>}
+      {deleteError && <p className="text-sm text-rose">{deleteError}</p>}
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {reasons.map((reason, i) => (
@@ -261,17 +262,17 @@ export default function ReasonsPage() {
                           if (e.key === 'Enter') saveRename(reason);
                           if (e.key === 'Escape') setEditingId(null);
                         }}
-                        className="rounded border border-border px-1.5 py-0.5 text-sm font-medium"
+                        className="rounded border border-edge px-1.5 py-0.5 text-sm font-medium"
                       />
                       <button
                         onClick={() => saveRename(reason)}
-                        className="rounded px-1.5 py-0.5 text-xs text-success hover:bg-accent-soft/20"
+                        className="rounded px-1.5 py-0.5 text-xs text-jade hover:bg-lume/20"
                       >
                         Save
                       </button>
                       <button
                         onClick={() => setEditingId(null)}
-                        className="rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-accent-soft/20"
+                        className="rounded px-1.5 py-0.5 text-xs text-text-2 hover:bg-lume/20"
                       >
                         Cancel
                       </button>
@@ -287,13 +288,13 @@ export default function ReasonsPage() {
                   ) : (
                     <span className="font-medium">{reason.name}</span>
                   )}
-                  <span className="text-xs text-text-secondary">
+                  <span className="text-xs text-text-2">
                     {canWrite ? (
                       <input
                         type="number"
                         min={1}
                         defaultValue={reason.duration_min}
-                        className="w-16 rounded border border-border px-1 py-0.5 text-xs"
+                        className="w-16 rounded border border-edge px-1 py-0.5 text-xs"
                         onBlur={(e) => {
                           const v = Number(e.target.value);
                           if (v && v !== reason.duration_min) handleDurationChange(reason, v);
@@ -313,7 +314,7 @@ export default function ReasonsPage() {
                       aria-label="Move up"
                       className={ICON_BUTTON}
                     >
-                      ↑
+                      <CaretUp size={18} weight="regular" />
                     </button>
                     <button
                       onClick={() => moveReason(i, 1)}
@@ -321,19 +322,19 @@ export default function ReasonsPage() {
                       aria-label="Move down"
                       className={ICON_BUTTON}
                     >
-                      ↓
+                      <CaretDown size={18} weight="regular" />
                     </button>
                     {confirmDeleteId === reason.id ? (
                       <span className="flex items-center gap-1">
                         <button
                           onClick={() => handleDelete(reason.id)}
-                          className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                          className="rounded px-2 py-1 text-xs text-rose hover:bg-rose/10"
                         >
                           Confirm
                         </button>
                         <button
                           onClick={() => setConfirmDeleteId(null)}
-                          className="rounded px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
+                          className="rounded px-2 py-1 text-xs text-text-2 hover:bg-lume/20"
                         >
                           Cancel
                         </button>
@@ -342,9 +343,9 @@ export default function ReasonsPage() {
                       <button
                         onClick={() => setConfirmDeleteId(reason.id)}
                         aria-label={`Delete ${reason.name}`}
-                        className={`${ICON_BUTTON} text-danger hover:bg-danger/10`}
+                        className={`${ICON_BUTTON} text-rose hover:bg-rose/10`}
                       >
-                        ✕
+                        <X size={18} weight="regular" />
                       </button>
                     )}
                   </div>
@@ -357,7 +358,7 @@ export default function ReasonsPage() {
           </li>
         ))}
         {reasons.length === 0 && !isLoading && (
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-text-2">
             No reasons yet — add at least one below so visitors have something to book.
           </p>
         )}
@@ -382,7 +383,7 @@ export default function ReasonsPage() {
           </form>
         </Card>
       )}
-      {submitError && <p className="text-sm text-danger">{submitError}</p>}
+      {submitError && <p className="text-sm text-rose">{submitError}</p>}
     </div>
   );
 }

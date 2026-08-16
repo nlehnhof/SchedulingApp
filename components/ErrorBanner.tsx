@@ -13,14 +13,14 @@ export default function ErrorBanner({
     <div
       className={`flex flex-col gap-2 rounded-md border p-3 text-sm sm:flex-row sm:items-center sm:justify-between ${
         error.acknowledged
-          ? 'border-border bg-background text-text-secondary'
-          : 'border-danger/30 bg-danger/10 text-danger'
+          ? 'border-hairline bg-canvas text-text-2'
+          : 'border-rose/30 bg-rose/10 text-rose'
       }`}
     >
       <div>
         <div className="font-medium">{error.error_type}</div>
         <div>{error.message}</div>
-        <div className="text-xs opacity-70">{new Date(error.created_at).toLocaleString()}</div>
+        <div className="font-mono text-data-sm text-text-2">{new Date(error.created_at).toLocaleString()}</div>
       </div>
       <div className="flex gap-2">
         {onRetry && error.error_type.startsWith('google_sync') && (

@@ -115,7 +115,7 @@ export default function RuleEditor({
         </Select>
         <div className="flex items-center gap-1.5">
           <InfoTooltip text={RULE_DESCRIPTIONS[ruleType]} />
-          <span className="text-xs text-text-secondary">What does this do?</span>
+          <span className="text-xs text-text-2">What does this do?</span>
         </div>
       </div>
 

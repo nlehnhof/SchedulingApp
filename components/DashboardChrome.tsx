@@ -40,7 +40,7 @@ export default function DashboardChrome({
 
   return (
     <CalendarProvider initialCalendarId={initialCalendarId}>
-      <div className="flex min-h-screen flex-col bg-background md:flex-row">
+      <div className="flex min-h-screen flex-col bg-canvas md:flex-row">
         <DashboardNav
           email={email}
           tier={tier}

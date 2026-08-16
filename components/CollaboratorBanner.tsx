@@ -14,8 +14,8 @@ export default function CollaboratorBanner() {
   const name = calendar?.display_name || 'this calendar';
 
   return (
-    <div className="border-b border-accent/40 bg-accent-soft/25 px-4 py-2 text-center text-xs text-text-primary md:px-8">
-      Shared with you — <span className="font-semibold capitalize">{role}</span> access on{' '}
+    <div className="border-b border-ice/30 bg-ice/12 px-4 py-2 text-center text-body-sm text-text md:px-8">
+      Shared with you: <span className="font-semibold capitalize">{role}</span> access on{' '}
       <span className="font-medium">{name}</span>
       {role === 'viewer' && ' (read-only)'}
     </div>

@@ -21,7 +21,7 @@ export default function TimeSlotGrid({
   accentStyle?: CSSProperties;
 }) {
   if (slots.length === 0) {
-    return <p className="text-sm text-text-secondary">No time slots for this day.</p>;
+    return <p className="text-sm text-text-2">No time slots for this day.</p>;
   }
 
   return (
@@ -36,10 +36,10 @@ export default function TimeSlotGrid({
             style={isSelected ? accentStyle : undefined}
             className={`min-h-11 rounded-md border px-2 py-2 text-sm font-medium transition-colors ${
               !slot.available
-                ? 'cursor-not-allowed border-border text-text-secondary/40'
+                ? 'cursor-not-allowed border-edge text-text-2/40'
                 : isSelected
-                  ? 'border-accent bg-accent text-white'
-                  : 'border-border text-text-primary hover:bg-accent-soft/20'
+                  ? 'border-lume bg-lume text-white'
+                  : 'border-edge text-text hover:bg-lume/20'
             }`}
           >
             {new Date(slot.start).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}

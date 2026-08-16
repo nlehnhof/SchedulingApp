@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { List, Question } from '@phosphor-icons/react';
 import { usePathname, useRouter } from 'next/navigation';
 import SignOutButton from './SignOutButton';
 import Select from './Select';
@@ -88,7 +89,7 @@ export default function DashboardNav({
   function accountBlock(onNavigate?: () => void) {
     return (
       <div className="flex flex-col gap-1">
-        <span className="truncate text-xs text-text-secondary">{email}</span>
+        <span className="truncate text-xs text-text-2">{email}</span>
 
         {/* Only shown once there's actually something to switch between —
             free/premium clients always have exactly 1 calendar, so this
@@ -137,12 +138,12 @@ export default function DashboardNav({
             onClick={toggleTier}
             disabled={toggling}
             title="Testing-only: flips this account's tier so you can click through premium features. Never available for real clients."
-            className="mt-1 flex items-center justify-between gap-2 rounded-md border border-dashed border-accent/50 bg-accent-soft/10 px-2 py-1.5 text-left text-[11px] text-text-secondary hover:bg-accent-soft/20 disabled:opacity-60"
+            className="mt-1 flex items-center justify-between gap-2 rounded-md border border-dashed border-lume/50 bg-lume/10 px-2 py-1.5 text-left text-[11px] text-text-2 hover:bg-lume/20 disabled:opacity-60"
           >
             <span>
-              Viewing as <span className="font-semibold capitalize text-text-primary">{currentTier}</span>
+              Viewing as <span className="font-semibold capitalize text-text">{currentTier}</span>
             </span>
-            <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
+            <span className="rounded-full bg-lume px-1.5 py-0.5 text-[10px] font-semibold text-white">
               {toggling ? '…' : `Switch to ${NEXT_TIER[currentTier]}`}
             </span>
           </button>
@@ -154,7 +155,7 @@ export default function DashboardNav({
   function renderGroup(label: string, links: NavLink[], onNavigate?: () => void) {
     return (
       <li>
-        <div className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-text-secondary/70">
+        <div className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-text-2/70">
           {label}
         </div>
         <ul className="flex flex-col">
@@ -168,13 +169,13 @@ export default function DashboardNav({
                   onClick={onNavigate}
                   className={`flex min-h-11 items-center justify-between gap-2 whitespace-nowrap rounded-md px-4 py-3 text-sm font-medium transition-colors ${
                     active
-                      ? 'bg-accent-soft/30 text-text-primary'
-                      : 'text-text-secondary hover:bg-accent-soft/15'
+                      ? 'bg-lume/30 text-text'
+                      : 'text-text-2 hover:bg-lume/15'
                   }`}
                 >
                   <span>{link.label}</span>
                   {locked && (
-                    <span className="rounded-full bg-accent-soft/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent-hover">
+                    <span className="rounded-full bg-lume/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-lume-bright">
                       {link.minTier}
                     </span>
                   )}
@@ -196,8 +197,8 @@ export default function DashboardNav({
             onClick={onNavigate}
             className={`flex min-h-11 items-center whitespace-nowrap rounded-md px-4 py-3 text-sm font-medium transition-colors ${
               pathname === '/dashboard'
-                ? 'bg-accent-soft/30 text-text-primary'
-                : 'text-text-secondary hover:bg-accent-soft/15'
+                ? 'bg-lume/30 text-text'
+                : 'text-text-2 hover:bg-lume/15'
             }`}
           >
             Home
@@ -216,16 +217,16 @@ export default function DashboardNav({
       {/* Slim mobile top bar — replaces the old unlabeled horizontal-scroll
           link strip, which had no group headers and no way to reach the
           brand, calendar switcher, or sign-out at all below md. */}
-      <div className="flex items-center gap-1 border-b border-border bg-surface px-2 py-2 md:hidden">
+      <div className="flex items-center gap-1 border-b border-hairline bg-surface px-2 py-2 md:hidden">
         <button
           type="button"
           onClick={() => setDrawerOpen(true)}
           aria-label="Open menu"
-          className="flex h-11 w-11 items-center justify-center rounded-md text-lg text-text-secondary hover:bg-accent-soft/20"
+          className="flex h-11 w-11 items-center justify-center rounded-md text-text-2 hover:bg-lume/20"
         >
-          ☰
+          <List size={20} weight="regular" />
         </button>
-        <span className="font-serif text-lg font-semibold text-text-primary">Gather</span>
+        <span className="font-display text-lg font-semibold text-text">Gather</span>
       </div>
 
       <Modal
@@ -242,31 +243,31 @@ export default function DashboardNav({
                 onReplayTutorial();
                 setDrawerOpen(false);
               }}
-              className="w-fit rounded-md border border-border px-2 py-1 text-left text-xs text-text-secondary hover:bg-accent-soft/20"
+              className="w-fit rounded-md border border-edge px-2 py-1 text-left text-xs text-text-2 hover:bg-lume/20"
             >
               Replay tutorial
             </button>
           )}
           {accountBlock(() => setDrawerOpen(false))}
           {navLinks(() => setDrawerOpen(false))}
-          <div className="mt-2 border-t border-border pt-3">
+          <div className="mt-2 border-t border-hairline pt-3">
             <SignOutButton />
           </div>
         </div>
       </Modal>
 
-      <nav className="hidden shrink-0 md:flex md:w-56 md:flex-col md:border-r md:border-border md:bg-surface">
+      <nav className="hidden shrink-0 md:flex md:w-56 md:flex-col md:border-r md:border-hairline md:bg-surface">
         <div className="flex flex-col gap-1 px-4 py-4">
           <div className="flex items-center justify-between">
-            <span className="font-serif text-lg font-semibold text-text-primary">Gather</span>
+            <span className="font-display text-lg font-semibold text-text">Gather</span>
             {onReplayTutorial && (
               <button
                 onClick={onReplayTutorial}
                 aria-label="Replay tutorial"
                 title="Replay tutorial"
-                className="rounded-full border border-border px-1.5 text-xs text-text-secondary hover:bg-accent-soft/20"
+                className="flex h-6 w-6 items-center justify-center rounded-full border border-edge text-text-2 hover:bg-lume/20"
               >
-                ?
+                <Question size={14} weight="regular" />
               </button>
             )}
           </div>

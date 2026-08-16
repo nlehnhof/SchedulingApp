@@ -52,8 +52,8 @@ export default function DatesMultiSelect({
               aria-pressed={isSelected}
               className={`flex h-10 items-center justify-center rounded-md border text-sm transition-colors ${
                 isSelected
-                  ? 'border-accent bg-accent text-white'
-                  : 'border-border text-text-primary hover:bg-accent-soft/20'
+                  ? 'border-lume bg-lume text-white'
+                  : 'border-edge text-text hover:bg-lume/20'
               }`}
             >
               {Number(date.slice(8, 10))}
@@ -62,7 +62,7 @@ export default function DatesMultiSelect({
         })}
       </div>
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-xs text-text-secondary">
+        <span className="text-xs text-text-2">
           {value.length} date{value.length === 1 ? '' : 's'} selected
         </span>
         <div className="flex gap-2">

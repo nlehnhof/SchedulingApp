@@ -64,9 +64,9 @@ export default function Calendar({
               aria-label={parts.join(', ')}
               className={`flex h-14 flex-col items-center justify-center rounded-md border text-sm transition-colors ${
                 isSelected
-                  ? 'border-accent bg-accent text-white'
-                  : `border-border hover:bg-accent-soft/20 ${
-                      meta?.hasAvailability ? 'text-text-primary' : 'text-text-secondary/50'
+                  ? 'border-lume bg-lume text-white'
+                  : `border-edge hover:bg-lume/20 ${
+                      meta?.hasAvailability ? 'text-text' : 'text-text-2/50'
                     }`
               }`}
             >
@@ -74,9 +74,9 @@ export default function Calendar({
               {meta && (meta.confirmedCount > 0 || meta.redFlagCount > 0) && (
                 <span className="mt-0.5 flex gap-0.5">
                   {meta.confirmedCount > 0 && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
+                    <span className="h-1.5 w-1.5 rounded-full bg-jade" />
                   )}
-                  {meta.redFlagCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-danger" />}
+                  {meta.redFlagCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-rose" />}
                 </span>
               )}
             </button>

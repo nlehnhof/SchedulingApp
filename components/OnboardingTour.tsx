@@ -67,9 +67,9 @@ export default function OnboardingTour({ open, onClose }: { open: boolean; onClo
   return (
     <Modal open={open} onClose={complete} title={current.title} closeOnBackdropClick>
       <div className="flex flex-col gap-4">
-        <p className="text-sm text-text-primary">{current.body}</p>
+        <p className="text-sm text-text">{current.body}</p>
         <div className="flex items-center justify-between">
-          <span className="text-xs text-text-secondary">
+          <span className="text-xs text-text-2">
             Step {step + 1} of {STEPS.length}
           </span>
           <div className="flex gap-2">

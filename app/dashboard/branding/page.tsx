@@ -72,7 +72,7 @@ export default function BrandingPage() {
   }, [slug, data?.slug, calendarId]);
 
   if (isLoading) return <Spinner />;
-  if (error || !data) return <p className="text-sm text-danger">Failed to load branding settings.</p>;
+  if (error || !data) return <p className="text-sm text-rose">Failed to load branding settings.</p>;
 
   if (!isAtLeast(data.tier, 'premium')) {
     return (
@@ -123,8 +123,8 @@ export default function BrandingPage() {
 
   return (
     <form onSubmit={handleSave} className="flex max-w-xl flex-col gap-4">
-      <h1 className="font-serif text-xl font-semibold text-text-primary">Branding</h1>
-      <p className="text-sm text-text-secondary">
+      <h1 className="font-display text-xl font-semibold text-text">Branding</h1>
+      <p className="text-sm text-text-2">
         These show up on your public booking page instead of the default look.
       </p>
 
@@ -166,7 +166,7 @@ export default function BrandingPage() {
           }
         />
         {slug && (
-          <p className="text-xs text-text-secondary">
+          <p className="text-xs text-text-2">
             {typeof window !== 'undefined' ? window.location.origin : ''}/visit/{slug}
             {slugStatus === 'checking' && ' — checking availability…'}
             {slugStatus === 'available' && ' — available'}
@@ -174,16 +174,16 @@ export default function BrandingPage() {
         )}
       </div>
 
-      <p className="text-xs text-text-secondary">
+      <p className="text-xs text-text-2">
         Looking for confirmation emails or text reminders?{' '}
-        <Link href="/dashboard/reminders" className="text-accent-hover hover:underline">
+        <Link href="/dashboard/reminders" className="text-lume-bright hover:underline">
           They moved to Reminders &amp; Confirmations
         </Link>
         .
       </p>
 
-      {saveError && <p className="text-sm text-danger">{saveError}</p>}
-      {saved && <p className="text-sm text-success">Branding saved.</p>}
+      {saveError && <p className="text-sm text-rose">{saveError}</p>}
+      {saved && <p className="text-sm text-jade">Branding saved.</p>}
       {canWrite && (
         <Button type="submit" disabled={saving || slugInvalid || slugTaken}>
           {saving ? 'Saving…' : 'Save branding'}

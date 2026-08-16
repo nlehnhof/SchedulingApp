@@ -1,13 +1,13 @@
 import { HTMLAttributes } from 'react';
 
-type Tone = 'accent' | 'highlight' | 'success' | 'danger' | 'neutral';
+type Tone = 'accent' | 'ice' | 'jade' | 'rose' | 'neutral';
 
 const toneClasses: Record<Tone, string> = {
-  accent: 'bg-accent-soft/40 text-accent-hover',
-  highlight: 'bg-highlight-soft/60 text-highlight-hover',
-  success: 'bg-success/15 text-success',
-  danger: 'bg-danger/15 text-danger',
-  neutral: 'bg-text-secondary/15 text-text-secondary',
+  accent: 'bg-lume/14 text-lume-bright',
+  ice: 'bg-ice/14 text-ice',
+  jade: 'bg-jade/14 text-jade',
+  rose: 'bg-rose/14 text-rose',
+  neutral: 'bg-text-2/12 text-text-2',
 };
 
 /**
@@ -22,7 +22,7 @@ export default function Badge({
 }: HTMLAttributes<HTMLSpanElement> & { tone?: Tone }) {
   return (
     <span
-      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${toneClasses[tone]} ${className}`}
+      className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-micro ${toneClasses[tone]} ${className}`}
       {...props}
     />
   );

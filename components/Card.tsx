@@ -21,8 +21,10 @@ export default function Card({
 }: HTMLAttributes<HTMLDivElement> & { padding?: Padding; hoverable?: boolean }) {
   return (
     <div
-      className={`rounded-xl border border-border bg-surface shadow-soft ${
-        hoverable ? 'transition-shadow hover:shadow-medium' : ''
+      className={`rounded-xl border border-hairline bg-surface shadow-lift1 ${
+        hoverable
+          ? 'transition-[box-shadow,border-color] duration-200 hover:border-hairline-2 hover:shadow-lift2'
+          : ''
       } ${paddingClasses[padding]} ${className}`}
       {...props}
     />

@@ -1,6 +1,7 @@
 'use client';
 
 import { ReactNode, useEffect, useRef } from 'react';
+import { X } from '@phosphor-icons/react';
 
 const FOCUSABLE_SELECTOR =
   'a[href], button:not([disabled]), textarea:not([disabled]), input:not([disabled]), select:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -92,18 +93,18 @@ export default function Modal({
         tabIndex={-1}
         className={
           isDrawer
-            ? 'animate-slide-in flex h-full w-72 max-w-[85vw] flex-col overflow-hidden border-r border-border bg-surface p-4 shadow-medium outline-none'
-            : 'animate-scale-in flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl border border-border bg-surface p-6 shadow-medium outline-none'
+            ? 'animate-slide-in flex h-full w-72 max-w-[85vw] flex-col overflow-hidden border-r border-hairline bg-surface p-4 shadow-lift3 outline-none'
+            : 'animate-scale-in flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl border border-hairline bg-surface p-6 shadow-lift3 outline-none'
         }
       >
         <div className="mb-4 flex shrink-0 items-center justify-between">
-          {title && <h2 className="font-serif text-lg font-semibold text-text-primary">{title}</h2>}
+          {title && <h2 className="font-display text-display-sm text-text">{title}</h2>}
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1 text-text-secondary hover:bg-accent-soft/20 hover:text-text-primary"
+            className="rounded-md p-1 text-text-2 hover:bg-lume/20 hover:text-text"
           >
-            ✕
+            <X size={18} weight="regular" />
           </button>
         </div>
         <div className="overflow-y-auto">{children}</div>

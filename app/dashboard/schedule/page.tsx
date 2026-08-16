@@ -120,27 +120,27 @@ export default function SchedulePage() {
           onSelectDate={setSelectedDate}
           onMonthChange={(year, month) => setMonthCursor({ year, month })}
         />
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-secondary">
+        <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-2">
           <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-success" /> Confirmed
+            <span className="h-2 w-2 rounded-full bg-jade" /> Confirmed
           </span>
           <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-danger" /> Conflict
+            <span className="h-2 w-2 rounded-full bg-rose" /> Conflict
           </span>
           <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full border border-text-secondary/50 bg-text-secondary/20" />
+            <span className="h-2 w-2 rounded-full border border-text-2/50 bg-text-2/20" />
             Dimmed = no availability
           </span>
         </div>
       </div>
 
       <div className="flex-1">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-secondary">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-2">
           {selectedDate ?? 'Select a date'}
         </h2>
-        {!selectedDate && <p className="text-sm text-text-secondary">Click a day to see its appointments.</p>}
+        {!selectedDate && <p className="text-sm text-text-2">Click a day to see its appointments.</p>}
         {selectedDate && selectedBucket && selectedBucket.appointments.length === 0 && (
-          <p className="text-sm text-text-secondary">No appointments booked on this day.</p>
+          <p className="text-sm text-text-2">No appointments booked on this day.</p>
         )}
         <div className="flex flex-col gap-2">
           {selectedBucket?.appointments
@@ -149,9 +149,9 @@ export default function SchedulePage() {
               canWrite && confirmDeleteId === apt.id ? (
                 <div
                   key={apt.id}
-                  className="flex items-center justify-between rounded-md border border-danger/30 bg-danger/10 p-3 text-sm"
+                  className="flex items-center justify-between rounded-md border border-rose/30 bg-rose/10 p-3 text-sm"
                 >
-                  <span className="text-danger">Delete this appointment?</span>
+                  <span className="text-rose">Delete this appointment?</span>
                   <div className="flex gap-2">
                     <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => handleDelete(apt.id)}>
                       Confirm
@@ -190,7 +190,7 @@ export default function SchedulePage() {
         onClose={() => setEditingAppointment(null)}
         title="Edit appointment"
       >
-        {editError && <p className="mb-2 text-sm text-danger">{editError}</p>}
+        {editError && <p className="mb-2 text-sm text-rose">{editError}</p>}
         {editingAppointment && (
           <AppointmentEditor
             reasons={reasons}

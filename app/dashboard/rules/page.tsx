@@ -195,14 +195,14 @@ export default function RulesPage() {
     <div className="flex max-w-2xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="font-serif text-xl font-semibold text-text-primary">Rules Editor</h1>
+          <h1 className="font-display text-xl font-semibold text-text">Rules Editor</h1>
           <InfoTooltip text="Day-specific hours override an all-days rule for that day; blackout dates close a day entirely regardless of hours; the remaining capacity/timing rules (max per window, first N only, buffer time, minimum notice) apply on top of your hours." />
         </div>
         {canWrite && <Button onClick={openCreate}>New rule</Button>}
       </div>
 
       {isLoading && <Spinner />}
-      {error && <p className="text-sm text-danger">Failed to load rules.</p>}
+      {error && <p className="text-sm text-rose">Failed to load rules.</p>}
 
       <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {sortRules(data?.rules ?? []).map((rule) => (
@@ -220,7 +220,7 @@ export default function RulesPage() {
               {canWrite &&
                 (confirmDeleteId === rule.id ? (
                   <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-danger">Delete this rule?</span>
+                    <span className="text-xs text-rose">Delete this rule?</span>
                     <Button variant="danger" onClick={() => handleDelete(rule.id)} className="px-2 py-1 text-xs">
                       Confirm
                     </Button>
@@ -240,7 +240,7 @@ export default function RulesPage() {
                     <Button
                       variant="ghost"
                       onClick={() => setConfirmDeleteId(rule.id)}
-                      className="px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                      className="px-2 py-1 text-xs text-rose hover:bg-rose/10"
                     >
                       Delete
                     </Button>
@@ -250,7 +250,7 @@ export default function RulesPage() {
           </li>
         ))}
         {data?.rules.length === 0 && (
-          <p className="text-sm text-text-secondary">
+          <p className="text-sm text-text-2">
             No rules yet — visitors won&apos;t see any available slots until you add an
             available-hours rule.
           </p>
@@ -258,7 +258,7 @@ export default function RulesPage() {
       </ul>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingRule ? 'Edit rule' : 'New rule'}>
-        {submitError && <p className="mb-2 text-sm text-danger">{submitError}</p>}
+        {submitError && <p className="mb-2 text-sm text-rose">{submitError}</p>}
         <RuleEditor
           key={editingRule?.id ?? 'new'}
           onSubmit={handleSave}

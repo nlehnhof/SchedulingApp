@@ -1,3 +1,74 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+:root {
+  color-scheme: dark;
+
+  /* Canvas and structure */
+  --void: #08090f;
+  --void-rgb: 8 9 15;
+  --canvas: #0d0f17;
+  --canvas-rgb: 13 15 23;
+  --surface: #141826;
+  --surface-rgb: 20 24 38;
+  --surface-2: #1b2032;
+  --surface-2-rgb: 27 32 50;
+
+  /* Lines. Three roles, do not mix them up. */
+  --hairline: #242a3c;
+  --hairline-rgb: 36 42 60;
+  --hairline-2: #333b52;
+  --hairline-2-rgb: 51 59 82;
+  --edge: #5d688a;
+  --edge-rgb: 93 104 138;
+
+  /* Text */
+  --text: #e9ebf4;
+  --text-rgb: 233 235 244;
+  --text-2: #9aa1ba;
+  --text-2-rgb: 154 161 186;
+  --text-3: #626a85;
+  --text-3-rgb: 98 106 133;
+
+  /* Accent. The only thing that glows. */
+  --lume: #ffb454;
+  --lume-rgb: 255 180 84;
+  --lume-2: #ffd199;
+  --lume-2-rgb: 255 209 153;
+  --lume-ink: #1a1206;
+  --lume-ink-rgb: 26 18 6;
+
+  /* Status. Product surfaces only. Encodes state, never decoration. */
+  --jade: #4fd6a4;
+  --jade-rgb: 79 214 164;
+  --rose: #ff7286;
+  --rose-rgb: 255 114 134;
+  --ice: #79adff;
+  --ice-rgb: 121 173 255;
+
+  /* Motion */
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+
+  /* Type. The `geist` package hardcodes --font-geist-sans/-mono; alias to the
+     names tailwind.config.js and this design system use everywhere else. */
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+*:focus-visible {
+  outline: 2px solid var(--lume);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

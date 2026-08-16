@@ -25,7 +25,7 @@ export default function BillingPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   if (isLoading) return <Spinner />;
-  if (error || !data) return <p className="text-sm text-danger">Failed to load billing status.</p>;
+  if (error || !data) return <p className="text-sm text-rose">Failed to load billing status.</p>;
 
   async function goTo(path: string, body: Record<string, unknown> = {}) {
     setActionError(null);
@@ -44,44 +44,44 @@ export default function BillingPage() {
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
-      <h1 className="font-serif text-xl font-semibold text-text-primary">Billing</h1>
+      <h1 className="font-display text-xl font-semibold text-text">Billing</h1>
 
       {checkoutParam === 'success' && (
-        <p className="rounded-md border border-accent/40 bg-accent-soft/25 p-3 text-sm text-text-primary">
+        <p className="rounded-md border border-lume/40 bg-lume/25 p-3 text-sm text-text">
           Payment received — this can take a few seconds to finish processing. Refresh if your
           plan below still says Free.
         </p>
       )}
       {checkoutParam === 'cancelled' && (
-        <p className="rounded-md border border-border bg-surface p-3 text-sm text-text-secondary">
+        <p className="rounded-md border border-hairline bg-surface p-3 text-sm text-text-2">
           Checkout was cancelled — no charge was made.
         </p>
       )}
 
-      <div className="rounded-lg border border-border bg-surface p-4">
-        <div className="text-xs uppercase tracking-wide text-text-secondary">Current plan</div>
-        <div className="mt-1 text-lg font-semibold capitalize text-text-primary">{data.tier}</div>
+      <div className="rounded-lg border border-hairline bg-surface p-4">
+        <div className="text-xs uppercase tracking-wide text-text-2">Current plan</div>
+        <div className="mt-1 text-lg font-semibold capitalize text-text">{data.tier}</div>
         {data.stripe_subscription_status && (
-          <div className="mt-1 text-xs text-text-secondary capitalize">
+          <div className="mt-1 text-xs text-text-2 capitalize">
             Subscription status: {data.stripe_subscription_status}
           </div>
         )}
 
         {!isPremiumOrAbove && (
-          <p className="mt-2 text-sm text-text-secondary">
+          <p className="mt-2 text-sm text-text-2">
             Upgrade to Premium to unlock custom branding, a custom booking link, analytics, and
             text reminders — or go straight to Elite for multiple booking calendars and shared
             dashboard access too.
           </p>
         )}
         {isPremiumOrAbove && !isElite && (
-          <p className="mt-2 text-sm text-text-secondary">
+          <p className="mt-2 text-sm text-text-2">
             Upgrade to Elite to unlock multiple booking calendars and shared dashboard access for
             your team.
           </p>
         )}
 
-        {actionError && <p className="mt-2 text-sm text-danger">{actionError}</p>}
+        {actionError && <p className="mt-2 text-sm text-rose">{actionError}</p>}
 
         <div className="mt-4 flex flex-wrap gap-2">
           {isPremiumOrAbove ? (

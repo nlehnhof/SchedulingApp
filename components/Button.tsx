@@ -3,20 +3,27 @@ import { ButtonHTMLAttributes } from 'react';
 type Variant = 'primary' | 'secondary' | 'danger' | 'ghost';
 
 const variantClasses: Record<Variant, string> = {
-  primary: 'bg-accent text-white hover:bg-accent-hover disabled:bg-accent-soft',
-  secondary: 'bg-surface text-text-primary border border-border hover:bg-accent-soft/20',
-  danger: 'bg-danger text-white hover:bg-danger/85 disabled:bg-danger/40',
-  ghost: 'bg-transparent text-text-secondary hover:bg-accent-soft/20',
+  primary:
+    'bg-lume text-lume-ink hover:bg-lume-bright disabled:bg-lume/25 disabled:text-text-3 disabled:hover:bg-lume/25',
+  secondary:
+    'bg-surface-2 text-text border border-edge hover:brightness-110 hover:border-lume/40 disabled:opacity-50 disabled:hover:brightness-100 disabled:hover:border-edge',
+  ghost:
+    'bg-transparent text-text-2 hover:bg-lume/8 hover:text-text disabled:opacity-50 disabled:hover:bg-transparent',
+  danger:
+    'bg-rose text-void hover:brightness-110 disabled:opacity-50 disabled:hover:brightness-100',
 };
 
 export default function Button({
   variant = 'primary',
+  glow = false,
   className = '',
   ...props
-}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant }) {
+}: ButtonHTMLAttributes<HTMLButtonElement> & { variant?: Variant; glow?: boolean }) {
   return (
     <button
-      className={`inline-flex min-h-11 items-center justify-center rounded-md px-4 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${variantClasses[variant]} ${className}`}
+      className={`inline-flex min-h-11 items-center justify-center rounded-lg px-4 py-2 text-body-sm font-medium transition-all duration-150 active:scale-[0.98] disabled:cursor-not-allowed disabled:active:scale-100 ${
+        variantClasses[variant]
+      } ${variant === 'primary' && glow ? 'shadow-glow' : ''} ${className}`}
       {...props}
     />
   );

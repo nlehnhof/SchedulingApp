@@ -1,20 +1,27 @@
-import { Inter, Fraunces } from 'next/font/google';
+import { Space_Grotesk } from 'next/font/google';
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import './globals.css';
 
-// Brand typography per theme_brand.md: warm serif (Fraunces) for headings/wordmark,
-// clean sans (Inter) for UI/body text. Exposed as CSS variables so Tailwind's
-// fontFamily.sans/serif (tailwind.config.js) can reference them.
-const inter = Inter({ subsets: ['latin'], variable: '--font-inter', display: 'swap' });
-const fraunces = Fraunces({
+// Nightshift typography per .design/DESIGN.md section 3: Space Grotesk for display,
+// Geist Sans for UI/body, Geist Mono for every time, date, duration, and stat value.
+// Geist is loaded from the `geist` package rather than next/font/google — this project
+// is on Next 14.2, whose bundled Google Fonts data predates Geist's arrival there.
+const spaceGrotesk = Space_Grotesk({
   subsets: ['latin'],
-  weight: ['500', '600', '700'],
-  variable: '--font-fraunces',
+  weight: ['500', '700'],
+  variable: '--font-display',
   display: 'swap',
 });
 
 export const metadata = {
   title: 'Gather',
-  description: 'Time, set aside for you. Rule-based appointment scheduling.',
+  description: 'Your open hours, and nothing else. Rule-based appointment scheduling.',
+};
+
+export const viewport = {
+  colorScheme: 'dark',
+  themeColor: '#0D0F17',
 };
 
 export default function RootLayout({
@@ -23,8 +30,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={`${inter.variable} ${fraunces.variable}`}>
-      <body className="bg-background text-text-primary">{children}</body>
+    <html
+      lang="en"
+      className={`dark ${spaceGrotesk.variable} ${GeistSans.variable} ${GeistMono.variable}`}
+    >
+      <body className="bg-canvas text-text">{children}</body>
     </html>
   );
 }

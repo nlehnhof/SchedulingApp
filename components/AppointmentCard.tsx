@@ -4,8 +4,8 @@ import { useId, useState } from 'react';
 import type { Appointment } from '@/lib/types';
 
 const statusStyles: Record<Appointment['status'], string> = {
-  confirmed: 'border-l-4 border-success bg-success/10',
-  red_flag: 'border-l-4 border-danger bg-danger/10',
+  confirmed: 'border-l-4 border-jade bg-jade/10',
+  red_flag: 'border-l-4 border-rose bg-rose/10',
 };
 
 export default function AppointmentCard({
@@ -32,7 +32,7 @@ export default function AppointmentCard({
             {start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} –{' '}
             {end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
           </div>
-          <div className="text-text-secondary">
+          <div className="text-text-2">
             {appointment.visitor_name} — {reasonName ?? appointment.reason_id}
           </div>
         </div>
@@ -47,14 +47,14 @@ export default function AppointmentCard({
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
             aria-controls={detailsId}
-            className="rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-white/70"
+            className="rounded px-1.5 py-0.5 text-xs text-text-2 hover:bg-white/70"
           >
             {expanded ? 'Hide details' : 'Details'}
           </button>
           {onEdit && (
             <button
               onClick={() => onEdit(appointment)}
-              className="rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-white/70"
+              className="rounded px-1.5 py-0.5 text-xs text-text-2 hover:bg-white/70"
             >
               Edit
             </button>
@@ -62,7 +62,7 @@ export default function AppointmentCard({
           {onDelete && (
             <button
               onClick={() => onDelete(appointment)}
-              className="rounded px-1.5 py-0.5 text-xs text-danger hover:bg-white/70"
+              className="rounded px-1.5 py-0.5 text-xs text-rose hover:bg-white/70"
             >
               Delete
             </button>
@@ -70,12 +70,12 @@ export default function AppointmentCard({
         </div>
       </div>
       {appointment.status === 'red_flag' && (
-        <div className="mt-1 text-xs font-medium text-danger">
+        <div className="mt-1 text-xs font-medium text-rose">
           Conflicts with a Google Calendar block
         </div>
       )}
       {expanded && (
-        <div id={detailsId} className="mt-2 rounded-md border border-border bg-surface p-2 text-xs">
+        <div id={detailsId} className="mt-2 rounded-md border border-hairline bg-surface p-2 text-xs">
           <div>
             <span className="font-medium">Name:</span> {appointment.visitor_name}
           </div>
