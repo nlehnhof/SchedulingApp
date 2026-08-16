@@ -1,12 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { motion, useReducedMotion } from 'motion/react';
 import Lightline from './Lightline';
 
 export interface DayStripBlock {
   startMin: number; // minutes from midnight
   endMin: number;
   booked: boolean;
+  // Marks the block that should land with the physical spring on mount —
+  // the booking-confirmation moment (DESIGN.md section 6, "the booking
+  // confirmation" animation). Every other block renders in place with no
+  // entrance.
+  justBooked?: boolean;
 }
 
 const MINUTE_MS = 60_000;
@@ -22,13 +28,16 @@ export default function DayStrip({
   blocks,
   dayStartMin = 0,
   dayEndMin = 24 * 60,
+  ariaLabel = "Today's schedule",
   className = '',
 }: {
   blocks: DayStripBlock[];
   dayStartMin?: number;
   dayEndMin?: number;
+  ariaLabel?: string;
   className?: string;
 }) {
+  const prefersReducedMotion = useReducedMotion();
   const span = dayEndMin - dayStartMin;
   const [nowMin, setNowMin] = useState<number | null>(null);
 
@@ -61,7 +70,7 @@ export default function DayStrip({
     <div
       className={`relative h-16 w-full overflow-hidden rounded-xl border border-hairline bg-surface ${className}`}
       role="img"
-      aria-label="Today's schedule"
+      aria-label={ariaLabel}
     >
       {hourTicks.map((m) => (
         <span
@@ -75,11 +84,26 @@ export default function DayStrip({
         const clampedEnd = Math.min(b.endMin, dayEndMin);
         const width = ((clampedEnd - clampedStart) / span) * 100;
         if (width <= 0) return null;
+        const left = ((clampedStart - dayStartMin) / span) * 100;
+        if (b.justBooked) {
+          return (
+            <motion.span
+              key={i}
+              className="absolute top-0 h-full bg-surface-2 shadow-glowSm"
+              style={{ left: `${left}%`, width: `${width}%` }}
+              initial={prefersReducedMotion ? false : { opacity: 0, scaleY: 0.4 }}
+              animate={{ opacity: 1, scaleY: 1 }}
+              transition={
+                prefersReducedMotion ? { duration: 0 } : { type: 'spring', stiffness: 260, damping: 26 }
+              }
+            />
+          );
+        }
         return (
           <span
             key={i}
             className={`absolute top-0 h-full ${b.booked ? 'bg-surface-2' : 'bg-lume/8'}`}
-            style={{ left: `${((clampedStart - dayStartMin) / span) * 100}%`, width: `${width}%` }}
+            style={{ left: `${left}%`, width: `${width}%` }}
           />
         );
       })}

@@ -1,68 +1,61 @@
 ---
-page: visit
+page: dashboard-shell
 layout: foundation
-phase: 3
+phase: 4
 ---
 
-Restyle the visitor booking flow — `app/visit/[clientLink]/page.tsx` and `layout.tsx` — against
-the Nightshift system and the signature components Phase 2 just built. This is the
-highest-visibility surface in the product; it is what the practitioner's own clients see.
+Restyle the dashboard shell — `components/DashboardNav.tsx`, `components/DashboardChrome.tsx`,
+the signed-out state in `app/dashboard/layout.tsx`, `components/CollaboratorBanner.tsx`, and
+`components/OnboardingTour.tsx` — against the Nightshift system. This is the frame every
+dashboard page sits inside, so get it right once here rather than per-page.
 
-Read `.design/DESIGN.md` in full (sections 2.4, 7) and `.design/PLAN.md` Phase 3 before
-starting. Read `components/Lightline.tsx`, `components/DayStrip.tsx`, and `components/
-TimeSlotGrid.tsx` as they exist after Phase 2 — reuse their patterns rather than inventing
-parallel ones.
+Read `.design/DESIGN.md` in full and `.design/PLAN.md` Phase 4 before starting. Read
+`components/DashboardNav.tsx` as it exists after Phases 0-1 (icon sweep already done: `List`
+for the mobile hamburger, `Question` for replay-tutorial) — reuse its existing structure and
+data (`SETUP_LINKS`, `OPERATE_LINKS`, `PREMIUM_LINKS`, `ELITE_LINKS`, the tier dev-toggle,
+the calendar switcher) and restyle rather than rearchitect.
 
 **Scope, exactly:**
 
-1. **Shell.** `min-h-[100dvh]` on `canvas`. A single `rounded-2xl` `surface` panel,
-   `max-w-[30rem]`, vertically centered from `sm` up, full bleed below it. Client logo and
-   "Booking with {name}" above the panel, not inside it.
-2. **Step rail.** Replace the four numbered circles with a Lightline-driven rail: a
-   `hairline` track with a `lume` fill that animates to the new position on step change, the
-   current step's label in `label` beneath it, and the step count in `data`. Keep
-   `aria-current="step"` and the `aria-label="Booking progress"` on the list exactly as they
-   are.
-3. **Step 1, reason.** Reason cards at `rounded-xl` on `surface-2`, name in `body` weight
-   500, duration in `data` right aligned, info note in `body-sm` `text-2` clamped to two
-   lines. Hover lifts to `lift2` and warms the border to `lume/30`. Press `scale-[0.99]`.
-4. **Step 2, date and time.** Keep the horizontal scroll-snap date pills; restyle to the slot
-   chip states from `DESIGN.md` section 7. `TimeSlotGrid` already shows "N open" as of
-   Phase 2. Empty state reads as an invitation, not a dead end.
-5. **Step 3, details.** Pin a summary line at the top of the step showing the selected time
-   in `data` and the reason in `body-sm`. Labels above inputs, errors below (already true of
-   `Input`/`Select` as of Phase 1). The sticky footer bar stays; restyle to `surface` with a
-   `hairline` top border and `backdrop-blur`.
-6. **Step 4, confirmed.** The one orchestrated moment. The step rail completes, a `jade`
-   check scales in (already a Phosphor `Check` as of Phase 1's icon sweep — keep it, just
-   choreograph its entrance), and a `DayStrip` shows the booked block landing with the
-   physical spring (stiffness 260, damping 26). Below it, the appointment time in `data`.
-   Under `useReducedMotion()`, all of it renders in final position with no animation. Keep
-   the existing `confirmationEmailSent` three-way logic and its copy intent exactly.
-7. **Branding override.** Implement `lib/brand-color.ts`: a pure function that computes a
-   client accent's relative luminance and picks `--lume-ink` (`--void` if the accent is
-   light, `#FFFFFF` if dark), plus a contrast-lift helper that lightens the accent
-   programmatically until it passes 4.5:1 against `--canvas`. Apply the result as inline
-   `--lume` / `--lume-ink` CSS variables on the flow's root element in `layout.tsx`. Delete
-   the `accentStyle` prop threading from `page.tsx` (the step dots, date pills, and `Button`
-   `style` overrides) now that every control inherits the client accent automatically through
-   the CSS variable. `TimeSlotGrid` already lost its `accentStyle` prop in Phase 2. Add
-   Vitest coverage for the luminance and contrast-lift helpers in `lib/brand-color.test.ts`;
-   they are pure functions and this repo tests pure functions (see `lib/availability.test.ts`
-   for the existing pattern).
+1. **Sidebar.** 224px wide (`md:w-56` already matches), `surface` on `canvas`, separated by a
+   `hairline` right border (already `md:border-r md:border-hairline` from Phase 0's mechanical
+   pass — verify, don't reintroduce `hairline-2` or `edge` there). Wordmark in `display-sm`
+   (currently `font-display text-lg font-semibold` — swap to the named `display-sm` scale
+   token).
+2. **Active nav item.** Replace the filled-pill treatment (`bg-lume/30 text-text`) with a 2px
+   `lume` left rail plus `bg-lume/8`. Inactive stays `text-text-2 hover:bg-lume/15` (or close
+   to it — keep the hover legible). Do this in both `renderGroup()` and the `Home` link.
+3. **Group headings.** `label` at `text-3` (currently `text-[10px] font-semibold uppercase
+   tracking-wide text-text-2/70` — replace with the named `label` scale token and `text-3`).
+4. **Mobile top bar and drawer.** Keep their current structure and their full account block
+   (email, calendar switcher, dev tier-toggle, sign-out) exactly as-is; only the styling
+   changes to match the restyled sidebar (wordmark size, group heading treatment, active-item
+   treatment reused inside the drawer's nav list too).
+5. **Signed-out state** (`app/dashboard/layout.tsx`). Center the wordmark, one sentence, one
+   `SignInButton`. Read the current signed-out branch before rewriting it — preserve whatever
+   copy/logic is there beyond the visual treatment.
+6. **Admin-login testing warning.** Keep its `rose` treatment; it is a real warning, not
+   decoration to be muted.
+7. **`CollaboratorBanner.tsx`.** Already restyled to `ice` in Phase 1 (semantic: "shared with
+   you"/collaborator affordance) — verify it still reads correctly against the restyled
+   sidebar/topbar and adjust spacing only if the new shell layout requires it.
+8. **`OnboardingTour.tsx`.** Restyle against the token system (it renders inside `Modal`, which
+   is already Nightshift-correct as of Phase 1 — verify the tour's own step content/copy
+   panels use `surface`/`hairline`/`lume` consistently, not leftover raw values).
 
-**Out of bounds:** routes, API shapes, form field names, SWR keys, tier gating, anything
-under `lib/booking.ts` or `supabase/`. Do not touch the dashboard shell, `DashboardNav`, or
-any `/dashboard/*` route.
+**Out of bounds:** routes, API shapes, form field names, SWR keys, tier gating logic, anything
+under `lib/booking.ts` or `supabase/`. Do not touch `/dashboard/page.tsx` or any other
+dashboard route body content — that is Phase 5 onward. Do not touch the visitor booking flow
+or the marketing page.
 
-**Done when:** all four steps render at 375px and 1280px, the conflict path and the
-dismissible load-error banner still work, the flow is completable by keyboard alone with a
-visible `focus-visible` ring at every stop, `lib/brand-color.ts` has passing Vitest coverage,
+**Done when:** the nav renders on one line per item with no wrap at 1024px, the drawer opens
+and closes, the tier lock pills read correctly at all three tiers (free/premium/elite),
 `npx tsc --noEmit` is clean, `npm run lint` is clean, and `npm test` passes.
 
-**Before finishing, write the Phase 4 baton to `.design/next-prompt.md`** using
-`.design/PLAN.md` Phase 4 as the body, with the design system block below copied in, and mark
-`visit` complete in `.design/SURFACES.md` section 4. If you skip this, the loop stops.
+**Before finishing, write the Phase 5 baton to `.design/next-prompt.md`** using
+`.design/PLAN.md` Phase 5 as the body, with the design system block below copied in, and mark
+`dashboard-shell` complete in `.design/SURFACES.md` section 4. If you skip this, the loop
+stops.
 
 ---
 

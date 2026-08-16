@@ -11,6 +11,8 @@ import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Card from '@/components/Card';
 import Spinner from '@/components/Spinner';
+import Lightline from '@/components/Lightline';
+import DayStrip from '@/components/DayStrip';
 import TimeSlotGrid, { DisplaySlot } from '@/components/TimeSlotGrid';
 
 interface VisitorReason {
@@ -173,64 +175,61 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
     resetDetailsForm();
   }
 
-  // Applied as inline styles (not swapped Tailwind classes, which are
-  // compiled statically and can't take an arbitrary per-client hex value)
-  // to the page's primary call-to-action controls — the most visible,
-  // lowest-risk way to reflect a premium client's accent color without a
-  // full runtime theming system (PLAN.md Section 4 feature 1). Only ever
-  // set when the availability response includes branding — a free-tier or
-  // downgraded client's page renders with the default look.
-  const accentStyle = branding?.accentColor ? { backgroundColor: branding.accentColor } : undefined;
-
   const stepIndex = STEPS.indexOf(step);
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-lg flex-col p-6">
-      {branding?.logoUrl && (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={branding.logoUrl}
-          alt=""
-          className="mb-3 h-12 w-auto object-contain"
-          onError={(e) => {
-            (e.currentTarget as HTMLImageElement).style.display = 'none';
-          }}
-        />
-      )}
-      {clientName && <p className="mb-1 text-sm text-text-2">Booking with {clientName}</p>}
-      <h1 className="mb-4 font-display text-xl font-semibold text-text">Book an appointment</h1>
+    <main className="flex min-h-[100dvh] flex-col bg-canvas px-6 py-8 sm:items-center sm:justify-center sm:p-6">
+      <div className="mx-auto flex w-full max-w-[30rem] flex-col items-center gap-1 text-center sm:mb-4">
+        {branding?.logoUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={branding.logoUrl}
+            alt=""
+            className="mb-2 h-12 w-auto object-contain"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        )}
+        {clientName && <p className="text-body-sm text-text-2">Booking with {clientName}</p>}
+      </div>
 
-      {/* Step progress indicator (PLAN.md Section 1/2 item 8) — a
-          first-time visitor previously had no sense of how many steps
-          remained. */}
-      <ol className="mb-6 flex items-center gap-2" aria-label="Booking progress">
-        {STEPS.map((s, i) => (
-          <li key={s} className="flex items-center gap-2">
-            <span
-              aria-current={s === step ? 'step' : undefined}
-              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors ${
-                i <= stepIndex ? 'bg-lume text-white' : 'bg-hairline text-text-2'
-              }`}
-              style={i <= stepIndex ? accentStyle : undefined}
-            >
-              {i + 1}
-            </span>
-            <span className={`text-xs ${i === stepIndex ? 'text-text' : 'text-text-2'}`}>
-              {STEP_LABELS[s]}
-            </span>
-            {i < STEPS.length - 1 && <span className="mx-1 h-px w-4 bg-hairline" />}
-          </li>
-        ))}
-      </ol>
+      <div className="flex w-full flex-1 flex-col sm:max-w-[30rem] sm:flex-none sm:rounded-2xl sm:bg-surface sm:p-6 sm:shadow-lift2">
+        <h1 className="mb-4 font-display text-display-md text-text">Book an appointment</h1>
 
-      {loadError && (
-        <div className="mb-4 flex items-start justify-between gap-3 rounded-md border border-rose/30 bg-rose/10 p-3 text-sm text-rose">
-          <span>{loadError}</span>
-          <button onClick={() => setLoadError(null)} aria-label="Dismiss" className="shrink-0 font-medium">
-            <X size={16} weight="regular" />
-          </button>
+        {/* Step progress indicator (PLAN.md Section 1/2 item 8) — a
+            first-time visitor previously had no sense of how many steps
+            remained. Visual rail is decorative (aria-hidden); the sr-only
+            list below carries the same aria-current/aria-label semantics
+            the old numbered-circle version had. */}
+        <div className="mb-6">
+          <div className="relative h-4 w-full" aria-hidden="true">
+            <div className="pointer-events-none absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-hairline" />
+            <Lightline at={STEPS.length > 1 ? stepIndex / (STEPS.length - 1) : 0} />
+          </div>
+          <div className="mt-1 flex items-center justify-between" aria-hidden="true">
+            <span className="text-label text-text-2">{STEP_LABELS[step]}</span>
+            <span className="font-mono text-data text-text-2">
+              {stepIndex + 1}/{STEPS.length}
+            </span>
+          </div>
+          <ol className="sr-only" aria-label="Booking progress">
+            {STEPS.map((s) => (
+              <li key={s} aria-current={s === step ? 'step' : undefined}>
+                {STEP_LABELS[s]}
+              </li>
+            ))}
+          </ol>
         </div>
-      )}
+
+        {loadError && (
+          <div className="mb-4 flex items-start justify-between gap-3 rounded-lg border border-rose/30 bg-rose/10 p-3 text-body-sm text-rose">
+            <span>{loadError}</span>
+            <button onClick={() => setLoadError(null)} aria-label="Dismiss" className="shrink-0 font-medium">
+              <X size={16} weight="regular" />
+            </button>
+          </div>
+        )}
 
       {step === 'reason' && (
         <div className="flex flex-1 flex-col gap-2 animate-fade-up">
@@ -248,17 +247,15 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
                 setCheckedBoxes({});
                 setStep('datetime');
               }}
-              className="w-full rounded-2xl text-left transition-transform focus:outline-none focus:ring-2 focus:ring-lume/40 active:scale-[0.99]"
+              className="w-full rounded-xl border border-hairline bg-surface-2 p-4 text-left transition-all duration-150 hover:border-lume/30 hover:shadow-lift2 active:scale-[0.99]"
             >
-              <Card hoverable padding="sm" className="flex flex-col gap-1">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium text-text">{reason.name}</span>
-                  <span className="shrink-0 text-xs text-text-2">{reason.durationMin} min</span>
-                </div>
-                {reason.infoNote && (
-                  <p className="line-clamp-2 text-xs text-text-2">{reason.infoNote}</p>
-                )}
-              </Card>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-body font-medium text-text">{reason.name}</span>
+                <span className="shrink-0 font-mono text-data text-text-2">{reason.durationMin} min</span>
+              </div>
+              {reason.infoNote && (
+                <p className="mt-1 line-clamp-2 text-body-sm text-text-2">{reason.infoNote}</p>
+              )}
             </button>
           ))}
         </div>
@@ -266,17 +263,18 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
 
       {step === 'datetime' && selectedReason && (
         <div className="flex flex-1 flex-col gap-4 animate-fade-up">
-          <p className="text-sm text-text-2">{selectedReason.name}</p>
+          <p className="text-body-sm text-text-2">{selectedReason.name}</p>
           {availabilityLoading && <Spinner label="Loading availability…" />}
           <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
             {datesWithSlots.map((date) => (
               <button
                 key={date}
                 onClick={() => setSelectedDate(date)}
-                className={`min-h-11 shrink-0 snap-start rounded-md border px-3 py-2 text-sm transition-colors ${
-                  date === selectedDate ? 'border-lume bg-lume text-white' : 'border-edge hover:bg-lume/15'
+                className={`min-h-11 shrink-0 snap-start rounded-lg border px-3 py-2 font-mono text-data transition-colors duration-150 ${
+                  date === selectedDate
+                    ? 'border-lume bg-lume text-lume-ink shadow-glow'
+                    : 'border-lume/30 bg-lume/8 text-lume-bright hover:bg-lume/14 hover:shadow-glowSm'
                 }`}
-                style={date === selectedDate ? accentStyle : undefined}
               >
                 {/* parseLocalDateOnly(), not `new Date(date)` — `date` is a
                     plain 'YYYY-MM-DD' string, which `new Date()` parses as
@@ -286,7 +284,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
               </button>
             ))}
             {!availabilityLoading && datesWithSlots.length === 0 && (
-              <p className="text-sm text-text-2">No availability in the next 30 days.</p>
+              <p className="text-body-sm text-text-2">No openings in the next 30 days yet. Check back soon.</p>
             )}
           </div>
           {selectedDate && (
@@ -297,11 +295,11 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
             />
           )}
           <div className="flex-1" />
-          <div className="sticky bottom-0 -mx-6 flex justify-between border-t border-hairline bg-canvas/95 px-6 py-3 backdrop-blur">
+          <div className="sticky bottom-0 -mx-6 flex justify-between border-t border-hairline bg-surface/95 px-6 py-3 backdrop-blur">
             <Button variant="ghost" onClick={() => setStep('reason')}>
               Back
             </Button>
-            <Button disabled={!selectedSlot} onClick={() => setStep('details')} style={accentStyle}>
+            <Button disabled={!selectedSlot} onClick={() => setStep('details')}>
               Continue
             </Button>
           </div>
@@ -316,18 +314,21 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
           })}
           className="flex flex-1 flex-col gap-4 animate-fade-up"
         >
-          <p className="text-sm text-text-2">
-            {`${new Date(selectedSlot.start).toLocaleString([], {
-              weekday: 'long',
-              month: 'short',
-              day: 'numeric',
-              hour: 'numeric',
-              minute: '2-digit',
-            })}, ${selectedReason?.name}`}
-          </p>
+          <div className="rounded-lg bg-surface-2 px-3 py-2">
+            <div className="font-mono text-data text-text">
+              {new Date(selectedSlot.start).toLocaleString([], {
+                weekday: 'long',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: '2-digit',
+              })}
+            </div>
+            <div className="text-body-sm text-text-2">{selectedReason?.name}</div>
+          </div>
 
           {selectedReason?.infoNote && (
-            <Card padding="sm" className="text-sm text-text">
+            <Card padding="sm" className="text-body-sm text-text">
               {selectedReason.infoNote}
             </Card>
           )}
@@ -355,7 +356,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
               {selectedReason.requiredCheckboxes.map((label) => (
                 <label
                   key={label}
-                  className="flex min-h-11 items-center gap-2 rounded-md text-sm text-text hover:bg-lume/10"
+                  className="flex min-h-11 items-center gap-2 rounded-lg text-body text-text hover:bg-lume/10"
                 >
                   <input
                     type="checkbox"
@@ -372,26 +373,24 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
           )}
 
           {conflict && (
-            <Card padding="sm" className="animate-scale-in border-lume/40 bg-lume/25 text-sm text-text">
+            <Card padding="sm" className="animate-scale-in border-lume/40 bg-lume/25 text-body-sm text-text">
               <p className="font-medium">{conflict.message ?? 'That slot just booked!'}</p>
               {conflict.nextAvailable && (
                 <div className="mt-2 flex items-center justify-between">
                   <span>
                     Try{' '}
-                    {new Date(conflict.nextAvailable.start).toLocaleString([], {
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
+                    <span className="font-mono text-data">
+                      {new Date(conflict.nextAvailable.start).toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: 'numeric',
+                        minute: '2-digit',
+                      })}
+                    </span>
                     ?
                   </span>
                   <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      onClick={() => book(conflict.nextAvailable!.start)}
-                      style={accentStyle}
-                    >
+                    <Button type="button" onClick={() => book(conflict.nextAvailable!.start)}>
                       Accept
                     </Button>
                     <Button type="button" variant="ghost" onClick={() => setConflict(null)}>
@@ -404,7 +403,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
           )}
 
           <div className="flex-1" />
-          <div className="sticky bottom-0 -mx-6 flex justify-between border-t border-hairline bg-canvas/95 px-6 py-3 backdrop-blur">
+          <div className="sticky bottom-0 -mx-6 flex justify-between border-t border-hairline bg-surface/95 px-6 py-3 backdrop-blur">
             <Button type="button" variant="ghost" onClick={() => setStep('datetime')}>
               Back
             </Button>
@@ -414,7 +413,6 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
                 loading ||
                 !!selectedReason?.requiredCheckboxes.some((label) => !checkedBoxes[label])
               }
-              style={accentStyle}
             >
               {loading ? 'Booking…' : 'Confirm booking'}
             </Button>
@@ -430,18 +428,42 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
           >
             <Check size={32} weight="regular" />
           </div>
-          <h2 className="font-display text-lg font-semibold text-text">Your appointment is booked!</h2>
-          <p className="text-sm text-text-2">
-            {`${new Date(confirmed.start).toLocaleString([], {
+          <h2 className="font-display text-display-sm text-text">Your appointment is booked</h2>
+
+          {(() => {
+            const start = new Date(confirmed.start);
+            const end = new Date(confirmed.end);
+            const startMin = start.getHours() * 60 + start.getMinutes();
+            const endMin = end.getHours() * 60 + end.getMinutes();
+            const dayStartMin = Math.max(0, startMin - 120);
+            const dayEndMin = Math.min(24 * 60, endMin + 120);
+            return (
+              <DayStrip
+                className="my-2 w-full"
+                dayStartMin={dayStartMin}
+                dayEndMin={dayEndMin}
+                ariaLabel="Your booked time"
+                blocks={[{ startMin, endMin, booked: true, justBooked: true }]}
+              />
+            );
+          })()}
+
+          <div className="font-mono text-data text-text">
+            {new Date(confirmed.start).toLocaleString([], {
               weekday: 'long',
               month: 'short',
               day: 'numeric',
               hour: 'numeric',
               minute: '2-digit',
-            })}, ${selectedReason?.name}${clientName ? ` with ${clientName}` : ''}`}
+            })}
+          </div>
+          <p className="text-body-sm text-text-2">
+            {selectedReason?.name}
+            {clientName ? ` with ${clientName}` : ''}
           </p>
-          <p className="text-sm text-text-2">
-            The client will contact you at {details?.visitorPhone} if anything changes.
+          <p className="text-body-sm text-text-2">
+            The client will contact you at <span className="font-mono">{details?.visitorPhone}</span> if
+            anything changes.
           </p>
           {/* confirmationEmailSent is only present at all when a send was
               actually attempted (premium client) — undefined means nothing
@@ -450,12 +472,12 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
               is premium (booking itself always succeeds either way — a
               failed confirmation email never blocks the booking). */}
           {confirmed.confirmationEmailSent === true && (
-            <p className="text-sm text-text-2">
+            <p className="text-body-sm text-text-2">
               We&apos;ve also sent a confirmation to {details?.visitorEmail}.
             </p>
           )}
           {confirmed.confirmationEmailSent === false && (
-            <p className="text-sm text-text-2">
+            <p className="text-body-sm text-text-2">
               We tried to send a confirmation to {details?.visitorEmail} but it didn&apos;t go
               through. Your appointment is still booked, and{' '}
               {clientName ?? 'the client'} can see it.
@@ -466,6 +488,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
           </Button>
         </div>
       )}
+      </div>
     </main>
   );
 }

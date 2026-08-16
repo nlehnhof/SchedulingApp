@@ -48,7 +48,7 @@ Update this when an iteration completes. Do not rebuild anything already marked 
 - [x] `tokens` - `tailwind.config.js`, `app/globals.css`, `app/layout.tsx`, deps, fonts
 - [x] `primitives` - Button, Card, Badge, Input, Select, Modal, Skeleton, Spinner, InfoTooltip, PremiumLockCard, icon swap
 - [x] `signature` - `Lightline`, `DayStrip`, plus `TimeSlotGrid`, `Calendar`, `MonthGridHeader`, `AppointmentCard`, `DatesMultiSelect`
-- [ ] `visit` - `/visit/[clientLink]` booking flow and its layout
+- [x] `visit` - `/visit/[clientLink]` booking flow and its layout
 - [ ] `dashboard-shell` - `DashboardNav`, `DashboardChrome`, `CollaboratorBanner`, `OnboardingTour`, dashboard layout signed-out state
 - [ ] `dashboard-home` - `/dashboard`
 - [ ] `dashboard-time` - `/dashboard/schedule`, `/dashboard/calendar` (the Lightline payoff)
@@ -66,8 +66,8 @@ Update this when an iteration completes. Do not rebuild anything already marked 
       components before the marketing page that embeds them.
 
 ### Medium priority
-- [ ] `lib/brand-color.ts` with luminance and contrast-lift helpers, plus Vitest coverage,
-      for the premium per-client accent override
+- [x] `lib/brand-color.ts` with luminance and contrast-lift helpers, plus Vitest coverage,
+      for the premium per-client accent override (done in Phase 3)
 - [ ] Open Graph image for `/` rendered from the token system
 - [ ] Replace or regrade `public/tetons.jpg`; it belongs to the retired warm palette
 
