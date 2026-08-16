@@ -22,7 +22,7 @@ export function MonthNavHeader({
       >
         <CaretLeft size={18} weight="regular" />
       </button>
-      <div className="font-display font-medium text-text">{label}</div>
+      <div className="font-display text-display-sm text-text">{label}</div>
       <button
         type="button"
         onClick={onNext}
@@ -38,7 +38,7 @@ export function MonthNavHeader({
 /** Sun–Sat column-label row shared by Calendar.tsx and DatesMultiSelect.tsx. */
 export function WeekdayHeader() {
   return (
-    <div className="grid grid-cols-7 gap-1 text-center text-xs text-text-2">
+    <div className="grid grid-cols-7 gap-1 text-center text-label text-text-3">
       {WEEKDAY_LABELS.map((d) => (
         <div key={d}>{d}</div>
       ))}

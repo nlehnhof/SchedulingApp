@@ -1,95 +1,68 @@
 ---
-page: primitives
+page: visit
 layout: foundation
-phase: 1
+phase: 3
 ---
 
-Rewrite Gather's shared primitive components against the Nightshift token system that Phase 0
-just landed. Phase 0 only renamed color/shadow/font classes in place; every primitive still
-looks visually identical to the old "Golden Hour" system because no component was actually
-restyled. This phase is the first real restyle pass.
+Restyle the visitor booking flow — `app/visit/[clientLink]/page.tsx` and `layout.tsx` — against
+the Nightshift system and the signature components Phase 2 just built. This is the
+highest-visibility surface in the product; it is what the practitioner's own clients see.
 
-Read `.design/DESIGN.md` in full (sections 4, 5, 7, and 8 especially) and `.design/PLAN.md`
-Phase 1 before starting. Read each component file as it exists today before rewriting it —
-preserve every prop, every piece of logic, every `aria-*` attribute, and every always-visible
-action; only the markup/classes and, where the plan explicitly calls for it, the tone union
-change.
+Read `.design/DESIGN.md` in full (sections 2.4, 7) and `.design/PLAN.md` Phase 3 before
+starting. Read `components/Lightline.tsx`, `components/DayStrip.tsx`, and `components/
+TimeSlotGrid.tsx` as they exist after Phase 2 — reuse their patterns rather than inventing
+parallel ones.
 
-**Scope, exactly — rewrite these against `DESIGN.md` section 7:**
+**Scope, exactly:**
 
-1. `components/Button.tsx` — four variants (`primary`, `secondary`, `ghost`, `danger`), each
-   with rest/hover/active/disabled treatments exactly as tabulated in section 7. Minimum 44px
-   tall, `rounded-lg`, `body-sm` weight 500. `primary` gets `shadow-glow` only when it is the
-   CTA currently in view (keep this conditional if the component already has a way to express
-   "in view"; otherwise a `glow` boolean prop is fine — additive only, default `false`).
-2. `components/Card.tsx` — `bg-surface border border-hairline rounded-xl shadow-lift1`; a
-   hoverable variant adds `shadow-lift2` and `border-hairline-2` at 200ms. Cards never glow.
-3. `components/Badge.tsx` — `rounded-full micro px-2.5 py-0.5`. Change the `Tone` union from
-   `accent | highlight | success | danger | neutral` to `accent | ice | jade | rose | neutral`
-   and update every call site (grep for `<Badge` and for `Tone`). Tone treatments:
-   `neutral` `bg-text-2/12 text-text-2`, `accent` `bg-lume/14 text-lume-bright`, and `ice`/
-   `jade`/`rose` each `bg-<color>/14 text-<color>`. Badges never glow.
-4. `components/Input.tsx`, `components/Select.tsx` (and any `Textarea` if one exists) —
-   `bg-surface-2 border border-edge rounded-lg`, text at `body`, placeholder at `text-3`.
-   Label above at `label`, error below at `body-sm` in `rose`, error state swaps the border to
-   `border-rose`. Focus uses the global `focus-visible` ring already in `globals.css` — do not
-   add a component-local focus style that could conflict with it.
-5. `components/Modal.tsx` — both the dialog and drawer variants. `rounded-2xl` (dialog) /
-   unchanged corners on the full-height drawer, `shadow-lift3`, `bg-surface`. Replace the `✕`
-   close glyph with a Phosphor `X` icon.
-6. `components/Skeleton.tsx` — `bg-surface-2` with a slow shimmer using the `shimmer` keyframe
-   Phase 0 already added to `tailwind.config.js`, disabled under reduced motion.
-7. `components/Spinner.tsx` — keep it; per `DESIGN.md` section 7 it survives only for inline
-   button-level pending states now that `Skeleton` covers full-section loading. Restyle its
-   ring to the new tokens (already partially done in Phase 0's mechanical pass — verify it
-   reads as `border-hairline border-t-lume`).
-8. `components/InfoTooltip.tsx` — trigger circle restyled per the edge/interactive-control
-   treatment, popover panel as a `surface` panel with `shadow-lift2`. Replace the `i` glyph
-   trigger with a Phosphor `Info` icon.
-9. `components/PremiumLockCard.tsx` — becomes a genuinely good locked state per section 7's
-   loading/empty/error philosophy: what the feature does, what it costs, one button. Replace
-   any lock glyph with a Phosphor `Lock` icon.
-10. `components/SignInButton.tsx`, `components/SignOutButton.tsx` — restyle to the `Button`
-    primitive's variants rather than one-off classes, if they aren't already composed from it.
-11. `components/ErrorBanner.tsx` — inline and specific per the error-state philosophy in
-    section 7. Replace the `✕` dismiss glyph with a Phosphor `X` icon.
-12. `components/CollaboratorBanner.tsx` — restyle to the token system; this banner uses `ice`
-    (it signals "shared with you", not an error or success state).
-
-**Icon sweep — replace every raw glyph/emoji with `@phosphor-icons/react` v2,
-`weight="regular"`, `size={18}` inline / `size={20}` nav, per `DESIGN.md` section 8:**
-
-- `components/DashboardNav.tsx` — `☰` menu glyph, and the replay-tutorial `?` button
-- `components/MonthGridHeader.tsx` — `←` `→` month nav arrows
-- `components/Modal.tsx` and `components/ErrorBanner.tsx` — `✕` close glyphs
-- `app/page.tsx` — `↓` scroll cue (leave the rest of this file alone; Phase 10 rebuilds it
-  entirely, this is just the icon swap so the grep in `DESIGN.md` section 8 comes back clean)
-- the booking confirmation checkmark in `app/visit/[clientLink]/page.tsx` — `✓`
-- `components/InfoTooltip.tsx` — the `i` trigger glyph
-- `app/dashboard/page.tsx` — the premium features list `🔒`
-
-Do not hand-roll SVG paths for anything Phosphor doesn't have; compose from Phosphor
-primitives or pick a different metaphor instead.
+1. **Shell.** `min-h-[100dvh]` on `canvas`. A single `rounded-2xl` `surface` panel,
+   `max-w-[30rem]`, vertically centered from `sm` up, full bleed below it. Client logo and
+   "Booking with {name}" above the panel, not inside it.
+2. **Step rail.** Replace the four numbered circles with a Lightline-driven rail: a
+   `hairline` track with a `lume` fill that animates to the new position on step change, the
+   current step's label in `label` beneath it, and the step count in `data`. Keep
+   `aria-current="step"` and the `aria-label="Booking progress"` on the list exactly as they
+   are.
+3. **Step 1, reason.** Reason cards at `rounded-xl` on `surface-2`, name in `body` weight
+   500, duration in `data` right aligned, info note in `body-sm` `text-2` clamped to two
+   lines. Hover lifts to `lift2` and warms the border to `lume/30`. Press `scale-[0.99]`.
+4. **Step 2, date and time.** Keep the horizontal scroll-snap date pills; restyle to the slot
+   chip states from `DESIGN.md` section 7. `TimeSlotGrid` already shows "N open" as of
+   Phase 2. Empty state reads as an invitation, not a dead end.
+5. **Step 3, details.** Pin a summary line at the top of the step showing the selected time
+   in `data` and the reason in `body-sm`. Labels above inputs, errors below (already true of
+   `Input`/`Select` as of Phase 1). The sticky footer bar stays; restyle to `surface` with a
+   `hairline` top border and `backdrop-blur`.
+6. **Step 4, confirmed.** The one orchestrated moment. The step rail completes, a `jade`
+   check scales in (already a Phosphor `Check` as of Phase 1's icon sweep — keep it, just
+   choreograph its entrance), and a `DayStrip` shows the booked block landing with the
+   physical spring (stiffness 260, damping 26). Below it, the appointment time in `data`.
+   Under `useReducedMotion()`, all of it renders in final position with no animation. Keep
+   the existing `confirmationEmailSent` three-way logic and its copy intent exactly.
+7. **Branding override.** Implement `lib/brand-color.ts`: a pure function that computes a
+   client accent's relative luminance and picks `--lume-ink` (`--void` if the accent is
+   light, `#FFFFFF` if dark), plus a contrast-lift helper that lightens the accent
+   programmatically until it passes 4.5:1 against `--canvas`. Apply the result as inline
+   `--lume` / `--lume-ink` CSS variables on the flow's root element in `layout.tsx`. Delete
+   the `accentStyle` prop threading from `page.tsx` (the step dots, date pills, and `Button`
+   `style` overrides) now that every control inherits the client accent automatically through
+   the CSS variable. `TimeSlotGrid` already lost its `accentStyle` prop in Phase 2. Add
+   Vitest coverage for the luminance and contrast-lift helpers in `lib/brand-color.test.ts`;
+   they are pure functions and this repo tests pure functions (see `lib/availability.test.ts`
+   for the existing pattern).
 
 **Out of bounds:** routes, API shapes, form field names, SWR keys, tier gating, anything
-under `lib/booking.ts` or `supabase/`, and the signature components (`Lightline`, `DayStrip`,
-`TimeSlotGrid`, `Calendar`, `AppointmentCard`, `DatesMultiSelect`, `MonthGridHeader`'s layout
-beyond its icon swap) — those are Phase 2. Don't touch `app/page.tsx` beyond its one icon
-swap; it gets fully rebuilt in Phase 10.
+under `lib/booking.ts` or `supabase/`. Do not touch the dashboard shell, `DashboardNav`, or
+any `/dashboard/*` route.
 
-**Done when:** every primitive renders correctly in isolation at both 1280px and 375px, all
-four interaction states exist on `Button` (rest, hover, active, disabled) with visible
-`focus-visible` rings, `Badge`'s new `Tone` union has zero remaining call sites on the old
-names, a grep for `✕`, `✓`, `☰`, `←`, `→`, `?` (as a standalone icon glyph, not literal
-question marks in copy), `🔒`, and `i` (as an icon glyph) across `app/` and `components/`
-turns up only the two known exceptions noted above (`app/page.tsx`'s `↓` and the confirmation
-`✓`, both explicitly listed as in-scope here so they should in fact be gone too — the true
-done state is zero raw glyphs left anywhere), `npx tsc --noEmit` is clean, `npm run lint` is
-clean, and `npm test` passes.
+**Done when:** all four steps render at 375px and 1280px, the conflict path and the
+dismissible load-error banner still work, the flow is completable by keyboard alone with a
+visible `focus-visible` ring at every stop, `lib/brand-color.ts` has passing Vitest coverage,
+`npx tsc --noEmit` is clean, `npm run lint` is clean, and `npm test` passes.
 
-**Before finishing, write the Phase 2 baton to `.design/next-prompt.md`** using
-`.design/PLAN.md` Phase 2 as the body, with the design system block below copied in, and mark
-`primitives` complete in `.design/SURFACES.md` section 4. If you skip this, the loop stops.
+**Before finishing, write the Phase 4 baton to `.design/next-prompt.md`** using
+`.design/PLAN.md` Phase 4 as the body, with the design system block below copied in, and mark
+`visit` complete in `.design/SURFACES.md` section 4. If you skip this, the loop stops.
 
 ---
 

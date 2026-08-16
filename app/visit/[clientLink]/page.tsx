@@ -294,7 +294,6 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
               slots={slotsForSelectedDate}
               selectedStart={selectedSlot?.start}
               onSelect={(s) => setSelectedSlot(s as VisitorSlot)}
-              accentStyle={accentStyle}
             />
           )}
           <div className="flex-1" />
