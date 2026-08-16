@@ -99,7 +99,14 @@ offset. The visitor-facing availability route and `lib/booking.ts`'s conflict-su
 also live-fetch the client's Google Calendar (`getGoogleCalendarEvents`, best-effort — falls
 back to no blocks on a Google outage) so a slot that's already taken on Google is never offered
 in the first place, rather than only being caught after the fact by the 30-min cron's
-`red_flag`.
+`red_flag`. `getGoogleCalendarEvents()` strips the UTC offset Google always includes on
+`event.start/end.dateTime` (`stripTimeZoneOffset()`) before returning it as a `GoogleBlock` —
+`getAvailableSlots()`'s overlap check does `new Date(block.start)`, and unlike the naive DB
+timestamps everywhere else in this app, a real offset in that string makes `Date` treat it as a
+true absolute instant instead of resolving it against the server process's local time the same
+way slot times are built. Left un-stripped, that mismatch silently un-blocks any slot that
+visibly overlaps a real Google Calendar event whenever the server isn't running in that
+calendar's own offset — this shipped as a live bug once, don't reintroduce it.
 
 **Premium tier has two independent sources, and every read must account for both.**
 `clients.tier` (`'free' | 'premium'`) is the column every route ultimately checks, but it can

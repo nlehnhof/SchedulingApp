@@ -25,6 +25,28 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
   return json.access_token as string;
 }
 
+/**
+ * Google always returns event.start/end.dateTime as a full RFC3339 instant
+ * with an explicit offset (e.g. '2026-08-17T12:00:00-06:00'), reflecting
+ * whatever time zone the calendar itself is configured with. Everywhere
+ * else, this app treats appointment times as *naive* local wall-clock
+ * values with no offset at all (see lib/date-format.ts) — slot times in
+ * getAvailableSlots are built with plain `Date.setHours()` and compared
+ * with `new Date(naiveString)`, which both resolve against the server
+ * process's own local time, not any particular IANA zone. `new Date()` DOES
+ * respect an explicit offset, so passing Google's dateTime straight through
+ * silently compares a true absolute instant against a naive one — on a
+ * server that isn't running in the calendar's own offset, appointments that
+ * visibly overlap on the calendar stop overlapping in that comparison and
+ * the slot gets offered anyway. The fix is to strip the offset rather than
+ * convert through it: the literal digits before it already ARE the
+ * calendar's local wall-clock time, which is exactly what needs to line up
+ * against the rest of the app's naive slot/appointment times.
+ */
+export function stripTimeZoneOffset(dateTime: string): string {
+  return dateTime.replace(/(?:Z|[+-]\d{2}:\d{2})$/, '');
+}
+
 export interface GoogleCalendarListEntry {
   id: string;
   summary: string;
@@ -92,8 +114,8 @@ export async function getGoogleCalendarEvents(
     .map((event: any) => ({
       id: event.id,
       summary: event.summary ?? '(no title)',
-      start: event.start.dateTime,
-      end: event.end.dateTime,
+      start: stripTimeZoneOffset(event.start.dateTime),
+      end: stripTimeZoneOffset(event.end.dateTime),
     }));
 }
 
