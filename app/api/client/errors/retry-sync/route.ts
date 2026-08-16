@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { requireClient } from '@/lib/require-client';
-import { requireCalendarAccess } from '@/lib/require-calendar';
+import { requireCalendarAccess, requireWriteRole } from '@/lib/require-calendar';
 import { syncGoogleCalendarForCalendar } from '@/lib/google-calendar';
 import { errorResponse } from '@/lib/error-response';
 
@@ -11,8 +11,10 @@ export async function POST(req: Request) {
   if (client instanceof NextResponse) return client;
 
   const body = await req.json().catch(() => ({}));
-  const calendar = await requireCalendarAccess(body?.calendarId, client.clientId);
+  const calendar = await requireCalendarAccess(body?.calendarId, client);
   if (calendar instanceof NextResponse) return calendar;
+  const writeError = requireWriteRole(calendar.role);
+  if (writeError) return writeError;
 
   try {
     await syncGoogleCalendarForCalendar(calendar.calendarId);

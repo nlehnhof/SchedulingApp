@@ -22,7 +22,8 @@ async function patchReason(id: string, calendarId: string, body: Record<string, 
 }
 
 export default function ReasonsPage() {
-  const { calendarId } = useCalendar();
+  const { calendarId, role } = useCalendar();
+  const canWrite = role !== 'viewer';
   const KEY = calendarId ? `/api/client/reasons?calendarId=${calendarId}` : null;
   const { data, error, isLoading } = useSWR<{ reasons: AppointmentReason[] }>(KEY, fetcher);
   const [name, setName] = useState('');
@@ -136,7 +137,7 @@ export default function ReasonsPage() {
             className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-sm"
           >
             <div className="flex flex-col gap-1">
-              {editingId === reason.id ? (
+              {canWrite && editingId === reason.id ? (
                 <div className="flex items-center gap-1">
                   <input
                     autoFocus
@@ -161,7 +162,7 @@ export default function ReasonsPage() {
                     Cancel
                   </button>
                 </div>
-              ) : (
+              ) : canWrite ? (
                 <button
                   onClick={() => startRename(reason)}
                   className="w-fit text-left font-medium hover:underline"
@@ -169,63 +170,71 @@ export default function ReasonsPage() {
                 >
                   {reason.name}
                 </button>
+              ) : (
+                <span className="font-medium">{reason.name}</span>
               )}
               <span className="text-xs text-text-secondary">
-                <input
-                  type="number"
-                  min={1}
-                  defaultValue={reason.duration_min}
-                  className="w-16 rounded border border-border px-1 py-0.5 text-xs"
-                  onBlur={(e) => {
-                    const v = Number(e.target.value);
-                    if (v && v !== reason.duration_min) handleDurationChange(reason, v);
-                  }}
-                />{' '}
+                {canWrite ? (
+                  <input
+                    type="number"
+                    min={1}
+                    defaultValue={reason.duration_min}
+                    className="w-16 rounded border border-border px-1 py-0.5 text-xs"
+                    onBlur={(e) => {
+                      const v = Number(e.target.value);
+                      if (v && v !== reason.duration_min) handleDurationChange(reason, v);
+                    }}
+                  />
+                ) : (
+                  reason.duration_min
+                )}{' '}
                 min
               </span>
             </div>
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => moveReason(i, -1)}
-                disabled={i === 0}
-                aria-label="Move up"
-                className="rounded px-2 py-1 text-text-secondary hover:bg-accent-soft/20 disabled:opacity-30"
-              >
-                ↑
-              </button>
-              <button
-                onClick={() => moveReason(i, 1)}
-                disabled={i === reasons.length - 1}
-                aria-label="Move down"
-                className="rounded px-2 py-1 text-text-secondary hover:bg-accent-soft/20 disabled:opacity-30"
-              >
-                ↓
-              </button>
-              {confirmDeleteId === reason.id ? (
-                <span className="flex items-center gap-1">
+            {canWrite && (
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => moveReason(i, -1)}
+                  disabled={i === 0}
+                  aria-label="Move up"
+                  className="rounded px-2 py-1 text-text-secondary hover:bg-accent-soft/20 disabled:opacity-30"
+                >
+                  ↑
+                </button>
+                <button
+                  onClick={() => moveReason(i, 1)}
+                  disabled={i === reasons.length - 1}
+                  aria-label="Move down"
+                  className="rounded px-2 py-1 text-text-secondary hover:bg-accent-soft/20 disabled:opacity-30"
+                >
+                  ↓
+                </button>
+                {confirmDeleteId === reason.id ? (
+                  <span className="flex items-center gap-1">
+                    <button
+                      onClick={() => handleDelete(reason.id)}
+                      className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="rounded px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
+                    >
+                      Cancel
+                    </button>
+                  </span>
+                ) : (
                   <button
-                    onClick={() => handleDelete(reason.id)}
+                    onClick={() => setConfirmDeleteId(reason.id)}
+                    aria-label={`Delete ${reason.name}`}
                     className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
                   >
-                    Confirm
+                    Delete
                   </button>
-                  <button
-                    onClick={() => setConfirmDeleteId(null)}
-                    className="rounded px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
-                  >
-                    Cancel
-                  </button>
-                </span>
-              ) : (
-                <button
-                  onClick={() => setConfirmDeleteId(reason.id)}
-                  aria-label={`Delete ${reason.name}`}
-                  className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
-                >
-                  Delete
-                </button>
-              )}
-            </div>
+                )}
+              </div>
+            )}
           </li>
         ))}
         {reasons.length === 0 && !isLoading && (
@@ -235,21 +244,23 @@ export default function ReasonsPage() {
         )}
       </ul>
 
-      <form onSubmit={handleAdd} className="flex items-end gap-2 border-t border-border pt-4">
-        <Input label="New reason" value={name} onChange={(e) => setName(e.target.value)} required />
-        <Input
-          label="Duration (min)"
-          type="number"
-          min={1}
-          value={duration}
-          onChange={(e) => setDuration(e.target.value)}
-          className="w-28"
-          required
-        />
-        <Button type="submit" disabled={saving}>
-          {saving ? 'Adding…' : 'Add'}
-        </Button>
-      </form>
+      {canWrite && (
+        <form onSubmit={handleAdd} className="flex items-end gap-2 border-t border-border pt-4">
+          <Input label="New reason" value={name} onChange={(e) => setName(e.target.value)} required />
+          <Input
+            label="Duration (min)"
+            type="number"
+            min={1}
+            value={duration}
+            onChange={(e) => setDuration(e.target.value)}
+            className="w-28"
+            required
+          />
+          <Button type="submit" disabled={saving}>
+            {saving ? 'Adding…' : 'Add'}
+          </Button>
+        </form>
+      )}
       {submitError && <p className="text-sm text-danger">{submitError}</p>}
     </div>
   );

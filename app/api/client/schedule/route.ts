@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   if (client instanceof NextResponse) return client;
 
   const { searchParams } = new URL(req.url);
-  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client);
   if (calendar instanceof NextResponse) return calendar;
 
   const startDate = searchParams.get('startDate');

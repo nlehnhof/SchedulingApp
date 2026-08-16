@@ -13,6 +13,11 @@ import { isAtLeast } from '@/lib/tier';
 export async function GET() {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+  // Owner-only — a collaborator (Elite team access, 0018 migration) has no
+  // `clients` row of their own to read/write settings on.
+  if (!client.clientId) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
 
   const supabase = createServiceClient();
   const { data, error } = await supabase
@@ -32,6 +37,9 @@ export async function GET() {
 export async function PATCH(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+  if (!client.clientId) {
+    return NextResponse.json({ error: 'not_found' }, { status: 404 });
+  }
 
   if (!isAtLeast(client.tier, 'premium')) {
     return NextResponse.json({ error: 'Reminders is a premium feature.' }, { status: 403 });

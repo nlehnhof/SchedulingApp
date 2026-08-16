@@ -12,6 +12,11 @@ import { errorResponse } from '@/lib/error-response';
 export async function POST() {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+  if (!client.clientId) {
+    // A pure collaborator has no tutorial/onboarding state of their own —
+    // nothing to do, but not an error either.
+    return NextResponse.json({ status: 'ok' });
+  }
 
   const supabase = createServiceClient();
   const { error } = await supabase

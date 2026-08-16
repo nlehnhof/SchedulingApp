@@ -43,7 +43,7 @@ Migrations must be applied **in order**: `0001_init` → `0002_booking_function`
 `0008_visitor_email` → `0009_stripe_billing` → `0010_premium_grants` →
 `0011_client_calendar_selection` → `0012_appointment_google_event` → `0013_elite_tier` →
 `0014_booking_calendars` → `0015_booking_calendars_backfill` → `0016_calendar_id_fk_move` →
-`0017_booking_functions_calendar_scoped`. `0013` also needs `STRIPE_ELITE_PRICE_ID` set
+`0017_booking_functions_calendar_scoped` → `0018_client_collaborators`. `0013` also needs `STRIPE_ELITE_PRICE_ID` set
 (alongside the existing `STRIPE_PREMIUM_PRICE_ID`) once an Elite Price exists in Stripe — see
 its migration file header. `0014`-`0017` are the multi-calendar migration (see "Multi-calendar
 architecture" below) — `0016` is a genuinely destructive schema change (drops `client_id` off
@@ -175,6 +175,51 @@ single place the 1-vs-5 limit is defined).
   `lib/validation.ts`'s `calendarSelectSchema` deliberately names its field `googleCalendarId`,
   not `calendarId`, to keep this distinction visible in code.
 
+## Team access (Elite tier)
+
+A client can invite other emails to help manage one of their calendars without sharing their
+own Google login (`client_collaborators`, `0018` migration). Access is scoped per-**calendar**,
+not per-account — the same email can be an Editor on one calendar and have no access at all to
+another, even under the same owner, via `UNIQUE(calendar_id, email)`.
+
+- **A collaborator can have no `clients` row of their own at all.** `lib/require-client.ts`'s
+  `clientId` is nullable for exactly this reason — `lib/auth.ts`'s `signIn` callback checks
+  `client_collaborators` for the signing-in email *before* creating a new owner account, so a
+  pure collaborator never gets an orphaned second account. `session()` resolves
+  `collaboratorCalendars: [{calendarId, clientId (the owner's), calendarDisplayName, role}]`
+  separately from the owner `clientId`, since one person can be both (their own calendars, plus
+  calendars they collaborate on elsewhere) — the switcher's "Your calendars" / "Shared with you"
+  grouping is this same data. An invite's `accepted_at` is stamped automatically on the
+  invitee's first matching sign-in (no separate "accept" click) — see the `signIn` callback's
+  comments for exactly where.
+- **`lib/require-calendar.ts`'s `requireCalendarAccess()`** checks ownership OR collaboration
+  and returns the resolved `role` (`'owner' | 'editor' | 'viewer'`). Every write route calls
+  `requireWriteRole(role)` afterward (`'viewer'` can never write); calendar create/delete,
+  billing, and team management additionally call `requireOwnerRole(role)` — an Editor can
+  manage bookings but never those.
+- **Premium/Elite-gated calendar-scoped features must check the CALENDAR's owning client's
+  tier, never the requester's own** — `lib/require-calendar.ts`'s `calendarOwnerTier()`. An
+  Editor with no subscription of their own, collaborating on an Elite owner's calendar, must
+  still get full access to that calendar's premium features (branding, analytics); gating on
+  the collaborator's own (often `'free'`) tier was a real bug caught while building this
+  (`app/api/client/branding/route.ts`, `app/api/client/analytics/route.ts`,
+  `app/api/client/dashboard/route.ts` all resolve tier this way now). The same class of bug
+  applies to `google_refresh_token` — always resolved through the calendar's actual owner (a
+  join), never `client.clientId` directly (`app/api/client/calendar/route.ts`,
+  `lib/booking.ts`, `lib/google-calendar.ts`) — a collaborator has no refresh token of their own.
+- **Owner-only routes** (billing, `app/api/client/calendars/*`, `app/api/client/reminders/*`,
+  `app/api/client/onboarding/complete`) explicitly reject a `null` `clientId` rather than let a
+  collaborator's request silently query with a null id.
+- **`components/CollaboratorBanner.tsx`** shows "Shared with you — {role} access on {calendar}"
+  whenever the *currently selected* calendar's role isn't `'owner'` — reflects the switcher's
+  live selection, not a fixed account-wide fact, since an owner can switch into a calendar they
+  merely collaborate on. A pure-collaborator session also skips the first-run onboarding tour
+  (`components/DashboardChrome.tsx`) since there's no `tutorial_completed_at` state to persist
+  for an account that doesn't exist.
+- **Invite email** (`lib/email.ts`'s `sendCollaboratorInviteEmail`) is best-effort, same pattern
+  as every other email send in this codebase — a failed send logs to `error_log` as
+  `collaborator_invite_email_failed` and never rolls back the already-created invite row.
+
 **Tier is three-valued and ranked, not a boolean, and has two independent sources per read.**
 `clients.tier` (`'free' | 'premium' | 'elite'`, widened from two values by the `0013` migration
 — `elite` is $99/mo, unlocking multiple booking calendars and shared per-calendar dashboard
@@ -218,10 +263,12 @@ shared store (e.g. Upstash Redis) or the effective limit silently multiplies by 
 ## Structure
 
 - `app/dashboard/*` — client-facing pages (rules, reasons, schedule, calendar, errors, export,
-  billing, branding, reminders, analytics, calendars — the last two are premium/Elite-gated),
-  gated by `app/dashboard/layout.tsx`'s server-side session check. Every page except billing/
-  reminders/calendars reads the currently-selected calendar from `useCalendar()`
-  (`components/CalendarContext.tsx`) — see "Multi-calendar architecture" above.
+  billing, branding, reminders, analytics, calendars, team — branding/reminders/analytics are
+  premium+, calendars/team are Elite-only), gated by `app/dashboard/layout.tsx`'s server-side
+  session check. Every page except billing/reminders/calendars/team reads the
+  currently-selected calendar from `useCalendar()` (`components/CalendarContext.tsx`), which
+  also exposes the caller's `role` on it for viewer-role UI gating — see "Multi-calendar
+  architecture" and "Team access" above.
 - `app/visit/[clientLink]` — 4-step visitor booking flow (reason → date/time → details →
   confirmation), including conflict "try this instead?" UI; `[clientLink]` resolves to a
   `booking_calendars` row via `lib/resolve-calendar-link.ts`, despite the param's name (kept for

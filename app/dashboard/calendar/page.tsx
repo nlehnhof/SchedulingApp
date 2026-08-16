@@ -33,7 +33,8 @@ const TIMEZONE_OPTIONS = [
 ];
 
 export default function CalendarPage() {
-  const { calendarId } = useCalendar();
+  const { calendarId, role } = useCalendar();
+  const canWrite = role !== 'viewer';
   const KEY = calendarId ? `/api/client/calendar?calendarId=${calendarId}` : null;
   const { data, error, isLoading } = useSWR<GoogleCalendarData>(KEY, fetcher);
 
@@ -91,6 +92,7 @@ export default function CalendarPage() {
           label="Time zone"
           value={timezone}
           onChange={(e) => setTimezone(e.target.value)}
+          disabled={!canWrite}
         >
           {!TIMEZONE_OPTIONS.some((tz) => tz.id === timezone) && timezone && (
             <option value={timezone}>{timezone}</option>
@@ -113,6 +115,7 @@ export default function CalendarPage() {
             label="Google calendar to read"
             value={googleCalendarId}
             onChange={(e) => setGoogleCalendarId(e.target.value)}
+            disabled={!canWrite}
           >
             {data.calendars.map((cal) => (
               <option key={cal.id} value={cal.id}>
@@ -139,9 +142,11 @@ export default function CalendarPage() {
 
       {saveError && <p className="text-sm text-danger">{saveError}</p>}
       {saved && <p className="text-sm text-success">Saved.</p>}
-      <Button type="submit" disabled={saving || !timezone || (data.linked && !googleCalendarId)}>
-        {saving ? 'Saving…' : 'Save'}
-      </Button>
+      {canWrite && (
+        <Button type="submit" disabled={saving || !timezone || (data.linked && !googleCalendarId)}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
+      )}
     </form>
   );
 }

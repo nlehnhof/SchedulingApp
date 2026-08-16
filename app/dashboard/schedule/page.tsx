@@ -27,7 +27,8 @@ function toDatetimeLocal(iso: string): string {
 }
 
 export default function SchedulePage() {
-  const { calendarId } = useCalendar();
+  const { calendarId, role } = useCalendar();
+  const canWrite = role !== 'viewer';
   const [monthCursor, setMonthCursor] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
@@ -144,7 +145,7 @@ export default function SchedulePage() {
           {selectedBucket?.appointments
             .sort((a, b) => a.start_time.localeCompare(b.start_time))
             .map((apt) =>
-              confirmDeleteId === apt.id ? (
+              canWrite && confirmDeleteId === apt.id ? (
                 <div
                   key={apt.id}
                   className="flex items-center justify-between rounded-md border border-danger/30 bg-danger/10 p-3 text-sm"
@@ -168,11 +169,15 @@ export default function SchedulePage() {
                   key={apt.id}
                   appointment={apt}
                   reasonName={reasonNameById.get(apt.reason_id)}
-                  onEdit={(a) => {
-                    setEditError(null);
-                    setEditingAppointment(a);
-                  }}
-                  onDelete={(a) => setConfirmDeleteId(a.id)}
+                  onEdit={
+                    canWrite
+                      ? (a) => {
+                          setEditError(null);
+                          setEditingAppointment(a);
+                        }
+                      : undefined
+                  }
+                  onDelete={canWrite ? (a) => setConfirmDeleteId(a.id) : undefined}
                 />
               )
             )}

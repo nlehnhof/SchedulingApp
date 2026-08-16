@@ -33,7 +33,11 @@ export default function CalendarsPage() {
   if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
   if (error || !data) return <p className="text-sm text-danger">Failed to load your calendars.</p>;
 
-  const atLimit = data.calendars.length >= data.limit;
+  // Owned calendars only — this page manages what an account owns.
+  // Calendars shared with you as a collaborator show up in the switcher
+  // (components/DashboardNav.tsx) but aren't listed/manageable here.
+  const owned = data.calendars.filter((c) => c.role === 'owner');
+  const atLimit = owned.length >= data.limit;
 
   async function handleCreate() {
     setCreateError(null);
@@ -93,7 +97,7 @@ export default function CalendarsPage() {
         <div>
           <h1 className="font-serif text-xl font-semibold text-text-primary">Calendars</h1>
           <p className="mt-1 text-sm text-text-secondary">
-            {data.calendars.length} of {data.limit} used. Each calendar has its own rules,
+            {owned.length} of {data.limit} used. Each calendar has its own rules,
             reasons, branding, booking link, and Google Calendar selection.
           </p>
         </div>
@@ -116,7 +120,7 @@ export default function CalendarsPage() {
       {deleteError && <p className="text-sm text-danger">{deleteError}</p>}
 
       <ul className="flex flex-col gap-2">
-        {data.calendars.map((cal) => (
+        {owned.map((cal) => (
           <li
             key={cal.id}
             className="flex items-center justify-between rounded-md border border-border p-3 text-sm"
@@ -156,7 +160,7 @@ export default function CalendarsPage() {
                 >
                   Rename
                 </button>
-                {data.calendars.length > 1 && (
+                {owned.length > 1 && (
                   <button
                     onClick={() => setConfirmDeleteId(cal.id)}
                     className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/10"

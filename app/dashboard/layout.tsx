@@ -39,6 +39,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const tier: Tier =
     sessionTier === 'elite' ? 'elite' : sessionTier === 'premium' ? 'premium' : 'free';
   const tutorialCompletedAt = (session as any).tutorialCompletedAt ?? null;
+  const isCollaboratorOnly = !!(session as any).isCollaboratorOnly;
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@local.test';
   const isAdminTestAccount = adminLoginEnabled && session.user?.email === adminEmail;
   // Read once server-side so a hard reload of e.g. /dashboard/rules doesn't
@@ -52,6 +53,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       tier={tier}
       tutorialCompletedAt={tutorialCompletedAt}
       isAdminTestAccount={isAdminTestAccount}
+      isCollaboratorOnly={isCollaboratorOnly}
       initialCalendarId={initialCalendarId}
     >
       {children}

@@ -4,11 +4,14 @@ import { createContext, useContext, useEffect, useState } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
 
+export type CalendarRole = 'owner' | 'editor' | 'viewer';
+
 export interface CalendarSummary {
   id: string;
   display_name: string | null;
   slug: string | null;
-  created_at: string;
+  created_at: string | null;
+  role: CalendarRole;
 }
 
 interface CalendarContextValue {
@@ -17,6 +20,8 @@ interface CalendarContextValue {
   limit: number;
   isLoading: boolean;
   setCalendarId: (id: string) => void;
+  /** Role on the *currently selected* calendar — 'viewer' pages should hide write controls. */
+  role: CalendarRole | null;
 }
 
 const CalendarContext = createContext<CalendarContextValue | null>(null);
@@ -77,14 +82,18 @@ export default function CalendarProvider({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
 
+  const calendars = data?.calendars ?? [];
+  const role = calendars.find((c) => c.id === calendarId)?.role ?? null;
+
   return (
     <CalendarContext.Provider
       value={{
         calendarId,
-        calendars: data?.calendars ?? [],
+        calendars,
         limit: data?.limit ?? 1,
         isLoading,
         setCalendarId,
+        role,
       }}
     >
       {children}

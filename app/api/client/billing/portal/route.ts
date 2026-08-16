@@ -11,6 +11,9 @@ import { errorResponse } from '@/lib/error-response';
 export async function POST() {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+  if (!client.clientId) {
+    return NextResponse.json({ error: 'Only an account owner has billing to manage.' }, { status: 403 });
+  }
 
   const supabase = createServiceClient();
   const { data: row, error } = await supabase

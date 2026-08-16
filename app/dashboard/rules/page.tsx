@@ -127,7 +127,8 @@ function toRequestBody(values: RuleFormValues): Record<string, unknown> {
 }
 
 export default function RulesPage() {
-  const { calendarId } = useCalendar();
+  const { calendarId, role } = useCalendar();
+  const canWrite = role !== 'viewer';
   const rulesKey = calendarId ? `/api/client/rules?calendarId=${calendarId}` : null;
   const { data, error, isLoading } = useSWR<{ rules: Rule[] }>(rulesKey, fetcher);
   const [modalOpen, setModalOpen] = useState(false);
@@ -180,7 +181,7 @@ export default function RulesPage() {
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
         <h1 className="font-serif text-xl font-semibold text-text-primary">Rules Editor</h1>
-        <Button onClick={openCreate}>New rule</Button>
+        {canWrite && <Button onClick={openCreate}>New rule</Button>}
       </div>
 
       {isLoading && <p className="text-sm text-text-secondary">Loading…</p>}
@@ -204,36 +205,37 @@ export default function RulesPage() {
               <span className="text-xs uppercase tracking-wide text-text-secondary">{rule.rule_type}</span>
             </div>
 
-            {confirmDeleteId === rule.id ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-danger">Delete this rule?</span>
-                <Button variant="danger" onClick={() => handleDelete(rule.id)} className="px-2 py-1 text-xs">
-                  Confirm
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setConfirmDeleteId(null)}
-                  className="px-2 py-1 text-xs"
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => openEdit(rule)}
-                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
-                >
-                  Edit
-                </button>
-                <button
-                  onClick={() => setConfirmDeleteId(rule.id)}
-                  className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/10"
-                >
-                  Delete
-                </button>
-              </div>
-            )}
+            {canWrite &&
+              (confirmDeleteId === rule.id ? (
+                <div className="flex items-center gap-2">
+                  <span className="text-xs text-danger">Delete this rule?</span>
+                  <Button variant="danger" onClick={() => handleDelete(rule.id)} className="px-2 py-1 text-xs">
+                    Confirm
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="px-2 py-1 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => openEdit(rule)}
+                    className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
+                  >
+                    Edit
+                  </button>
+                  <button
+                    onClick={() => setConfirmDeleteId(rule.id)}
+                    className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                  >
+                    Delete
+                  </button>
+                </div>
+              ))}
           </li>
         ))}
         {data?.rules.length === 0 && (

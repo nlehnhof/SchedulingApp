@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
-import { requireCalendarAccess } from '@/lib/require-calendar';
+import { requireCalendarAccess, requireWriteRole, calendarOwnerTier } from '@/lib/require-calendar';
 import { brandingSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 import { isAtLeast } from '@/lib/tier';
@@ -10,13 +10,13 @@ import { isAtLeast } from '@/lib/tier';
 // below-premium client still needs to see their own current values so the
 // Branding page can render the locked/upsell panel with something to show.
 // Scoped to one booking_calendars row (?calendarId=) — no cross-tenant data
-// here, just a calendar the caller owns.
+// here, just a calendar the caller owns or collaborates on.
 export async function GET(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
 
   const { searchParams } = new URL(req.url);
-  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client);
   if (calendar instanceof NextResponse) return calendar;
 
   const supabase = createServiceClient();
@@ -34,26 +34,29 @@ export async function GET(req: Request) {
     accent_color: data.accent_color,
     logo_url: data.logo_url,
     slug: data.slug,
-    tier: client.tier,
+    tier: await calendarOwnerTier(calendar.calendarId),
   });
 }
 
 // The actual write path for premium features 1 (branding) and 2 (slug) —
 // both persist through this one route, scoped to one booking_calendars
-// row. Must check tier is premium-or-above server-side regardless of what
-// the UI already hides, per PLAN.md Section 5: a free-tier client
-// hand-crafting this request must get a 403.
+// row. Must check the owning calendar's tier is premium-or-above
+// server-side regardless of what the UI already hides, per PLAN.md
+// Section 5: a free-tier client hand-crafting this request must get a 403.
 export async function PATCH(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
 
-  if (!isAtLeast(client.tier, 'premium')) {
+  const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client);
+  if (calendar instanceof NextResponse) return calendar;
+  const writeError = requireWriteRole(calendar.role);
+  if (writeError) return writeError;
+
+  const ownerTier = await calendarOwnerTier(calendar.calendarId);
+  if (!isAtLeast(ownerTier, 'premium')) {
     return NextResponse.json({ error: 'Branding is a premium feature.' }, { status: 403 });
   }
-
-  const { searchParams } = new URL(req.url);
-  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
-  if (calendar instanceof NextResponse) return calendar;
 
   const parsed = brandingSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -93,6 +96,6 @@ export async function PATCH(req: Request) {
     accent_color: data.accent_color,
     logo_url: data.logo_url,
     slug: data.slug,
-    tier: client.tier,
+    tier: ownerTier,
   });
 }

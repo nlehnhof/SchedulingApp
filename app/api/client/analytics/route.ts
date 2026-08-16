@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
-import { requireCalendarAccess } from '@/lib/require-calendar';
+import { requireCalendarAccess, calendarOwnerTier } from '@/lib/require-calendar';
 import { errorResponse } from '@/lib/error-response';
 import { isAtLeast } from '@/lib/tier';
 
@@ -36,13 +36,15 @@ export async function GET(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
 
-  if (!isAtLeast(client.tier, 'premium')) {
+  const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client);
+  if (calendar instanceof NextResponse) return calendar;
+
+  // Gated on the calendar's owning client's tier, not the requester's own —
+  // see lib/require-calendar.ts's calendarOwnerTier() header comment.
+  if (!isAtLeast(await calendarOwnerTier(calendar.calendarId), 'premium')) {
     return NextResponse.json({ error: 'Analytics is a premium feature.' }, { status: 403 });
   }
-
-  const { searchParams } = new URL(req.url);
-  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
-  if (calendar instanceof NextResponse) return calendar;
 
   const supabase = createServiceClient();
   const windowStart = new Date();

@@ -39,6 +39,7 @@ const PREMIUM_LINKS: NavLink[] = [
 ];
 const ELITE_LINKS: NavLink[] = [
   { href: '/dashboard/calendars', label: 'Calendars', minTier: 'elite' },
+  { href: '/dashboard/team', label: 'Team', minTier: 'elite' },
 ];
 
 // Dev tier-toggle cycles free -> premium -> elite -> free, rather than a
@@ -133,7 +134,9 @@ export default function DashboardNav({
 
         {/* Only shown once there's actually something to switch between —
             free/premium clients always have exactly 1 calendar, so this
-            stays out of their way entirely. */}
+            stays out of their way entirely. Grouped by role: a person can be
+            both an owner and an accepted collaborator elsewhere (Elite team
+            access, 0018 migration) and needs to tell those apart. */}
         {calendars.length > 1 && (
           <div className="mt-1">
             <Select
@@ -142,11 +145,28 @@ export default function DashboardNav({
               onChange={(e) => setCalendarId(e.target.value)}
               className="text-xs"
             >
-              {calendars.map((cal) => (
-                <option key={cal.id} value={cal.id}>
-                  {cal.display_name || 'Untitled calendar'}
-                </option>
-              ))}
+              {calendars.some((c) => c.role === 'owner') && (
+                <optgroup label="Your calendars">
+                  {calendars
+                    .filter((c) => c.role === 'owner')
+                    .map((cal) => (
+                      <option key={cal.id} value={cal.id}>
+                        {cal.display_name || 'Untitled calendar'}
+                      </option>
+                    ))}
+                </optgroup>
+              )}
+              {calendars.some((c) => c.role !== 'owner') && (
+                <optgroup label="Shared with you">
+                  {calendars
+                    .filter((c) => c.role !== 'owner')
+                    .map((cal) => (
+                      <option key={cal.id} value={cal.id}>
+                        {cal.display_name || 'Untitled calendar'} ({cal.role})
+                      </option>
+                    ))}
+                </optgroup>
+              )}
             </Select>
           </div>
         )}

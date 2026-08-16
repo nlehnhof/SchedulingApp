@@ -125,3 +125,53 @@ export async function sendBookingConfirmationEmail({
     replyTo: clientEmail,
   });
 }
+
+/**
+ * Elite team access (0018 migration) invite notification. There's no
+ * separate invite-token auth path to build — the link just routes to the
+ * normal dashboard sign-in, and Google OAuth does the actual
+ * authentication; lib/auth.ts's signIn callback recognizes a pending
+ * invite for the signing-in email and resolves the session into the
+ * owner's calendar with the assigned role automatically (see its header
+ * comment). This email exists to (a) confirm the address isn't a typo
+ * before granting standing access, and (b) give the invitee a discoverable
+ * "someone invited you" moment instead of silently landing in a stranger's
+ * dashboard next time they sign in. Best-effort — see
+ * app/api/client/team/route.ts's caller for the try/catch that logs a
+ * failure without rolling back the invite row itself.
+ */
+export async function sendCollaboratorInviteEmail({
+  inviteeEmail,
+  ownerDisplayName,
+  ownerEmail,
+  role,
+  calendarDisplayName,
+  appUrl,
+}: {
+  inviteeEmail: string;
+  ownerDisplayName: string;
+  ownerEmail: string;
+  role: 'viewer' | 'editor';
+  calendarDisplayName: string;
+  appUrl: string;
+}) {
+  const roleLabel = role === 'editor' ? 'Editor' : 'Viewer';
+  await sendEmail({
+    to: inviteeEmail,
+    subject: `${ownerDisplayName} invited you to help manage ${calendarDisplayName} on Gather`,
+    text: [
+      `${ownerDisplayName} invited you to help manage their "${calendarDisplayName}" calendar on Gather as a ${roleLabel}.`,
+      '',
+      roleLabel === 'Editor'
+        ? "You'll be able to view and edit rules, reasons, and appointments — but not billing or team access."
+        : "You'll be able to view rules, reasons, and appointments, but not make changes.",
+      '',
+      `To accept, just sign in with Google using this email address (${inviteeEmail}) at:`,
+      `${appUrl}/dashboard`,
+      '',
+      `Questions? Reply to this email — it goes straight to ${ownerDisplayName}.`,
+    ].join('\n'),
+    fromName: ownerDisplayName,
+    replyTo: ownerEmail,
+  });
+}

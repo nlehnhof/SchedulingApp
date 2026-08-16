@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
-import { requireCalendarAccess } from '@/lib/require-calendar';
+import { requireCalendarAccess, requireWriteRole } from '@/lib/require-calendar';
 import { reasonSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 
@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   if (client instanceof NextResponse) return client;
 
   const { searchParams } = new URL(req.url);
-  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client);
   if (calendar instanceof NextResponse) return calendar;
 
   const supabase = createServiceClient();
@@ -36,8 +36,10 @@ export async function POST(req: Request) {
   if (client instanceof NextResponse) return client;
 
   const { searchParams } = new URL(req.url);
-  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client);
   if (calendar instanceof NextResponse) return calendar;
+  const writeError = requireWriteRole(calendar.role);
+  if (writeError) return writeError;
 
   const parsed = reasonSchema.safeParse(await req.json());
   if (!parsed.success) {

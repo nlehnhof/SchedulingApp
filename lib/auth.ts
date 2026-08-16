@@ -82,6 +82,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user, account }) {
       if (!account || !user.email) return false;
+      const email = user.email.toLowerCase();
 
       const supabase = createServiceClient();
       const existing = await supabase
@@ -89,6 +90,33 @@ export const authOptions: NextAuthOptions = {
         .select('id, google_refresh_token')
         .eq('email', user.email)
         .maybeSingle();
+
+      // A person invited as a collaborator (Elite team access — 0018
+      // migration) who has never owned their own account must NOT get a new
+      // owner `clients` row created for them just by signing in — that
+      // would silently give them a second, independent, empty account
+      // instead of landing them in the calendar(s) they were actually
+      // invited to. An existing owner's own row always takes priority
+      // (checked first, via `existing` above) — being invited elsewhere
+      // never demotes or replaces someone's own account.
+      if (!existing.data) {
+        const { count: collaboratorRowCount } = await supabase
+          .from('client_collaborators')
+          .select('id', { count: 'exact', head: true })
+          .eq('email', email);
+        if (collaboratorRowCount) {
+          // Stamp any pending invite(s) for this email as accepted on this,
+          // their first-ever sign-in — see lib/require-client.ts /
+          // session() below for how this then resolves into the owner's
+          // calendar(s) with the assigned role, no separate "accept" step.
+          await supabase
+            .from('client_collaborators')
+            .update({ accepted_at: new Date().toISOString() })
+            .eq('email', email)
+            .is('accepted_at', null);
+          return true;
+        }
+      }
 
       const { data: upserted } = await supabase
         .from('clients')
@@ -126,6 +154,17 @@ export const authOptions: NextAuthOptions = {
         }
       }
 
+      // An owner can also be invited as a collaborator elsewhere (a second
+      // calendar/account they don't own) — their own row still wins for
+      // default session identity (below), but any pending invite for them
+      // should still get accepted on sign-in so it shows up in the
+      // calendar switcher's "shared with you" group.
+      await supabase
+        .from('client_collaborators')
+        .update({ accepted_at: new Date().toISOString() })
+        .eq('email', email)
+        .is('accepted_at', null);
+
       return true;
     },
     async session({ session }) {
@@ -152,7 +191,36 @@ export const authOptions: NextAuthOptions = {
         // itself ever being touched.
         (session as any).tier = await getEffectiveTier(client.tier ?? 'free', session.user.email);
         (session as any).tutorialCompletedAt = client.tutorial_completed_at ?? null;
+      } else {
+        (session as any).clientId = null;
       }
+
+      // Elite team access (0018 migration): every calendar this email has
+      // *accepted* collaborator access to, regardless of who owns it —
+      // resolved separately from the owner `clientId` above so a person can
+      // be both an owner (their own calendars) and a collaborator elsewhere
+      // (someone else's) at once. Only accepted rows count — a still-pending
+      // invite is stamped accepted_at automatically on the invitee's next
+      // sign-in (see the signIn callback above), not before.
+      const { data: collaborations } = await supabase
+        .from('client_collaborators')
+        .select('role, booking_calendars(id, client_id, display_name)')
+        .eq('email', session.user.email.toLowerCase())
+        .not('accepted_at', 'is', null);
+      (session as any).collaboratorCalendars = (collaborations ?? [])
+        .map((row: any) => {
+          const cal = Array.isArray(row.booking_calendars) ? row.booking_calendars[0] : row.booking_calendars;
+          if (!cal) return null;
+          return {
+            calendarId: cal.id,
+            clientId: cal.client_id,
+            calendarDisplayName: cal.display_name,
+            role: row.role as 'viewer' | 'editor',
+          };
+        })
+        .filter(Boolean);
+      (session as any).isCollaboratorOnly = !client && (session as any).collaboratorCalendars.length > 0;
+
       return session;
     },
   },

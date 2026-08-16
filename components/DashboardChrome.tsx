@@ -4,6 +4,7 @@ import { useState } from 'react';
 import DashboardNav from './DashboardNav';
 import OnboardingTour from './OnboardingTour';
 import CalendarProvider from './CalendarContext';
+import CollaboratorBanner from './CollaboratorBanner';
 import type { Tier } from '@/lib/tier';
 
 // Client-side container so the nav's "Replay tutorial" button and the tour
@@ -18,6 +19,7 @@ export default function DashboardChrome({
   tier,
   tutorialCompletedAt,
   isAdminTestAccount,
+  isCollaboratorOnly,
   initialCalendarId,
   children,
 }: {
@@ -25,10 +27,16 @@ export default function DashboardChrome({
   tier: Tier;
   tutorialCompletedAt: string | null;
   isAdminTestAccount?: boolean;
+  isCollaboratorOnly?: boolean;
   initialCalendarId: string | null;
   children: React.ReactNode;
 }) {
-  const [tourOpen, setTourOpen] = useState(tutorialCompletedAt === null);
+  // A pure collaborator (no owner account of their own) has no
+  // tutorial_completed_at to ever set, so the null-means-show-the-tour
+  // default would otherwise trigger it every single session — suppress it
+  // for that case rather than build out onboarding state for an account
+  // that doesn't exist.
+  const [tourOpen, setTourOpen] = useState(!isCollaboratorOnly && tutorialCompletedAt === null);
 
   return (
     <CalendarProvider initialCalendarId={initialCalendarId}>
@@ -39,7 +47,10 @@ export default function DashboardChrome({
           isAdminTestAccount={isAdminTestAccount}
           onReplayTutorial={() => setTourOpen(true)}
         />
-        <main className="flex-1 p-4 md:p-8">{children}</main>
+        <div className="flex flex-1 flex-col">
+          <CollaboratorBanner />
+          <main className="flex-1 p-4 md:p-8">{children}</main>
+        </div>
         <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />
       </div>
     </CalendarProvider>

@@ -21,6 +21,9 @@ const PRICE_ENV_BY_TIER: Record<'premium' | 'elite', string | undefined> = {
 export async function POST(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+  if (!client.clientId) {
+    return NextResponse.json({ error: 'Only an account owner has billing to manage.' }, { status: 403 });
+  }
 
   const body = await req.json().catch(() => ({}));
   const targetTier: Tier = body?.tier === 'elite' ? 'elite' : 'premium';

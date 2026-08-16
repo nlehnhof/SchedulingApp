@@ -7,7 +7,8 @@ import ErrorBanner from '@/components/ErrorBanner';
 import { useCalendar } from '@/components/CalendarContext';
 
 export default function ErrorsPage() {
-  const { calendarId } = useCalendar();
+  const { calendarId, role } = useCalendar();
+  const canWrite = role !== 'viewer';
   const KEY = calendarId ? `/api/client/errors?calendarId=${calendarId}` : null;
   // Auto-refresh every 5 min per Phase 3 spec.
   const { data, error, isLoading } = useSWR<{ errors: ErrorLogEntry[] }>(KEY, fetcher, {
@@ -38,7 +39,12 @@ export default function ErrorsPage() {
       )}
       <div className="flex flex-col gap-2">
         {errors.map((e) => (
-          <ErrorBanner key={e.id} error={e} onAcknowledge={acknowledge} onRetry={retrySync} />
+          <ErrorBanner
+            key={e.id}
+            error={e}
+            onAcknowledge={canWrite ? acknowledge : undefined}
+            onRetry={canWrite ? retrySync : undefined}
+          />
         ))}
       </div>
     </div>

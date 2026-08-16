@@ -152,3 +152,21 @@ export const calendarSelectSchema = z
   .refine((v) => v.googleCalendarId !== undefined || v.timezone !== undefined, {
     message: 'At least one of googleCalendarId, timezone is required',
   });
+
+// POST /api/client/team — Elite team access (0018 migration), owner-only.
+// Email is lowercased at validation time to match client_collaborators'
+// lowercase-only CHECK constraint and the case-insensitive lookup
+// lib/auth.ts's signIn/session callbacks do against a signing-in email.
+export const teamInviteSchema = z.object({
+  email: z
+    .string()
+    .email()
+    .max(255)
+    .transform((e) => e.toLowerCase()),
+  role: z.enum(['viewer', 'editor']),
+});
+
+// PATCH /api/client/team/[id] — change an existing collaborator's role.
+export const teamRoleUpdateSchema = z.object({
+  role: z.enum(['viewer', 'editor']),
+});

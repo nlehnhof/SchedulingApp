@@ -10,6 +10,9 @@ import { errorResponse } from '@/lib/error-response';
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+  if (!client.clientId) {
+    return NextResponse.json({ error: 'Only an account owner can manage calendars.' }, { status: 403 });
+  }
 
   const parsed = calendarCreateSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -39,6 +42,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
 export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+  if (!client.clientId) {
+    return NextResponse.json({ error: 'Only an account owner can manage calendars.' }, { status: 403 });
+  }
 
   const supabase = createServiceClient();
   const { count } = await supabase

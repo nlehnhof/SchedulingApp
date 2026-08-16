@@ -21,7 +21,8 @@ interface BrandingData {
 const SLUG_RE = /^[a-z0-9-]{3,30}$/;
 
 export default function BrandingPage() {
-  const { calendarId } = useCalendar();
+  const { calendarId, role } = useCalendar();
+  const canWrite = role !== 'viewer';
   const KEY = calendarId ? `/api/client/branding?calendarId=${calendarId}` : null;
   const { data, error, isLoading } = useSWR<BrandingData>(KEY, fetcher);
 
@@ -136,18 +137,21 @@ export default function BrandingPage() {
         value={displayName}
         onChange={(e) => setDisplayName(e.target.value)}
         placeholder="e.g. Dr. Smith Family Dentistry"
+        disabled={!canWrite}
       />
       <Input
         label="Accent color (hex)"
         value={accentColor}
         onChange={(e) => setAccentColor(e.target.value)}
         placeholder="#C4693A"
+        disabled={!canWrite}
       />
       <Input
         label="Logo URL (https only)"
         value={logoUrl}
         onChange={(e) => setLogoUrl(e.target.value)}
         placeholder="https://…"
+        disabled={!canWrite}
       />
 
       <div className="flex flex-col gap-1">
@@ -156,6 +160,7 @@ export default function BrandingPage() {
           value={slug}
           onChange={(e) => setSlug(e.target.value.toLowerCase())}
           placeholder="dr-smith"
+          disabled={!canWrite}
           error={
             slugInvalid
               ? '3–30 lowercase letters, numbers, hyphens'
@@ -183,9 +188,11 @@ export default function BrandingPage() {
 
       {saveError && <p className="text-sm text-danger">{saveError}</p>}
       {saved && <p className="text-sm text-success">Branding saved.</p>}
-      <Button type="submit" disabled={saving || slugInvalid || slugTaken}>
-        {saving ? 'Saving…' : 'Save branding'}
-      </Button>
+      {canWrite && (
+        <Button type="submit" disabled={saving || slugInvalid || slugTaken}>
+          {saving ? 'Saving…' : 'Save branding'}
+        </Button>
+      )}
     </form>
   );
 }
