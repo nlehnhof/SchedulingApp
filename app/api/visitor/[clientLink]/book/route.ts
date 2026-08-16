@@ -3,7 +3,7 @@ import { bookAppointment } from '@/lib/booking';
 import { bookSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 import { isRateLimited, clientIp } from '@/lib/rate-limit';
-import { resolveClientLink } from '@/lib/resolve-client-link';
+import { resolveCalendarLink } from '@/lib/resolve-calendar-link';
 
 export async function POST(
   req: Request,
@@ -20,7 +20,7 @@ export async function POST(
     );
   }
 
-  const resolved = await resolveClientLink(params.clientLink);
+  const resolved = await resolveCalendarLink(params.clientLink);
   if (!resolved) {
     return NextResponse.json({ error: 'This booking link is not valid.' }, { status: 404 });
   }
@@ -33,7 +33,7 @@ export async function POST(
 
   try {
     const result = await bookAppointment({
-      clientId: resolved.clientId,
+      calendarId: resolved.calendarId,
       visitorName: body.visitorName,
       visitorPhone: body.visitorPhone,
       visitorEmail: body.visitorEmail,

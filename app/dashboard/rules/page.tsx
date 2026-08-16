@@ -7,9 +7,9 @@ import type { Rule } from '@/lib/types';
 import Button from '@/components/Button';
 import Modal from '@/components/Modal';
 import RuleEditor, { RuleFormValues } from '@/components/RuleEditor';
+import { useCalendar } from '@/components/CalendarContext';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-const RULES_KEY = '/api/client/rules';
 
 function summarize(rule: Rule): string {
   if (rule.rule_type === 'available_hours') {
@@ -127,7 +127,9 @@ function toRequestBody(values: RuleFormValues): Record<string, unknown> {
 }
 
 export default function RulesPage() {
-  const { data, error, isLoading } = useSWR<{ rules: Rule[] }>(RULES_KEY, fetcher);
+  const { calendarId } = useCalendar();
+  const rulesKey = calendarId ? `/api/client/rules?calendarId=${calendarId}` : null;
+  const { data, error, isLoading } = useSWR<{ rules: Rule[] }>(rulesKey, fetcher);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingRule, setEditingRule] = useState<Rule | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
@@ -146,29 +148,31 @@ export default function RulesPage() {
   }
 
   async function handleSave(values: RuleFormValues) {
+    if (!calendarId) return;
     setSubmitError(null);
     const body = toRequestBody(values);
     try {
       if (editingRule) {
-        const res = await fetch(`/api/client/rules/${editingRule.id}`, {
+        const res = await fetch(`/api/client/rules/${editingRule.id}?calendarId=${calendarId}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(body),
         });
         if (!res.ok) throw new Error((await res.json().catch(() => ({})))?.error ?? 'Failed to save rule');
       } else {
-        await postJSON('/api/client/rules', body);
+        await postJSON(`/api/client/rules?calendarId=${calendarId}`, body);
       }
       setModalOpen(false);
-      mutate(RULES_KEY);
+      mutate(rulesKey);
     } catch (err: any) {
       setSubmitError(err.message ?? 'Failed to save rule');
     }
   }
 
   async function handleDelete(id: string) {
-    const res = await fetch(`/api/client/rules/${id}`, { method: 'DELETE' });
-    if (res.ok) mutate(RULES_KEY);
+    if (!calendarId) return;
+    const res = await fetch(`/api/client/rules/${id}?calendarId=${calendarId}`, { method: 'DELETE' });
+    if (res.ok) mutate(rulesKey);
     setConfirmDeleteId(null);
   }
 

@@ -1,6 +1,7 @@
-// Seeds one test client with the default appointment reasons and a Mon-Fri
-// 9-5 availability rule, matching the defaults called out in
-// SCHEDULING_APP_ORCHESTRATION.md Phase 2 ("Seed defaults for new clients").
+// Seeds one test client (with a default booking calendar) plus the default
+// appointment reasons and a Mon-Fri 9-5 availability rule, matching the
+// defaults called out in SCHEDULING_APP_ORCHESTRATION.md Phase 2 ("Seed
+// defaults for new clients").
 //
 // Usage: npm run db:seed
 // Loads NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY from .env.local
@@ -24,13 +25,29 @@ async function main() {
 
   const supabase = createClient(url, key);
 
+  // timezone moved off `clients` to `booking_calendars` (0014-0016
+  // migrations, multi-calendar support) — clients is login/billing identity
+  // only now.
   const { data: client, error: clientError } = await supabase
     .from('clients')
-    .upsert({ email: SEED_CLIENT_EMAIL, timezone: 'America/Denver' }, { onConflict: 'email' })
+    .upsert({ email: SEED_CLIENT_EMAIL }, { onConflict: 'email' })
     .select()
     .single();
   if (clientError) throw clientError;
   console.log(`Client: ${client.id} (${client.email})`);
+
+  // This script bypasses the normal Google sign-in flow (lib/auth.ts's
+  // signIn callback), which is what normally auto-creates a client's first
+  // booking_calendars row — so seed it here instead. Uses the client's own
+  // id, same as that callback does, so the visitor link below matches what
+  // a real first-time sign-in would produce.
+  const { data: calendar, error: calendarError } = await supabase
+    .from('booking_calendars')
+    .upsert({ id: client.id, client_id: client.id, timezone: 'America/Denver' }, { onConflict: 'id' })
+    .select()
+    .single();
+  if (calendarError) throw calendarError;
+  console.log(`Calendar: ${calendar.id}`);
 
   const reasons = [
     { name: 'Recommend', duration_min: 15, order: 1 },
@@ -41,13 +58,13 @@ async function main() {
   for (const reason of reasons) {
     const { error } = await supabase
       .from('appointment_reasons')
-      .upsert({ client_id: client.id, ...reason }, { onConflict: 'client_id,name' });
+      .upsert({ calendar_id: calendar.id, ...reason }, { onConflict: 'calendar_id,name' });
     if (error) throw error;
   }
   console.log(`Seeded ${reasons.length} appointment reasons.`);
 
   const { error: ruleError } = await supabase.from('rules').insert({
-    client_id: client.id,
+    calendar_id: calendar.id,
     rule_type: 'available_hours',
     day_of_week: null, // all days; add day-specific rows to override per weekday
     start_time: '09:00:00',
@@ -57,7 +74,7 @@ async function main() {
   if (ruleError) throw ruleError;
   console.log('Seeded Mon-Fri-style 9:00-17:00 availability rule (all days).');
 
-  console.log(`\nVisitor booking link: /visit/${client.id}`);
+  console.log(`\nVisitor booking link: /visit/${calendar.id}`);
 }
 
 main().catch((err) => {

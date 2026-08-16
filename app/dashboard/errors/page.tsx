@@ -4,22 +4,25 @@ import useSWR, { mutate } from 'swr';
 import { fetcher, postJSON } from '@/lib/fetcher';
 import type { ErrorLogEntry } from '@/lib/types';
 import ErrorBanner from '@/components/ErrorBanner';
-
-const KEY = '/api/client/errors';
+import { useCalendar } from '@/components/CalendarContext';
 
 export default function ErrorsPage() {
+  const { calendarId } = useCalendar();
+  const KEY = calendarId ? `/api/client/errors?calendarId=${calendarId}` : null;
   // Auto-refresh every 5 min per Phase 3 spec.
   const { data, error, isLoading } = useSWR<{ errors: ErrorLogEntry[] }>(KEY, fetcher, {
     refreshInterval: 5 * 60 * 1000,
   });
 
   async function acknowledge(id: string) {
-    await postJSON(`/api/client/errors/${id}/acknowledge`, {});
+    if (!calendarId) return;
+    await postJSON(`/api/client/errors/${id}/acknowledge?calendarId=${calendarId}`, {});
     mutate(KEY);
   }
 
   async function retrySync() {
-    await postJSON('/api/client/errors/retry-sync', {});
+    if (!calendarId) return;
+    await postJSON('/api/client/errors/retry-sync', { calendarId });
     mutate(KEY);
   }
 

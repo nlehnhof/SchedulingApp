@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
+import { requireCalendarAccess } from '@/lib/require-calendar';
 import { errorResponse } from '@/lib/error-response';
 import { isAtLeast } from '@/lib/tier';
 
@@ -31,13 +32,17 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
  * (confirmed vs. red_flag/conflict) instead of fabricating a no-show
  * metric the data doesn't support.
  */
-export async function GET() {
+export async function GET(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
 
   if (!isAtLeast(client.tier, 'premium')) {
     return NextResponse.json({ error: 'Analytics is a premium feature.' }, { status: 403 });
   }
+
+  const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  if (calendar instanceof NextResponse) return calendar;
 
   const supabase = createServiceClient();
   const windowStart = new Date();
@@ -48,9 +53,9 @@ export async function GET() {
       supabase
         .from('appointments')
         .select('start_time, status, reason_id')
-        .eq('client_id', client.clientId)
+        .eq('calendar_id', calendar.calendarId)
         .gte('start_time', windowStart.toISOString()),
-      supabase.from('appointment_reasons').select('id, name').eq('client_id', client.clientId),
+      supabase.from('appointment_reasons').select('id, name').eq('calendar_id', calendar.calendarId),
     ]);
 
   if (aptError) return errorResponse(aptError, 'Could not load analytics data.');

@@ -5,15 +5,14 @@ import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Select from '@/components/Select';
+import { useCalendar } from '@/components/CalendarContext';
 
-interface CalendarData {
+interface GoogleCalendarData {
   linked: boolean;
   calendars: { id: string; summary: string; primary: boolean }[];
   selected: string;
   timezone: string;
 }
-
-const KEY = '/api/client/calendar';
 
 // A curated subset, not every IANA zone — Intl.supportedValuesOf('timeZone')
 // would be exhaustive but overwhelming for a dropdown; the server accepts
@@ -34,9 +33,14 @@ const TIMEZONE_OPTIONS = [
 ];
 
 export default function CalendarPage() {
-  const { data, error, isLoading } = useSWR<CalendarData>(KEY, fetcher);
+  const { calendarId } = useCalendar();
+  const KEY = calendarId ? `/api/client/calendar?calendarId=${calendarId}` : null;
+  const { data, error, isLoading } = useSWR<GoogleCalendarData>(KEY, fetcher);
 
-  const [calendarId, setCalendarId] = useState('');
+  // Google's own calendar id (an email address or opaque group-calendar
+  // string) — deliberately named googleCalendarId, not calendarId, to keep
+  // it visually distinct from the booking-calendar id from context above.
+  const [googleCalendarId, setGoogleCalendarId] = useState('');
   const [timezone, setTimezone] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -44,7 +48,7 @@ export default function CalendarPage() {
 
   useEffect(() => {
     if (!data) return;
-    setCalendarId(data.selected);
+    setGoogleCalendarId(data.selected);
     setTimezone(data.timezone);
   }, [data]);
 
@@ -53,12 +57,13 @@ export default function CalendarPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!KEY) return;
     setSaveError(null);
     setSaved(false);
     setSaving(true);
     try {
       const body: Record<string, string> = { timezone };
-      if (data!.linked) body.calendarId = calendarId;
+      if (data!.linked) body.googleCalendarId = googleCalendarId;
       const res = await fetch(KEY, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -98,7 +103,7 @@ export default function CalendarPage() {
         </Select>
         <p className="text-xs text-text-secondary">
           Used to write appointments to Google Calendar at the correct time — set this to where
-          your business actually operates, not where the server runs.
+          this calendar&apos;s business actually operates, not where the server runs.
         </p>
       </div>
 
@@ -106,8 +111,8 @@ export default function CalendarPage() {
         <div className="flex flex-col gap-1">
           <Select
             label="Google calendar to read"
-            value={calendarId}
-            onChange={(e) => setCalendarId(e.target.value)}
+            value={googleCalendarId}
+            onChange={(e) => setGoogleCalendarId(e.target.value)}
           >
             {data.calendars.map((cal) => (
               <option key={cal.id} value={cal.id}>
@@ -134,7 +139,7 @@ export default function CalendarPage() {
 
       {saveError && <p className="text-sm text-danger">{saveError}</p>}
       {saved && <p className="text-sm text-success">Saved.</p>}
-      <Button type="submit" disabled={saving || !timezone || (data.linked && !calendarId)}>
+      <Button type="submit" disabled={saving || !timezone || (data.linked && !googleCalendarId)}>
         {saving ? 'Saving…' : 'Save'}
       </Button>
     </form>

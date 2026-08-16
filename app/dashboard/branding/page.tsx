@@ -7,6 +7,7 @@ import { fetcher } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import { isAtLeast, type Tier } from '@/lib/tier';
+import { useCalendar } from '@/components/CalendarContext';
 
 interface BrandingData {
   id: string;
@@ -17,10 +18,11 @@ interface BrandingData {
   tier: Tier;
 }
 
-const KEY = '/api/client/branding';
 const SLUG_RE = /^[a-z0-9-]{3,30}$/;
 
 export default function BrandingPage() {
+  const { calendarId } = useCalendar();
+  const KEY = calendarId ? `/api/client/branding?calendarId=${calendarId}` : null;
   const { data, error, isLoading } = useSWR<BrandingData>(KEY, fetcher);
 
   const [displayName, setDisplayName] = useState('');
@@ -56,7 +58,7 @@ export default function BrandingPage() {
     const handle = setTimeout(async () => {
       try {
         const res = await fetcher<{ available: boolean }>(
-          `/api/client/slug-available?slug=${encodeURIComponent(slug)}`
+          `/api/client/slug-available?slug=${encodeURIComponent(slug)}&calendarId=${calendarId}`
         );
         setSlugStatus(res.available ? 'available' : 'taken');
       } catch {
@@ -64,7 +66,7 @@ export default function BrandingPage() {
       }
     }, 400);
     return () => clearTimeout(handle);
-  }, [slug, data?.slug]);
+  }, [slug, data?.slug, calendarId]);
 
   if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
   if (error || !data) return <p className="text-sm text-danger">Failed to load branding settings.</p>;
@@ -89,12 +91,13 @@ export default function BrandingPage() {
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
+    if (!KEY) return;
     setSaveError(null);
     setSaved(false);
     setSaving(true);
     try {
       // The branding route only accepts PATCH (it's a partial update of an
-      // existing client row, not a create) — postJSON is hardcoded to POST
+      // existing calendar row, not a create) — postJSON is hardcoded to POST
       // for the app's create-style routes, so this calls fetch directly,
       // matching the pattern reasons/page.tsx already uses for its own
       // PATCH-by-id route.

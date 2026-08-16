@@ -1,21 +1,26 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
+import { requireCalendarAccess } from '@/lib/require-calendar';
 import { errorResponse } from '@/lib/error-response';
 
 export async function POST(
-  _req: Request,
+  req: Request,
   { params }: { params: { id: string } }
 ) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+
+  const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  if (calendar instanceof NextResponse) return calendar;
 
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('error_log')
     .update({ acknowledged: true })
     .eq('id', params.id)
-    .eq('client_id', client.clientId) // scope to this client, no cross-tenant edits
+    .eq('calendar_id', calendar.calendarId) // scope to this calendar, no cross-tenant edits
     .select()
     .single();
 

@@ -217,29 +217,36 @@ export async function deleteGoogleCalendarEvent(
 }
 
 /**
- * Poll one client's Google Calendar and red-flag any booked appointment that
- * now overlaps a manually-created calendar block. Mirrors the pseudocode in
- * SCHEDULING_APP_ORCHESTRATION.md Phase 2 "Google Calendar Sync (Polling)".
- * Errors are caught and logged rather than thrown, per the doc's "graceful
- * fallback" implementation note — a sync failure must never block booking.
+ * Poll one booking calendar's Google Calendar and red-flag any booked
+ * appointment that now overlaps a manually-created calendar block. Mirrors
+ * the pseudocode in SCHEDULING_APP_ORCHESTRATION.md Phase 2 "Google
+ * Calendar Sync (Polling)". Errors are caught and logged rather than
+ * thrown, per the doc's "graceful fallback" implementation note — a sync
+ * failure must never block booking. `google_refresh_token` stays on the
+ * owning `clients` row (one Google login per account); `google_calendar_id`
+ * is per-calendar now (0014-0016 migrations) — each of a client's calendars
+ * can poll a different real Google Calendar under that one login.
  */
-export async function syncGoogleCalendarForClient(clientId: string): Promise<void> {
+export async function syncGoogleCalendarForCalendar(calendarId: string): Promise<void> {
   const supabase = createServiceClient();
 
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id, google_refresh_token, google_calendar_id')
-    .eq('id', clientId)
+  const { data: calendar } = await supabase
+    .from('booking_calendars')
+    .select('id, google_calendar_id, clients(google_refresh_token)')
+    .eq('id', calendarId)
     .single();
 
-  if (!client?.google_refresh_token) return; // no calendar linked, nothing to sync
+  const owner: any = Array.isArray((calendar as any)?.clients)
+    ? (calendar as any).clients[0]
+    : (calendar as any)?.clients;
+  if (!owner?.google_refresh_token) return; // no Google account linked, nothing to sync
 
   let events: GoogleBlock[];
   try {
-    events = await getGoogleCalendarEvents(client.google_refresh_token, client.google_calendar_id || 'primary');
+    events = await getGoogleCalendarEvents(owner.google_refresh_token, calendar!.google_calendar_id || 'primary');
   } catch (err: any) {
     await supabase.from('error_log').insert({
-      client_id: clientId,
+      calendar_id: calendarId,
       error_type: 'google_sync_failure',
       message: err?.message ?? String(err),
     });
@@ -252,7 +259,7 @@ export async function syncGoogleCalendarForClient(clientId: string): Promise<voi
   const { data: ownEvents } = await supabase
     .from('appointments')
     .select('google_event_id')
-    .eq('client_id', clientId)
+    .eq('calendar_id', calendarId)
     .not('google_event_id', 'is', null);
   const ownEventIds = new Set((ownEvents ?? []).map((row) => row.google_event_id));
   events = events.filter((event) => !ownEventIds.has(event.id));
@@ -261,7 +268,7 @@ export async function syncGoogleCalendarForClient(clientId: string): Promise<voi
     const { data: overlaps } = await supabase
       .from('appointments')
       .select('id')
-      .eq('client_id', clientId)
+      .eq('calendar_id', calendarId)
       .lt('start_time', event.end)
       .gt('end_time', event.start)
       .gt('expires_at', new Date().toISOString())
@@ -270,7 +277,7 @@ export async function syncGoogleCalendarForClient(clientId: string): Promise<voi
     for (const apt of overlaps ?? []) {
       await supabase.from('appointments').update({ status: 'red_flag' }).eq('id', apt.id);
       await supabase.from('error_log').insert({
-        client_id: clientId,
+        calendar_id: calendarId,
         error_type: 'google_sync_conflict',
         message: `Appointment ${apt.id} conflicts with Google Calendar block: ${event.summary}`,
       });
@@ -278,21 +285,24 @@ export async function syncGoogleCalendarForClient(clientId: string): Promise<voi
   }
 }
 
-/** Runs the sync for every client with a linked Google Calendar. Used by the cron job. */
-export async function syncAllClients(): Promise<{ synced: number; skipped: number }> {
+/** Runs the sync for every booking calendar whose owner has a linked Google account. Used by the cron job. */
+export async function syncAllCalendars(): Promise<{ synced: number; skipped: number }> {
   const supabase = createServiceClient();
-  const { data: clients } = await supabase
-    .from('clients')
-    .select('id, google_refresh_token');
+  const { data: calendars } = await supabase
+    .from('booking_calendars')
+    .select('id, clients(google_refresh_token)');
 
   let synced = 0;
   let skipped = 0;
-  for (const client of clients ?? []) {
-    if (!client.google_refresh_token) {
+  for (const calendar of calendars ?? []) {
+    const owner: any = Array.isArray((calendar as any).clients)
+      ? (calendar as any).clients[0]
+      : (calendar as any).clients;
+    if (!owner?.google_refresh_token) {
       skipped++;
       continue;
     }
-    await syncGoogleCalendarForClient(client.id);
+    await syncGoogleCalendarForCalendar(calendar.id);
     synced++;
   }
   return { synced, skipped };

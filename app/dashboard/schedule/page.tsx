@@ -10,6 +10,7 @@ import AppointmentEditor, { AppointmentEditValues } from '@/components/Appointme
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import Select from '@/components/Select';
+import { useCalendar } from '@/components/CalendarContext';
 
 interface DayBucket {
   date: string;
@@ -26,6 +27,7 @@ function toDatetimeLocal(iso: string): string {
 }
 
 export default function SchedulePage() {
+  const { calendarId } = useCalendar();
   const [monthCursor, setMonthCursor] = useState(() => {
     const d = new Date();
     return { year: d.getFullYear(), month: d.getMonth() };
@@ -36,7 +38,7 @@ export default function SchedulePage() {
   const [editError, setEditError] = useState<string | null>(null);
 
   const { data: reasonsData } = useSWR<{ reasons: AppointmentReason[] }>(
-    '/api/client/reasons',
+    calendarId ? `/api/client/reasons?calendarId=${calendarId}` : null,
     fetcher
   );
   const reasons = reasonsData?.reasons ?? [];
@@ -49,9 +51,10 @@ export default function SchedulePage() {
     return { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) };
   }, [monthCursor]);
 
-  const scheduleUrl = activeReasonId
-    ? `/api/client/schedule?startDate=${startDate}&endDate=${endDate}&reasonId=${activeReasonId}`
-    : null;
+  const scheduleUrl =
+    calendarId && activeReasonId
+      ? `/api/client/schedule?calendarId=${calendarId}&startDate=${startDate}&endDate=${endDate}&reasonId=${activeReasonId}`
+      : null;
   const { data, isLoading } = useSWR<{ days: DayBucket[] }>(scheduleUrl, fetcher);
 
   const calendarDays: CalendarDayMeta[] = (data?.days ?? []).map((d) => ({
@@ -65,7 +68,7 @@ export default function SchedulePage() {
   const reasonNameById = new Map(reasons.map((r) => [r.id, r.name]));
 
   async function handleEditSubmit(values: AppointmentEditValues) {
-    if (!editingAppointment) return;
+    if (!editingAppointment || !calendarId) return;
     setEditError(null);
     // `values.startTime` already comes out of a <input type="datetime-local">
     // as a naive local string (e.g. "2026-08-15T21:00") — wrapping it in
@@ -73,7 +76,7 @@ export default function SchedulePage() {
     // the Postgres `timestamp` (no time zone) column boundary, which
     // silently dropped the offset and got re-read as local time again: a
     // full round-trip shift by the server's UTC offset. Send it through as-is.
-    const res = await fetch(`/api/client/appointments/${editingAppointment.id}`, {
+    const res = await fetch(`/api/client/appointments/${editingAppointment.id}?calendarId=${calendarId}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(values),
@@ -88,7 +91,10 @@ export default function SchedulePage() {
   }
 
   async function handleDelete(appointmentId: string) {
-    const res = await fetch(`/api/client/appointments/${appointmentId}`, { method: 'DELETE' });
+    if (!calendarId) return;
+    const res = await fetch(`/api/client/appointments/${appointmentId}?calendarId=${calendarId}`, {
+      method: 'DELETE',
+    });
     if (res.ok && scheduleUrl) mutate(scheduleUrl);
     setConfirmDeleteId(null);
   }

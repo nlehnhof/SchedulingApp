@@ -20,21 +20,27 @@ export function csvEscape(value: string): string {
 }
 
 /**
- * Generates the previous/target month's appointment CSV for one client,
- * emails it via Resend, and records the export. Mirrors
- * SCHEDULING_APP_ORCHESTRATION.md Phase 2 "CSV Export".
+ * Generates the previous/target month's appointment CSV for one booking
+ * calendar, emails it to the owning client, and records the export. Mirrors
+ * SCHEDULING_APP_ORCHESTRATION.md Phase 2 "CSV Export". One export per
+ * calendar, not per client — a client with several calendars gets a
+ * separate email per calendar, same as everything else calendar-scoped.
  *
  * @param month "YYYY-MM"
  */
-export async function exportMonthlyCSV(clientId: string, month: string): Promise<void> {
+export async function exportMonthlyCSV(calendarId: string, month: string): Promise<void> {
   const supabase = createServiceClient();
 
-  const { data: client } = await supabase
-    .from('clients')
-    .select('id, email')
-    .eq('id', clientId)
+  const { data: calendar } = await supabase
+    .from('booking_calendars')
+    .select('id, display_name, clients(email)')
+    .eq('id', calendarId)
     .single();
-  if (!client) throw new Error(`Client ${clientId} not found`);
+  if (!calendar) throw new Error(`Calendar ${calendarId} not found`);
+  const owner: any = Array.isArray((calendar as any).clients)
+    ? (calendar as any).clients[0]
+    : (calendar as any).clients;
+  if (!owner) throw new Error(`Calendar ${calendarId} has no owning client`);
 
   const monthStart = new Date(`${month}-01T00:00:00.000Z`);
   const monthEnd = new Date(monthStart);
@@ -43,7 +49,7 @@ export async function exportMonthlyCSV(clientId: string, month: string): Promise
   const { data: appointments } = await supabase
     .from('appointments')
     .select('*, appointment_reasons(name)')
-    .eq('client_id', clientId)
+    .eq('calendar_id', calendarId)
     .gte('start_time', monthStart.toISOString())
     .lt('start_time', monthEnd.toISOString());
 
@@ -62,27 +68,28 @@ export async function exportMonthlyCSV(clientId: string, month: string): Promise
 
   const csvContent = rows.map((row) => row.map((v) => csvEscape(String(v))).join(',')).join('\n');
 
+  const label = calendar.display_name ? ` – ${calendar.display_name}` : '';
   await sendEmail({
-    to: client.email,
-    subject: `Scheduling App – Appointments Export (${month})`,
+    to: owner.email,
+    subject: `Scheduling App – Appointments Export (${month})${label}`,
     text: csvContent,
   });
 
   await supabase
     .from('csv_exports')
     .upsert(
-      { client_id: clientId, month: `${month}-01`, emailed_at: new Date().toISOString() },
-      { onConflict: 'client_id,month' }
+      { calendar_id: calendarId, month: `${month}-01`, emailed_at: new Date().toISOString() },
+      { onConflict: 'calendar_id,month' }
     );
 }
 
-/** Runs the monthly export for every client. Used by the cron job on the 1st of the month. */
+/** Runs the monthly export for every booking calendar. Used by the cron job on the 1st of the month. */
 export async function exportMonthlyCSVForAllClients(month: string): Promise<{ exported: number }> {
   const supabase = createServiceClient();
-  const { data: clients } = await supabase.from('clients').select('id');
+  const { data: calendars } = await supabase.from('booking_calendars').select('id');
   let exported = 0;
-  for (const client of clients ?? []) {
-    await exportMonthlyCSV(client.id, month);
+  for (const calendar of calendars ?? []) {
+    await exportMonthlyCSV(calendar.id, month);
     exported++;
   }
   return { exported };

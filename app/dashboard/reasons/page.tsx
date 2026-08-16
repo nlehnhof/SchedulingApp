@@ -6,11 +6,10 @@ import { fetcher, postJSON } from '@/lib/fetcher';
 import type { AppointmentReason } from '@/lib/types';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
+import { useCalendar } from '@/components/CalendarContext';
 
-const KEY = '/api/client/reasons';
-
-async function patchReason(id: string, body: Record<string, unknown>) {
-  const res = await fetch(`/api/client/reasons/${id}`, {
+async function patchReason(id: string, calendarId: string, body: Record<string, unknown>) {
+  const res = await fetch(`/api/client/reasons/${id}?calendarId=${calendarId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -23,6 +22,8 @@ async function patchReason(id: string, body: Record<string, unknown>) {
 }
 
 export default function ReasonsPage() {
+  const { calendarId } = useCalendar();
+  const KEY = calendarId ? `/api/client/reasons?calendarId=${calendarId}` : null;
   const { data, error, isLoading } = useSWR<{ reasons: AppointmentReason[] }>(KEY, fetcher);
   const [name, setName] = useState('');
   const [duration, setDuration] = useState('15');
@@ -37,6 +38,7 @@ export default function ReasonsPage() {
 
   async function handleAdd(e: React.FormEvent) {
     e.preventDefault();
+    if (!calendarId || !KEY) return;
     setSubmitError(null);
     setSaving(true);
     try {
@@ -56,8 +58,9 @@ export default function ReasonsPage() {
   }
 
   async function handleDurationChange(reason: AppointmentReason, durationMin: number) {
+    if (!calendarId) return;
     try {
-      await patchReason(reason.id, { durationMin });
+      await patchReason(reason.id, calendarId, { durationMin });
       mutate(KEY);
     } catch (err: any) {
       setSubmitError(err.message ?? 'Failed to update duration');
@@ -65,14 +68,15 @@ export default function ReasonsPage() {
   }
 
   async function moveReason(index: number, delta: number) {
+    if (!calendarId) return;
     const target = index + delta;
     if (target < 0 || target >= reasons.length) return;
     const a = reasons[index];
     const b = reasons[target];
     try {
       await Promise.all([
-        patchReason(a.id, { order: b.order }),
-        patchReason(b.id, { order: a.order }),
+        patchReason(a.id, calendarId, { order: b.order }),
+        patchReason(b.id, calendarId, { order: a.order }),
       ]);
       mutate(KEY);
     } catch (err: any) {
@@ -87,13 +91,14 @@ export default function ReasonsPage() {
   }
 
   async function saveRename(reason: AppointmentReason) {
+    if (!calendarId) return;
     const trimmed = editingName.trim();
     if (!trimmed || trimmed === reason.name) {
       setEditingId(null);
       return;
     }
     try {
-      await patchReason(reason.id, { name: trimmed });
+      await patchReason(reason.id, calendarId, { name: trimmed });
       setEditingId(null);
       mutate(KEY);
     } catch (err: any) {
@@ -102,9 +107,10 @@ export default function ReasonsPage() {
   }
 
   async function handleDelete(id: string) {
+    if (!calendarId) return;
     setDeleteError(null);
     try {
-      const res = await fetch(`/api/client/reasons/${id}`, { method: 'DELETE' });
+      const res = await fetch(`/api/client/reasons/${id}?calendarId=${calendarId}`, { method: 'DELETE' });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(json?.error ?? 'Failed to delete reason');
       mutate(KEY);

@@ -1,18 +1,23 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
+import { requireCalendarAccess } from '@/lib/require-calendar';
 import { ruleSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 
-export async function GET() {
+export async function GET(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+
+  const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  if (calendar instanceof NextResponse) return calendar;
 
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('rules')
     .select('*')
-    .eq('client_id', client.clientId);
+    .eq('calendar_id', calendar.calendarId);
   if (error) return errorResponse(error, 'Could not load rules.');
   return NextResponse.json({ rules: data });
 }
@@ -20,6 +25,10 @@ export async function GET() {
 export async function POST(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+
+  const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  if (calendar instanceof NextResponse) return calendar;
 
   const parsed = ruleSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -31,7 +40,7 @@ export async function POST(req: Request) {
   const { data, error } = await supabase
     .from('rules')
     .insert({
-      client_id: client.clientId,
+      calendar_id: calendar.calendarId,
       rule_type: body.ruleType,
       day_of_week: body.dayOfWeek ?? null,
       start_time: body.startTime ?? null,

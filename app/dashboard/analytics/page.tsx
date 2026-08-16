@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
+import { useCalendar } from '@/components/CalendarContext';
 
 interface AnalyticsData {
   windowDays: number;
@@ -15,7 +16,11 @@ interface AnalyticsData {
 }
 
 export default function AnalyticsPage() {
-  const { data, error, isLoading } = useSWR<AnalyticsData>('/api/client/analytics', fetcher);
+  const { calendarId } = useCalendar();
+  const { data, error, isLoading } = useSWR<AnalyticsData>(
+    calendarId ? `/api/client/analytics?calendarId=${calendarId}` : null,
+    fetcher
+  );
 
   if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
 

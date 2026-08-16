@@ -13,15 +13,14 @@ interface RemindersData {
   sms_reminders_enabled: boolean;
 }
 
-const KEY = '/api/client/branding';
+const KEY = '/api/client/reminders';
 
 // Confirmation emails and SMS reminders share this one page because they're
 // the same product idea from the client's point of view — "keep the visitor
 // informed about their appointment" — even though only one of the two is
-// actually wired to a live provider yet. Both read/write through the
-// existing branding route rather than a new one: sms_reminders_enabled
-// already lives on the same `clients` row and PATCH /api/client/branding
-// already accepts it, so this page doesn't need its own API surface.
+// actually wired to a live provider yet. sms_reminders_enabled is a
+// client-level (not per-calendar) preference, unlike branding, which moved
+// to booking_calendars — see app/api/client/reminders/route.ts.
 export default function RemindersPage() {
   const { data, error, isLoading } = useSWR<RemindersData>(KEY, fetcher);
 

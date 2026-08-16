@@ -90,18 +90,41 @@ export const authOptions: NextAuthOptions = {
         .eq('email', user.email)
         .maybeSingle();
 
-      await supabase.from('clients').upsert(
-        {
-          email: user.email,
-          google_id: account.providerAccountId,
-          // Google only returns a refresh_token on first consent; keep the
-          // existing one on subsequent logins instead of overwriting with null.
-          // (The admin credentials provider never has one, so this stays null.)
-          google_refresh_token:
-            account.refresh_token ?? existing.data?.google_refresh_token ?? null,
-        },
-        { onConflict: 'email' }
-      );
+      const { data: upserted } = await supabase
+        .from('clients')
+        .upsert(
+          {
+            email: user.email,
+            google_id: account.providerAccountId,
+            // Google only returns a refresh_token on first consent; keep the
+            // existing one on subsequent logins instead of overwriting with null.
+            // (The admin credentials provider never has one, so this stays null.)
+            google_refresh_token:
+              account.refresh_token ?? existing.data?.google_refresh_token ?? null,
+          },
+          { onConflict: 'email' }
+        )
+        .select('id')
+        .single();
+
+      // Every client needs at least one booking_calendars row to do
+      // anything (rules/reasons/appointments are all calendar-scoped now —
+      // 0014-0016 migrations). A client who already existed before that
+      // migration got one via its backfill; a brand-new signup has none yet,
+      // so create a default one here, using the client's own id so a fresh
+      // account's first calendar behaves the same simple way an old
+      // single-calendar account already does.
+      if (upserted) {
+        const { count } = await supabase
+          .from('booking_calendars')
+          .select('id', { count: 'exact', head: true })
+          .eq('client_id', upserted.id);
+        if (!count) {
+          await supabase
+            .from('booking_calendars')
+            .insert({ id: upserted.id, client_id: upserted.id });
+        }
+      }
 
       return true;
     },
@@ -117,12 +140,11 @@ export const authOptions: NextAuthOptions = {
       // request could influence (see PLAN.md Section 5).
       const { data: client } = await supabase
         .from('clients')
-        .select('id, timezone, tier, tutorial_completed_at')
+        .select('id, tier, tutorial_completed_at')
         .eq('email', session.user.email)
         .maybeSingle();
       if (client) {
         (session as any).clientId = client.id;
-        (session as any).timezone = client.timezone;
         // Layers the premium_grants allowlist on top of the raw DB column —
         // see lib/premium-grants.ts. This is the single place that decision
         // gets made for every session-based (requireClient()) route, so a

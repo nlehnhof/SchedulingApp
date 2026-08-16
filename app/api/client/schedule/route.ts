@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
+import { requireCalendarAccess } from '@/lib/require-calendar';
 import { getAvailableSlots } from '@/lib/availability';
 import type { Appointment, AppointmentReason, Rule } from '@/lib/types';
 
@@ -9,6 +10,9 @@ export async function GET(req: Request) {
   if (client instanceof NextResponse) return client;
 
   const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  if (calendar instanceof NextResponse) return calendar;
+
   const startDate = searchParams.get('startDate');
   const endDate = searchParams.get('endDate');
   const reasonId = searchParams.get('reasonId');
@@ -18,15 +22,15 @@ export async function GET(req: Request) {
 
   const supabase = createServiceClient();
   const [{ data: rules }, { data: booked }, { data: reasons }] = await Promise.all([
-    supabase.from('rules').select('*').eq('client_id', client.clientId),
+    supabase.from('rules').select('*').eq('calendar_id', calendar.calendarId),
     supabase
       .from('appointments')
       .select('*')
-      .eq('client_id', client.clientId)
+      .eq('calendar_id', calendar.calendarId)
       .gt('expires_at', new Date().toISOString()),
     reasonId
       ? supabase.from('appointment_reasons').select('*').eq('id', reasonId)
-      : supabase.from('appointment_reasons').select('*').eq('client_id', client.clientId).limit(1),
+      : supabase.from('appointment_reasons').select('*').eq('calendar_id', calendar.calendarId).limit(1),
   ]);
 
   const reason = reasons?.[0] as AppointmentReason | undefined;

@@ -4,7 +4,7 @@ import type { Appointment, AppointmentReason, Rule } from './types';
 
 const reason: AppointmentReason = {
   id: 'reason-1',
-  client_id: 'client-1',
+  calendar_id: 'client-1',
   name: 'Recommend',
   duration_min: 15,
   order: 1,
@@ -12,7 +12,7 @@ const reason: AppointmentReason = {
 
 const allDaysHours: Rule = {
   id: 'rule-hours',
-  client_id: 'client-1',
+  calendar_id: 'client-1',
   rule_type: 'available_hours',
   day_of_week: null,
   start_time: '09:00:00',
@@ -24,7 +24,7 @@ const allDaysHours: Rule = {
 function makeAppointment(startISO: string, endISO: string): Appointment {
   return {
     id: 'apt-' + startISO,
-    client_id: 'client-1',
+    calendar_id: 'client-1',
     visitor_name: 'Jane',
     visitor_phone: '555-1234',
     visitor_email: 'jane@example.com',
@@ -131,7 +131,7 @@ describe('getAvailableSlots', () => {
     const day = new Date('2026-08-17T00:00:00');
     const firstNRule: Rule = {
       id: 'rule-first-n',
-      client_id: 'client-1',
+      calendar_id: 'client-1',
       rule_type: 'first_n_only',
       day_of_week: null,
       start_time: null,
@@ -173,7 +173,7 @@ describe('getAvailableSlots', () => {
     const monday = new Date('2026-08-17T00:00:00'); // Monday
     const mondayOverride: Rule = {
       id: 'rule-monday',
-      client_id: 'client-1',
+      calendar_id: 'client-1',
       rule_type: 'available_hours',
       day_of_week: 1, // Monday
       start_time: '13:00:00',
@@ -198,7 +198,7 @@ describe('getAvailableSlots', () => {
     const day = new Date('2026-08-17T00:00:00'); // Monday
     const blackoutRule: Rule = {
       id: 'rule-blackout',
-      client_id: 'client-1',
+      calendar_id: 'client-1',
       rule_type: 'blackout',
       day_of_week: null,
       start_time: null,
@@ -224,7 +224,7 @@ describe('getAvailableSlots', () => {
     const end = new Date('2026-08-19T00:00:00'); // Wednesday
     const blackoutRule: Rule = {
       id: 'rule-blackout',
-      client_id: 'client-1',
+      calendar_id: 'client-1',
       rule_type: 'blackout',
       day_of_week: null,
       start_time: null,
@@ -251,7 +251,7 @@ describe('getAvailableSlots', () => {
     const day = new Date('2026-08-17T00:00:00');
     const bufferRule: Rule = {
       id: 'rule-buffer',
-      client_id: 'client-1',
+      calendar_id: 'client-1',
       rule_type: 'buffer_time',
       day_of_week: null,
       start_time: null,
@@ -290,7 +290,7 @@ describe('getAvailableSlots', () => {
     now.setHours(8, 0, 0, 0); // 1 hour before the 09:00 window opens
     const minNoticeRule: Rule = {
       id: 'rule-notice',
-      client_id: 'client-1',
+      calendar_id: 'client-1',
       rule_type: 'min_notice',
       day_of_week: null,
       start_time: null,
@@ -317,7 +317,7 @@ describe('getAvailableSlots', () => {
     const day = new Date('2026-08-17T00:00:00'); // Monday, 09:00-10:00 in 15-min slots
     const sequentialFillRule: Rule = {
       id: 'rule-sequential',
-      client_id: 'client-1',
+      calendar_id: 'client-1',
       rule_type: 'sequential_fill',
       day_of_week: null,
       start_time: null,

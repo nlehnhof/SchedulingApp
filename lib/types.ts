@@ -1,22 +1,34 @@
 import type { Tier } from './tier';
 
+// clients: login/billing identity only. Branding (display_name, accent_color,
+// logo_url, slug), google_calendar_id, and timezone all moved to
+// BookingCalendar below — a client can now own several independently
+// configured calendars, so those fields stopped being meaningful at the
+// client level (0014-0016 migrations).
 export interface Client {
   id: string;
   email: string;
-  timezone: string;
   tier: Tier;
+  sms_reminders_enabled: boolean;
+  tutorial_completed_at: string | null;
+}
+
+export interface BookingCalendar {
+  id: string;
+  client_id: string;
   display_name: string | null;
   accent_color: string | null;
   logo_url: string | null;
   slug: string | null;
-  sms_reminders_enabled: boolean;
-  tutorial_completed_at: string | null;
   google_calendar_id: string;
+  timezone: string;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface AppointmentReason {
   id: string;
-  client_id: string;
+  calendar_id: string;
   name: string;
   duration_min: number;
   order: number;
@@ -24,7 +36,7 @@ export interface AppointmentReason {
 
 export interface Rule {
   id: string;
-  client_id: string;
+  calendar_id: string;
   rule_type:
     | 'available_hours'
     | 'max_per_window'
@@ -42,7 +54,7 @@ export interface Rule {
 
 export interface Appointment {
   id: string;
-  client_id: string;
+  calendar_id: string;
   visitor_name: string;
   visitor_phone: string;
   visitor_email: string | null;
@@ -57,7 +69,7 @@ export interface Appointment {
 
 export interface ErrorLogEntry {
   id: string;
-  client_id: string;
+  calendar_id: string;
   error_type: string;
   message: string | null;
   acknowledged: boolean;

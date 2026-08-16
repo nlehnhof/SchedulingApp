@@ -4,21 +4,23 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import SignOutButton from './SignOutButton';
+import Select from './Select';
+import { useCalendar } from './CalendarContext';
 import { postJSON } from '@/lib/fetcher';
 import { isAtLeast, type Tier } from '@/lib/tier';
 
 interface NavLink {
   href: string;
   label: string;
-  premium?: boolean;
+  minTier?: Tier; // undefined = available to every tier
 }
 
 // Grouped by the natural setup order rather than presented as one flat,
 // arbitrarily-ordered list (PLAN.md Section 2 item 11): Setup happens
 // first (Reasons, Rules), Operate is day-to-day use once bookings start
-// coming in. Premium items always render (even for a free-tier client) —
-// the pages themselves show a locked/upsell view when not premium, same
-// pattern as the Branding/Analytics panels (PLAN.md Section 4).
+// coming in. Tier-gated items always render (even below the required
+// tier) — the pages themselves show a locked/upsell view, same pattern as
+// the Branding/Analytics panels (PLAN.md Section 4).
 const SETUP_LINKS: NavLink[] = [
   { href: '/dashboard/reasons', label: 'Reasons' },
   { href: '/dashboard/rules', label: 'Rules' },
@@ -31,9 +33,12 @@ const OPERATE_LINKS: NavLink[] = [
   { href: '/dashboard/billing', label: 'Billing' },
 ];
 const PREMIUM_LINKS: NavLink[] = [
-  { href: '/dashboard/branding', label: 'Branding', premium: true },
-  { href: '/dashboard/reminders', label: 'Reminders', premium: true },
-  { href: '/dashboard/analytics', label: 'Analytics', premium: true },
+  { href: '/dashboard/branding', label: 'Branding', minTier: 'premium' },
+  { href: '/dashboard/reminders', label: 'Reminders', minTier: 'premium' },
+  { href: '/dashboard/analytics', label: 'Analytics', minTier: 'premium' },
+];
+const ELITE_LINKS: NavLink[] = [
+  { href: '/dashboard/calendars', label: 'Calendars', minTier: 'elite' },
 ];
 
 // Dev tier-toggle cycles free -> premium -> elite -> free, rather than a
@@ -54,8 +59,8 @@ export default function DashboardNav({
   const pathname = usePathname();
   const router = useRouter();
   const currentTier: Tier = tier ?? 'free';
-  const isPremium = isAtLeast(currentTier, 'premium');
   const [toggling, setToggling] = useState(false);
+  const { calendarId, calendars, setCalendarId } = useCalendar();
 
   async function toggleTier() {
     setToggling(true);
@@ -82,6 +87,7 @@ export default function DashboardNav({
         <ul className="flex flex-row md:flex-col">
           {links.map((link) => {
             const active = pathname === link.href;
+            const locked = !!link.minTier && !isAtLeast(currentTier, link.minTier);
             return (
               <li key={link.href} className="flex-1 md:flex-none">
                 <Link
@@ -93,9 +99,9 @@ export default function DashboardNav({
                   }`}
                 >
                   <span>{link.label}</span>
-                  {link.premium && !isPremium && (
+                  {locked && (
                     <span className="rounded-full bg-accent-soft/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent-hover">
-                      Premium
+                      {link.minTier}
                     </span>
                   )}
                 </Link>
@@ -124,6 +130,27 @@ export default function DashboardNav({
           )}
         </div>
         <span className="truncate text-xs text-text-secondary">{email}</span>
+
+        {/* Only shown once there's actually something to switch between —
+            free/premium clients always have exactly 1 calendar, so this
+            stays out of their way entirely. */}
+        {calendars.length > 1 && (
+          <div className="mt-1">
+            <Select
+              label="Calendar"
+              value={calendarId ?? ''}
+              onChange={(e) => setCalendarId(e.target.value)}
+              className="text-xs"
+            >
+              {calendars.map((cal) => (
+                <option key={cal.id} value={cal.id}>
+                  {cal.display_name || 'Untitled calendar'}
+                </option>
+              ))}
+            </Select>
+          </div>
+        )}
+
         {isAdminTestAccount && (
           <button
             onClick={toggleTier}
@@ -156,6 +183,7 @@ export default function DashboardNav({
         {renderGroup('Setup', SETUP_LINKS)}
         {renderGroup('Operate', OPERATE_LINKS)}
         {renderGroup('Premium', PREMIUM_LINKS)}
+        {renderGroup('Elite', ELITE_LINKS)}
       </ul>
       <div className="hidden px-4 py-4 md:block">
         <SignOutButton />

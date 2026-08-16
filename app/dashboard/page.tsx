@@ -6,13 +6,14 @@ import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import AppointmentCard from '@/components/AppointmentCard';
 import { isAtLeast, type Tier } from '@/lib/tier';
+import { useCalendar } from '@/components/CalendarContext';
 import type { Appointment, ErrorLogEntry, Rule } from '@/lib/types';
 
 interface DashboardResponse {
   appointments: Appointment[];
   rules: Rule[];
   errors: ErrorLogEntry[];
-  client: { id: string; displayName: string | null; slug: string | null; tier: Tier } | null;
+  calendar: { id: string; displayName: string | null; slug: string | null; tier: Tier } | null;
   hasReasons: boolean;
   reasons: { id: string; name: string }[];
   stats: {
@@ -30,7 +31,11 @@ const QUICK_ACTIONS = [
 ];
 
 export default function DashboardHome() {
-  const { data, error, isLoading } = useSWR<DashboardResponse>('/api/client/dashboard', fetcher);
+  const { calendarId } = useCalendar();
+  const { data, error, isLoading } = useSWR<DashboardResponse>(
+    calendarId ? `/api/client/dashboard?calendarId=${calendarId}` : null,
+    fetcher
+  );
 
   if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
   if (error) return <p className="text-sm text-danger">Failed to load dashboard: {String(error.message)}</p>;
@@ -55,8 +60,8 @@ export default function DashboardHome() {
           from the UI at all — it was only ever printed to the console by
           scripts/seed.js (PLAN.md Section 1/2 item 1, the single
           highest-value fix identified). */}
-      {data.client && <BookingLinkCard client={data.client} />}
-      {data.client && !isAtLeast(data.client.tier, 'premium') && <PremiumFeaturesCard />}
+      {data.calendar && <BookingLinkCard calendar={data.calendar} />}
+      {data.calendar && !isAtLeast(data.calendar.tier, 'premium') && <PremiumFeaturesCard />}
 
       {(!data.hasReasons || !hasRules) && (
         <div className="flex flex-col gap-2 rounded-md border border-accent/40 bg-accent-soft/25 p-4 text-sm">
@@ -128,12 +133,12 @@ export default function DashboardHome() {
 }
 
 function BookingLinkCard({
-  client,
+  calendar,
 }: {
-  client: { id: string; displayName: string | null; slug: string | null; tier: Tier };
+  calendar: { id: string; displayName: string | null; slug: string | null; tier: Tier };
 }) {
   const [copied, setCopied] = useState(false);
-  const path = isAtLeast(client.tier, 'premium') && client.slug ? client.slug : client.id;
+  const path = isAtLeast(calendar.tier, 'premium') && calendar.slug ? calendar.slug : calendar.id;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const link = `${origin}/visit/${path}`;
 
@@ -162,7 +167,7 @@ function BookingLinkCard({
       </div>
       <p className="mt-2 text-xs text-text-secondary">
         Share this with visitors — anyone with this link can book an appointment with you.
-        {!isAtLeast(client.tier, 'premium') && (
+        {!isAtLeast(calendar.tier, 'premium') && (
           <>
             {' '}
             <Link href="/dashboard/billing" className="text-accent-hover hover:underline">

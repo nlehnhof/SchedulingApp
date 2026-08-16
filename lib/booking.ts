@@ -7,7 +7,7 @@ import { isAtLeast } from './tier';
 import type { Appointment, AppointmentReason, BookingResult, GoogleBlock, Rule } from './types';
 
 export interface BookAppointmentInput {
-  clientId: string;
+  calendarId: string;
   visitorName: string;
   visitorPhone: string;
   visitorEmail: string;
@@ -16,18 +16,22 @@ export interface BookAppointmentInput {
   notes?: string;
 }
 
+function ownerOf(calendar: any): any {
+  return Array.isArray(calendar?.clients) ? calendar.clients[0] : calendar?.clients;
+}
+
 /**
  * Books an appointment via the `book_appointment` Postgres function, which
  * handles locking + conflict detection atomically (see
- * supabase/migrations/0002_booking_function.sql). On conflict, falls back to
- * the availability calculator to suggest the next open slot for the same
- * reason.
+ * supabase/migrations/0017_booking_functions_calendar_scoped.sql). On
+ * conflict, falls back to the availability calculator to suggest the next
+ * open slot for the same reason.
  */
 export async function bookAppointment(input: BookAppointmentInput): Promise<BookingResult> {
   const supabase = createServiceClient();
 
   const { data, error } = await supabase.rpc('book_appointment', {
-    p_client_id: input.clientId,
+    p_calendar_id: input.calendarId,
     p_visitor_name: input.visitorName,
     p_visitor_phone: input.visitorPhone,
     p_reason_id: input.reasonId,
@@ -46,11 +50,11 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     // send must never fail a booking that already succeeded, so this is
     // isolated in its own try/catch and logged to error_log the same way
     // lib/google-calendar.ts logs a sync failure, rather than thrown.
-    const [{ data: client }, { data: reason }] = await Promise.all([
+    const [{ data: calendar }, { data: reason }] = await Promise.all([
       supabase
-        .from('clients')
-        .select('email, display_name, tier, timezone, google_refresh_token, google_calendar_id')
-        .eq('id', input.clientId)
+        .from('booking_calendars')
+        .select('display_name, google_calendar_id, timezone, clients(email, tier, google_refresh_token)')
+        .eq('id', input.calendarId)
         .single(),
       supabase
         .from('appointment_reasons')
@@ -58,6 +62,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         .eq('id', input.reasonId)
         .single(),
     ]);
+    const owner = ownerOf(calendar);
 
     // Left undefined (not false) unless a send was actually attempted, so
     // the visitor UI can tell "not premium, nothing attempted" apart from
@@ -66,17 +71,17 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
 
     // Anonymous visitor flow (no session), so the premium_grants override
     // has to be checked explicitly here too — see lib/premium-grants.ts.
-    const isPremium = client ? isAtLeast(await getEffectiveTier(client.tier, client.email), 'premium') : false;
+    const isPremium = owner ? isAtLeast(await getEffectiveTier(owner.tier, owner.email), 'premium') : false;
 
-    if (isPremium && client && reason) {
+    if (isPremium && owner && calendar && reason) {
       try {
         const start = new Date(input.startTime);
         const end = new Date(start.getTime() + reason.duration_min * 60_000);
         await sendBookingConfirmationEmail({
           visitorEmail: input.visitorEmail,
           visitorName: input.visitorName,
-          clientDisplayName: client.display_name || client.email,
-          clientEmail: client.email,
+          clientDisplayName: calendar.display_name || owner.email,
+          clientEmail: owner.email,
           reasonName: reason.name,
           start,
           end,
@@ -85,7 +90,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       } catch (err: any) {
         confirmationEmailSent = false;
         await supabase.from('error_log').insert({
-          client_id: input.clientId,
+          calendar_id: input.calendarId,
           error_type: 'booking_confirmation_email_failed',
           message: err?.message ?? String(err),
         });
@@ -95,19 +100,19 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
     // Write the booking back to the client's Google Calendar, same
     // best-effort pattern as the confirmation email above — a failed write
     // must never fail a booking that already succeeded in Postgres.
-    if (client?.google_refresh_token && reason) {
+    if (owner?.google_refresh_token && calendar && reason) {
       try {
         const start = new Date(row.result_start);
         const end = new Date(row.result_end);
         const eventId = await createGoogleCalendarEvent(
-          client.google_refresh_token,
-          client.google_calendar_id || 'primary',
+          owner.google_refresh_token,
+          calendar.google_calendar_id || 'primary',
           {
             summary: `${reason.name} — ${input.visitorName}`,
             description: input.notes,
             start,
             end,
-            timeZone: client.timezone || 'UTC',
+            timeZone: calendar.timezone || 'UTC',
           }
         );
         await supabase
@@ -116,7 +121,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
           .eq('id', row.appointment_id);
       } catch (err: any) {
         await supabase.from('error_log').insert({
-          client_id: input.clientId,
+          calendar_id: input.calendarId,
           error_type: 'google_writeback_failed',
           message: err?.message ?? String(err),
         });
@@ -135,23 +140,23 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
   }
 
   // Conflict: suggest the next available slot for this reason.
-  const [{ data: reason }, { data: rules }, { data: booked }, { data: googleClient }] =
+  const [{ data: reason }, { data: rules }, { data: booked }, { data: googleCalendar }] =
     await Promise.all([
       supabase
         .from('appointment_reasons')
         .select('*')
         .eq('id', input.reasonId)
         .single(),
-      supabase.from('rules').select('*').eq('client_id', input.clientId),
+      supabase.from('rules').select('*').eq('calendar_id', input.calendarId),
       supabase
         .from('appointments')
         .select('*')
-        .eq('client_id', input.clientId)
+        .eq('calendar_id', input.calendarId)
         .gt('expires_at', new Date().toISOString()),
       supabase
-        .from('clients')
-        .select('google_refresh_token, google_calendar_id')
-        .eq('id', input.clientId)
+        .from('booking_calendars')
+        .select('google_calendar_id, clients(google_refresh_token)')
+        .eq('id', input.calendarId)
         .maybeSingle(),
     ]);
 
@@ -160,11 +165,12 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
   // falls back to no live blocks on a Google outage rather than failing the
   // whole conflict response.
   let googleBlocks: GoogleBlock[] = [];
-  if (googleClient?.google_refresh_token) {
+  const googleOwner = ownerOf(googleCalendar);
+  if (googleOwner?.google_refresh_token) {
     try {
       googleBlocks = await getGoogleCalendarEvents(
-        googleClient.google_refresh_token,
-        googleClient.google_calendar_id || 'primary'
+        googleOwner.google_refresh_token,
+        googleCalendar?.google_calendar_id || 'primary'
       );
     } catch {
       googleBlocks = [];

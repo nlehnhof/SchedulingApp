@@ -77,9 +77,13 @@ export const slugSchema = z
   .max(30)
   .regex(/^[a-z0-9-]+$/, 'Lowercase letters, numbers, and hyphens only');
 
-// PATCH /api/client/branding — premium-gated (checked server-side in the
-// route, never trust tier from the request body). Every field optional so
-// a client can update just the slug, just the color, etc.
+// PATCH /api/client/branding — premium-or-above-gated (checked server-side
+// in the route, never trust tier from the request body), scoped to one
+// booking_calendars row (?calendarId= query param, see
+// lib/require-calendar.ts). Every field optional so a client can update
+// just the slug, just the color, etc. sms_reminders_enabled moved out to
+// its own client-level (not per-calendar) route/schema below — see
+// gather-elite-proposal.md B1's reasoning for why it stayed client-level.
 export const brandingSchema = z.object({
   displayName: z.string().min(1).max(255).optional(),
   accentColor: z
@@ -95,22 +99,42 @@ export const brandingSchema = z.object({
     .refine((v) => v.startsWith('https://'), 'Logo URL must use https://')
     .optional(),
   slug: slugSchema.optional(),
-  smsRemindersEnabled: z.boolean().optional(),
+});
+
+// PATCH /api/client/reminders — client-level (not per-calendar): a text-
+// reminders opt-in is a delivery-channel preference tied to the account,
+// not a per-storefront branding concern.
+export const remindersSchema = z.object({
+  smsRemindersEnabled: z.boolean(),
+});
+
+// Per-calendar name/branding fields, shared by the calendars CRUD route
+// (app/api/client/calendars/route.ts) — same shape as brandingSchema's
+// fields since creating/renaming a calendar and editing its branding are
+// conceptually the same operation on the same booking_calendars columns.
+export const calendarCreateSchema = z.object({
+  displayName: z.string().min(1).max(255).optional(),
 });
 
 // PATCH /api/client/calendar — not premium-gated (Google Calendar sync is a
-// core feature, not an upgrade). Google calendar ids are usually an email
-// address (the primary calendar) or an opaque "xxxx@group.calendar.google.com"
-// string, so this stays loose rather than trying to fully validate the
-// shape — the route itself confirms the id is actually one of the caller's
-// own calendars before saving it (see app/api/client/calendar/route.ts).
-// timezone is validated with Intl.DateTimeFormat rather than a hardcoded
-// list, so any real IANA zone name works (the dashboard picker only offers
-// a curated subset — see app/dashboard/calendar/page.tsx — but the server
-// doesn't need to be kept in lockstep with that list).
+// core feature, not an upgrade), scoped to one booking_calendars row
+// (?calendarId= query param). Named `googleCalendarId` (not `calendarId`)
+// specifically to avoid colliding with the booking-calendar-scoping
+// `calendarId` query param every route now takes — this field is GOOGLE's
+// own calendar id string, an unrelated concept (see
+// lib/google-calendar.ts's naming-note comments). Google calendar ids are
+// usually an email address (the primary calendar) or an opaque
+// "xxxx@group.calendar.google.com" string, so this stays loose rather than
+// trying to fully validate the shape — the route itself confirms the id is
+// actually one of the caller's own Google calendars before saving it (see
+// app/api/client/calendar/route.ts). timezone is validated with
+// Intl.DateTimeFormat rather than a hardcoded list, so any real IANA zone
+// name works (the dashboard picker only offers a curated subset — see
+// app/dashboard/calendar/page.tsx — but the server doesn't need to be kept
+// in lockstep with that list).
 export const calendarSelectSchema = z
   .object({
-    calendarId: z.string().min(1).max(255).optional(),
+    googleCalendarId: z.string().min(1).max(255).optional(),
     timezone: z
       .string()
       .min(1)
@@ -125,6 +149,6 @@ export const calendarSelectSchema = z
       }, 'Not a recognized time zone')
       .optional(),
   })
-  .refine((v) => v.calendarId !== undefined || v.timezone !== undefined, {
-    message: 'At least one of calendarId, timezone is required',
+  .refine((v) => v.googleCalendarId !== undefined || v.timezone !== undefined, {
+    message: 'At least one of googleCalendarId, timezone is required',
   });

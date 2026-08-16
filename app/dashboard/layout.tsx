@@ -1,8 +1,10 @@
 import { getServerSession } from 'next-auth';
+import { cookies } from 'next/headers';
 import { authOptions } from '@/lib/auth';
 import DashboardChrome from '@/components/DashboardChrome';
 import SignInButton from '@/components/SignInButton';
 import AdminLoginForm from '@/components/AdminLoginForm';
+import { CALENDAR_COOKIE_NAME } from '@/components/CalendarContext';
 import type { Tier } from '@/lib/tier';
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
@@ -39,6 +41,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   const tutorialCompletedAt = (session as any).tutorialCompletedAt ?? null;
   const adminEmail = process.env.ADMIN_EMAIL || 'admin@local.test';
   const isAdminTestAccount = adminLoginEnabled && session.user?.email === adminEmail;
+  // Read once server-side so a hard reload of e.g. /dashboard/rules doesn't
+  // flash the wrong calendar's data before the client corrects it — see
+  // components/CalendarContext.tsx for the rest of the selection logic.
+  const initialCalendarId = cookies().get(CALENDAR_COOKIE_NAME)?.value ?? null;
 
   return (
     <DashboardChrome
@@ -46,6 +52,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
       tier={tier}
       tutorialCompletedAt={tutorialCompletedAt}
       isAdminTestAccount={isAdminTestAccount}
+      initialCalendarId={initialCalendarId}
     >
       {children}
     </DashboardChrome>

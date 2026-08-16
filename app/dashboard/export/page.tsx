@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Button from '@/components/Button';
 import Select from '@/components/Select';
 import { postJSON } from '@/lib/fetcher';
+import { useCalendar } from '@/components/CalendarContext';
 
 function lastNMonths(n: number): { value: string; label: string }[] {
   const out = [];
@@ -18,6 +19,7 @@ function lastNMonths(n: number): { value: string; label: string }[] {
 }
 
 export default function ExportPage() {
+  const { calendarId } = useCalendar();
   const months = lastNMonths(12);
   const [month, setMonth] = useState(months[0].value);
   const [status, setStatus] = useState<'idle' | 'queued' | 'error'>('idle');
@@ -29,11 +31,11 @@ export default function ExportPage() {
   const [sending, setSending] = useState(false);
 
   async function handleExport() {
-    if (sending) return;
+    if (sending || !calendarId) return;
     setSending(true);
     setStatus('idle');
     try {
-      await postJSON('/api/client/export', { month });
+      await postJSON(`/api/client/export?calendarId=${calendarId}`, { month });
       setStatus('queued');
       setMessage(`Sent to your account email for ${month}.`);
     } catch (err: any) {

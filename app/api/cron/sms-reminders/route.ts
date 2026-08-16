@@ -65,6 +65,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ status: 'ok', sent: 0, failed: 0, total: 0 });
   }
 
+  // appointments are calendar-scoped now (0014-0016 migrations), not
+  // client-scoped directly — resolve each opted-in client's calendars first.
+  const { data: calendars, error: calendarError } = await supabase
+    .from('booking_calendars')
+    .select('id')
+    .in('client_id', clientIds);
+  if (calendarError) {
+    console.error('sms-reminders: failed to query calendars', calendarError);
+    return NextResponse.json({ status: 'error', error: 'Could not load calendars.' }, { status: 500 });
+  }
+  const calendarIds = (calendars ?? []).map((c) => c.id);
+  if (calendarIds.length === 0) {
+    return NextResponse.json({ status: 'ok', sent: 0, failed: 0, total: 0 });
+  }
+
   const windowStart = new Date();
   windowStart.setHours(windowStart.getHours() + 24);
   const windowEnd = new Date();
@@ -73,7 +88,7 @@ export async function POST(req: Request) {
   const { data: appointments, error: aptError } = await supabase
     .from('appointments')
     .select('id, visitor_phone, start_time')
-    .in('client_id', clientIds)
+    .in('calendar_id', calendarIds)
     .eq('status', 'confirmed')
     .gte('start_time', windowStart.toISOString())
     .lt('start_time', windowEnd.toISOString());

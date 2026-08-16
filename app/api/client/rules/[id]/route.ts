@@ -1,12 +1,17 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
+import { requireCalendarAccess } from '@/lib/require-calendar';
 import { ruleSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+
+  const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  if (calendar instanceof NextResponse) return calendar;
 
   const parsed = ruleSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -27,7 +32,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       updated_at: new Date().toISOString(),
     })
     .eq('id', params.id)
-    .eq('client_id', client.clientId) // scope to this client, no cross-tenant edits
+    .eq('calendar_id', calendar.calendarId) // scope to this calendar, no cross-tenant edits
     .select()
     .single();
 
@@ -36,16 +41,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   return NextResponse.json(data);
 }
 
-export async function DELETE(_req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: { id: string } }) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
+
+  const { searchParams } = new URL(req.url);
+  const calendar = await requireCalendarAccess(searchParams.get('calendarId'), client.clientId);
+  if (calendar instanceof NextResponse) return calendar;
 
   const supabase = createServiceClient();
   const { error, count } = await supabase
     .from('rules')
     .delete({ count: 'exact' })
     .eq('id', params.id)
-    .eq('client_id', client.clientId);
+    .eq('calendar_id', calendar.calendarId);
 
   if (error) return errorResponse(error, 'Could not delete rule.');
   if (!count) return NextResponse.json({ error: 'not_found' }, { status: 404 });
