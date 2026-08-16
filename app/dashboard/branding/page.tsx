@@ -6,6 +6,8 @@ import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
+import PremiumLockCard from '@/components/PremiumLockCard';
+import Spinner from '@/components/Spinner';
 import { isAtLeast, type Tier } from '@/lib/tier';
 import { useCalendar } from '@/components/CalendarContext';
 
@@ -69,21 +71,15 @@ export default function BrandingPage() {
     return () => clearTimeout(handle);
   }, [slug, data?.slug, calendarId]);
 
-  if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
+  if (isLoading) return <Spinner />;
   if (error || !data) return <p className="text-sm text-danger">Failed to load branding settings.</p>;
 
   if (!isAtLeast(data.tier, 'premium')) {
     return (
-      <div className="flex max-w-xl flex-col gap-4">
-        <h1 className="font-serif text-xl font-semibold text-text-primary">Branding</h1>
-        <div className="rounded-lg border border-accent-soft bg-accent-soft/15 p-6">
-          <p className="text-sm font-medium text-text-primary">This is a premium feature.</p>
-          <p className="mt-1 text-sm text-text-secondary">
-            Upgrade to Premium to customize your booking page with your own business name, accent
-            color, logo, and a short, memorable link (e.g. /visit/your-name instead of a long id).
-          </p>
-        </div>
-      </div>
+      <PremiumLockCard
+        title="Branding"
+        description="Upgrade to Premium to customize your booking page with your own business name, accent color, logo, and a short, memorable link (e.g. /visit/your-name instead of a long id)."
+      />
     );
   }
 

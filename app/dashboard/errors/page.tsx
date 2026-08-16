@@ -4,6 +4,7 @@ import useSWR, { mutate } from 'swr';
 import { fetcher, postJSON } from '@/lib/fetcher';
 import type { ErrorLogEntry } from '@/lib/types';
 import ErrorBanner from '@/components/ErrorBanner';
+import Spinner from '@/components/Spinner';
 import { useCalendar } from '@/components/CalendarContext';
 
 export default function ErrorsPage() {
@@ -30,9 +31,9 @@ export default function ErrorsPage() {
   const errors = data?.errors ?? [];
 
   return (
-    <div className="flex flex-col gap-4">
+    <div className="flex max-w-2xl flex-col gap-4">
       <h1 className="font-serif text-xl font-semibold text-text-primary">Error Log</h1>
-      {isLoading && <p className="text-sm text-text-secondary">Loading…</p>}
+      {isLoading && <Spinner />}
       {error && <p className="text-sm text-danger">Failed to load error log.</p>}
       {errors.length === 0 && !isLoading && (
         <p className="text-sm text-text-secondary">No errors. Everything&apos;s syncing cleanly.</p>

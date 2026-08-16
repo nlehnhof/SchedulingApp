@@ -19,7 +19,7 @@ export async function GET(
   const supabase = createServiceClient();
   const { data: reasons, error } = await supabase
     .from('appointment_reasons')
-    .select('id, name, duration_min')
+    .select('id, name, duration_min, info_note, required_checkboxes')
     .eq('calendar_id', resolved.calendarId)
     .order('order', { ascending: true });
 
@@ -29,6 +29,8 @@ export async function GET(
       id: r.id,
       name: r.name,
       durationMin: r.duration_min,
+      infoNote: r.info_note,
+      requiredCheckboxes: r.required_checkboxes,
     })),
   });
 }

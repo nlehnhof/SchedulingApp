@@ -6,10 +6,13 @@ import { z } from 'zod';
 import Button from './Button';
 import Input from './Input';
 import Select from './Select';
+import DatesMultiSelect from './DatesMultiSelect';
+import InfoTooltip from './InfoTooltip';
 
 const formSchema = z.object({
   ruleType: z.enum([
     'available_hours',
+    'specific_dates',
     'max_per_window',
     'first_n_only',
     'blackout',
@@ -28,6 +31,7 @@ const formSchema = z.object({
   bufferMinutes: z.string().optional(),
   noticeHours: z.string().optional(),
   maxGapMinutes: z.string().optional(),
+  specificDates: z.array(z.string()).optional(),
 });
 
 export type RuleFormValues = z.infer<typeof formSchema>;
@@ -41,6 +45,7 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 // real source of truth and the tooltip is a bonus for mouse users.
 const RULE_LABELS: Record<RuleFormValues['ruleType'], string> = {
   available_hours: 'Available hours',
+  specific_dates: 'Specific dates',
   max_per_window: 'Max per time window',
   first_n_only: 'First N per time window',
   blackout: 'Blackout dates',
@@ -52,6 +57,8 @@ const RULE_LABELS: Record<RuleFormValues['ruleType'], string> = {
 const RULE_DESCRIPTIONS: Record<RuleFormValues['ruleType'], string> = {
   available_hours:
     "The hours you're open for bookings on a given day, or every day. A day-specific rule overrides the \"all days\" rule for that one day.",
+  specific_dates:
+    'Opens exactly these calendar dates for booking, with their own start/end time — independent of your weekday hours. Use "Select whole month" to open a whole month at once.',
   max_per_window:
     'Caps how many appointments can land inside a rolling time window — e.g. at most 3 appointments in any 60-minute window — even if individual slots are still technically free.',
   first_n_only:
@@ -81,13 +88,20 @@ export default function RuleEditor({
     register,
     handleSubmit,
     watch,
+    setValue,
     formState: { errors, isSubmitting },
   } = useForm<RuleFormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { ruleType: 'available_hours', dayOfWeek: 'all', ...initialValues },
+    defaultValues: {
+      ruleType: 'available_hours',
+      dayOfWeek: 'all',
+      specificDates: [],
+      ...initialValues,
+    },
   });
 
   const ruleType = watch('ruleType');
+  const specificDates = watch('specificDates') ?? [];
 
   return (
     <form onSubmit={handleSubmit(async (v) => onSubmit(v))} className="flex flex-col gap-4">
@@ -99,7 +113,10 @@ export default function RuleEditor({
             </option>
           ))}
         </Select>
-        <p className="text-xs text-text-secondary">{RULE_DESCRIPTIONS[ruleType]}</p>
+        <div className="flex items-center gap-1.5">
+          <InfoTooltip text={RULE_DESCRIPTIONS[ruleType]} />
+          <span className="text-xs text-text-secondary">What does this do?</span>
+        </div>
       </div>
 
       {ruleType === 'available_hours' && (
@@ -112,6 +129,19 @@ export default function RuleEditor({
               </option>
             ))}
           </Select>
+          <div className="flex gap-2">
+            <Input type="time" label="Start time" {...register('startTime')} />
+            <Input type="time" label="End time" {...register('endTime')} />
+          </div>
+        </>
+      )}
+
+      {ruleType === 'specific_dates' && (
+        <>
+          <DatesMultiSelect
+            value={specificDates}
+            onChange={(dates) => setValue('specificDates', dates, { shouldDirty: true })}
+          />
           <div className="flex gap-2">
             <Input type="time" label="Start time" {...register('startTime')} />
             <Input type="time" label="End time" {...register('endTime')} />
@@ -174,7 +204,10 @@ export default function RuleEditor({
             Cancel
           </Button>
         )}
-        <Button type="submit" disabled={isSubmitting}>
+        <Button
+          type="submit"
+          disabled={isSubmitting || (ruleType === 'specific_dates' && specificDates.length === 0)}
+        >
           {isSubmitting ? 'Saving…' : submitLabel}
         </Button>
       </div>

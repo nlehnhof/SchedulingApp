@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import SignOutButton from './SignOutButton';
 import Select from './Select';
+import Modal from './Modal';
 import { useCalendar } from './CalendarContext';
 import { postJSON } from '@/lib/fetcher';
 import { isAtLeast, type Tier } from '@/lib/tier';
@@ -61,6 +62,7 @@ export default function DashboardNav({
   const router = useRouter();
   const currentTier: Tier = tier ?? 'free';
   const [toggling, setToggling] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const { calendarId, calendars, setCalendarId } = useCalendar();
 
   async function toggleTier() {
@@ -79,57 +81,13 @@ export default function DashboardNav({
     }
   }
 
-  function renderGroup(label: string, links: NavLink[]) {
+  // Shared between the desktop sidebar and the mobile drawer (previously
+  // the mobile nav lost this entirely — email, calendar switcher, and dev
+  // tier toggle were all `hidden md:block`). `onNavigate` closes the drawer
+  // after a link tap; it's a no-op on desktop, where nothing is listening.
+  function accountBlock(onNavigate?: () => void) {
     return (
-      <li className="flex-1 md:flex-none">
-        <div className="hidden px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-text-secondary/70 md:block">
-          {label}
-        </div>
-        <ul className="flex flex-row md:flex-col">
-          {links.map((link) => {
-            const active = pathname === link.href;
-            const locked = !!link.minTier && !isAtLeast(currentTier, link.minTier);
-            return (
-              <li key={link.href} className="flex-1 md:flex-none">
-                <Link
-                  href={link.href}
-                  className={`flex items-center justify-between gap-2 whitespace-nowrap px-4 py-3 text-sm font-medium ${
-                    active
-                      ? 'bg-accent-soft/30 text-text-primary'
-                      : 'text-text-secondary hover:bg-accent-soft/15'
-                  }`}
-                >
-                  <span>{link.label}</span>
-                  {locked && (
-                    <span className="rounded-full bg-accent-soft/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent-hover">
-                      {link.minTier}
-                    </span>
-                  )}
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
-      </li>
-    );
-  }
-
-  return (
-    <nav className="flex shrink-0 flex-row overflow-x-auto border-b border-border bg-surface md:w-56 md:flex-col md:overflow-visible md:border-b-0 md:border-r">
-      <div className="hidden flex-col gap-1 px-4 py-4 md:flex">
-        <div className="flex items-center justify-between">
-          <span className="font-serif text-lg font-semibold text-text-primary">Gather</span>
-          {onReplayTutorial && (
-            <button
-              onClick={onReplayTutorial}
-              aria-label="Replay tutorial"
-              title="Replay tutorial"
-              className="rounded-full border border-border px-1.5 text-xs text-text-secondary hover:bg-accent-soft/20"
-            >
-              ?
-            </button>
-          )}
-        </div>
+      <div className="flex flex-col gap-1">
         <span className="truncate text-xs text-text-secondary">{email}</span>
 
         {/* Only shown once there's actually something to switch between —
@@ -142,7 +100,10 @@ export default function DashboardNav({
             <Select
               label="Calendar"
               value={calendarId ?? ''}
-              onChange={(e) => setCalendarId(e.target.value)}
+              onChange={(e) => {
+                setCalendarId(e.target.value);
+                onNavigate?.();
+              }}
               className="text-xs"
             >
               {calendars.some((c) => c.role === 'owner') && (
@@ -187,11 +148,53 @@ export default function DashboardNav({
           </button>
         )}
       </div>
-      <ul className="flex flex-row md:flex-col">
-        <li className="flex-1 md:flex-none">
+    );
+  }
+
+  function renderGroup(label: string, links: NavLink[], onNavigate?: () => void) {
+    return (
+      <li>
+        <div className="px-4 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-text-secondary/70">
+          {label}
+        </div>
+        <ul className="flex flex-col">
+          {links.map((link) => {
+            const active = pathname === link.href;
+            const locked = !!link.minTier && !isAtLeast(currentTier, link.minTier);
+            return (
+              <li key={link.href}>
+                <Link
+                  href={link.href}
+                  onClick={onNavigate}
+                  className={`flex min-h-11 items-center justify-between gap-2 whitespace-nowrap rounded-md px-4 py-3 text-sm font-medium transition-colors ${
+                    active
+                      ? 'bg-accent-soft/30 text-text-primary'
+                      : 'text-text-secondary hover:bg-accent-soft/15'
+                  }`}
+                >
+                  <span>{link.label}</span>
+                  {locked && (
+                    <span className="rounded-full bg-accent-soft/40 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-accent-hover">
+                      {link.minTier}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      </li>
+    );
+  }
+
+  function navLinks(onNavigate?: () => void) {
+    return (
+      <ul className="flex flex-col">
+        <li>
           <Link
             href="/dashboard"
-            className={`block whitespace-nowrap px-4 py-3 text-sm font-medium ${
+            onClick={onNavigate}
+            className={`flex min-h-11 items-center whitespace-nowrap rounded-md px-4 py-3 text-sm font-medium transition-colors ${
               pathname === '/dashboard'
                 ? 'bg-accent-soft/30 text-text-primary'
                 : 'text-text-secondary hover:bg-accent-soft/15'
@@ -200,14 +203,80 @@ export default function DashboardNav({
             Home
           </Link>
         </li>
-        {renderGroup('Setup', SETUP_LINKS)}
-        {renderGroup('Operate', OPERATE_LINKS)}
-        {renderGroup('Premium', PREMIUM_LINKS)}
-        {renderGroup('Elite', ELITE_LINKS)}
+        {renderGroup('Setup', SETUP_LINKS, onNavigate)}
+        {renderGroup('Operate', OPERATE_LINKS, onNavigate)}
+        {renderGroup('Premium', PREMIUM_LINKS, onNavigate)}
+        {renderGroup('Elite', ELITE_LINKS, onNavigate)}
       </ul>
-      <div className="hidden px-4 py-4 md:block">
-        <SignOutButton />
+    );
+  }
+
+  return (
+    <>
+      {/* Slim mobile top bar — replaces the old unlabeled horizontal-scroll
+          link strip, which had no group headers and no way to reach the
+          brand, calendar switcher, or sign-out at all below md. */}
+      <div className="flex items-center gap-1 border-b border-border bg-surface px-2 py-2 md:hidden">
+        <button
+          type="button"
+          onClick={() => setDrawerOpen(true)}
+          aria-label="Open menu"
+          className="flex h-11 w-11 items-center justify-center rounded-md text-lg text-text-secondary hover:bg-accent-soft/20"
+        >
+          ☰
+        </button>
+        <span className="font-serif text-lg font-semibold text-text-primary">Gather</span>
       </div>
-    </nav>
+
+      <Modal
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        position="drawer"
+        closeOnBackdropClick
+        title="Menu"
+      >
+        <div className="flex flex-col gap-3">
+          {onReplayTutorial && (
+            <button
+              onClick={() => {
+                onReplayTutorial();
+                setDrawerOpen(false);
+              }}
+              className="w-fit rounded-md border border-border px-2 py-1 text-left text-xs text-text-secondary hover:bg-accent-soft/20"
+            >
+              Replay tutorial
+            </button>
+          )}
+          {accountBlock(() => setDrawerOpen(false))}
+          {navLinks(() => setDrawerOpen(false))}
+          <div className="mt-2 border-t border-border pt-3">
+            <SignOutButton />
+          </div>
+        </div>
+      </Modal>
+
+      <nav className="hidden shrink-0 md:flex md:w-56 md:flex-col md:border-r md:border-border md:bg-surface">
+        <div className="flex flex-col gap-1 px-4 py-4">
+          <div className="flex items-center justify-between">
+            <span className="font-serif text-lg font-semibold text-text-primary">Gather</span>
+            {onReplayTutorial && (
+              <button
+                onClick={onReplayTutorial}
+                aria-label="Replay tutorial"
+                title="Replay tutorial"
+                className="rounded-full border border-border px-1.5 text-xs text-text-secondary hover:bg-accent-soft/20"
+              >
+                ?
+              </button>
+            )}
+          </div>
+          {accountBlock()}
+        </div>
+        {navLinks()}
+        <div className="px-4 py-4">
+          <SignOutButton />
+        </div>
+      </nav>
+    </>
   );
 }

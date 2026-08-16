@@ -12,6 +12,48 @@ export interface GetAvailableSlotsParams {
   // never need to pass this; it exists so tests can pin a deterministic
   // clock instead of racing the real one.
   now?: Date;
+  // Which end of the day's available window slots get generated from —
+  // 'forward' (default) fills from start_time and moves later, so any
+  // leftover time that doesn't divide evenly into duration_min-sized slots
+  // ends up unused at the *end* of the window. 'backward' fills from
+  // end_time and moves earlier, so the leftover ends up at the *start*
+  // instead. Sourced from the calendar's `slot_fill_direction` column —
+  // see lib/types.ts's BookingCalendar.
+  fillDirection?: 'forward' | 'backward';
+}
+
+/**
+ * Builds the list of duration_min-sized [start, end) intervals within
+ * [dayStart, dayEnd), always returned in ascending chronological order
+ * regardless of fill direction — direction only decides which end of the
+ * window absorbs a remainder that doesn't evenly divide into full slots.
+ */
+function computeSlotIntervals(
+  dayStart: Date,
+  dayEnd: Date,
+  durationMs: number,
+  direction: 'forward' | 'backward'
+): { start: Date; end: Date }[] {
+  const intervals: { start: Date; end: Date }[] = [];
+  if (direction === 'backward') {
+    for (
+      let slotEnd = new Date(dayEnd);
+      slotEnd.getTime() - durationMs >= dayStart.getTime();
+      slotEnd = new Date(slotEnd.getTime() - durationMs)
+    ) {
+      const slotStart = new Date(slotEnd.getTime() - durationMs);
+      intervals.unshift({ start: slotStart, end: slotEnd });
+    }
+  } else {
+    for (
+      let slotStart = new Date(dayStart);
+      slotStart.getTime() + durationMs <= dayEnd.getTime();
+      slotStart = new Date(slotStart.getTime() + durationMs)
+    ) {
+      intervals.push({ start: slotStart, end: new Date(slotStart.getTime() + durationMs) });
+    }
+  }
+  return intervals;
 }
 
 function parseTimeOnDate(date: Date, hhmmss: string): Date {
@@ -41,6 +83,22 @@ function findAvailableHoursRule(rules: Rule[], dow: number): Rule | undefined {
   );
   if (specific) return specific;
   return rules.find((r) => r.rule_type === 'available_hours' && r.day_of_week === null);
+}
+
+/**
+ * Picks a `specific_dates` rule whose config.dates includes this exact
+ * calendar date, if any. A match is authoritative for that date — it opens
+ * the day using its own start/end time even if no available_hours rule
+ * exists for that weekday at all (see findAvailableHoursRule above), which
+ * is what lets a client open one specific date without changing their
+ * weekday schedule.
+ */
+function findSpecificDateRule(rules: Rule[], dateKey: string): Rule | undefined {
+  return rules.find((r) => {
+    if (r.rule_type !== 'specific_dates') return false;
+    const dates = r.config?.dates;
+    return Array.isArray(dates) && dates.includes(dateKey);
+  });
 }
 
 /**
@@ -74,6 +132,7 @@ export function getAvailableSlots({
   booked,
   googleBlocks,
   now,
+  fillDirection = 'forward',
 }: GetAvailableSlotsParams): Slot[] {
   const durationMs = reason.duration_min * 60 * 1000;
   const slots: Slot[] = [];
@@ -94,7 +153,8 @@ export function getAvailableSlots({
     if (isBlackedOut(blackoutRules, date)) continue;
 
     const dow = date.getDay();
-    const availableHours = findAvailableHoursRule(rules, dow);
+    const dateKey = dateOnly(date);
+    const availableHours = findSpecificDateRule(rules, dateKey) ?? findAvailableHoursRule(rules, dow);
     if (!availableHours || !availableHours.start_time || !availableHours.end_time) continue;
 
     const dayStart = parseTimeOnDate(date, availableHours.start_time);
@@ -119,13 +179,8 @@ export function getAvailableSlots({
       }, dayStart);
     }
 
-    for (
-      let slotStart = new Date(dayStart);
-      slotStart.getTime() + durationMs <= dayEnd.getTime();
-      slotStart = new Date(slotStart.getTime() + durationMs)
-    ) {
-      const slotEnd = new Date(slotStart.getTime() + durationMs);
-
+    const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, fillDirection);
+    for (const { start: slotStart, end: slotEnd } of intervals) {
       const isBooked = booked.some((apt) =>
         overlaps(slotStart, slotEnd, new Date(apt.start_time), new Date(apt.end_time))
       );

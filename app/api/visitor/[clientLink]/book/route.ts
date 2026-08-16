@@ -4,6 +4,7 @@ import { bookSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 import { isRateLimited, clientIp } from '@/lib/rate-limit';
 import { resolveCalendarLink } from '@/lib/resolve-calendar-link';
+import { createServiceClient } from '@/lib/supabase';
 
 export async function POST(
   req: Request,
@@ -30,6 +31,33 @@ export async function POST(
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const body = parsed.data;
+
+  // Anonymous/unauthenticated route — never trust the client's own claim of
+  // which required checkboxes it checked without re-verifying against the
+  // reason's actual stored list, scoped to this calendar (same double-scoping
+  // the book_appointment SQL function itself uses for reason_id + calendar_id).
+  const supabase = createServiceClient();
+  const { data: reason, error: reasonError } = await supabase
+    .from('appointment_reasons')
+    .select('required_checkboxes')
+    .eq('id', body.reasonId)
+    .eq('calendar_id', resolved.calendarId)
+    .maybeSingle();
+  if (reasonError) return errorResponse(reasonError, 'Booking failed. Please try again.');
+  if (!reason) {
+    return NextResponse.json({ error: 'Invalid reason.' }, { status: 400 });
+  }
+  const requiredCheckboxes = (reason.required_checkboxes ?? []) as string[];
+  if (requiredCheckboxes.length > 0) {
+    const checked = new Set(body.checkedRequiredCheckboxes ?? []);
+    const allChecked = requiredCheckboxes.every((label) => checked.has(label));
+    if (!allChecked) {
+      return NextResponse.json(
+        { error: 'Please check all required boxes before booking.' },
+        { status: 400 }
+      );
+    }
+  }
 
   try {
     const result = await bookAppointment({

@@ -5,6 +5,7 @@ import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Select from '@/components/Select';
+import Spinner from '@/components/Spinner';
 import { useCalendar } from '@/components/CalendarContext';
 
 interface GoogleCalendarData {
@@ -12,6 +13,7 @@ interface GoogleCalendarData {
   calendars: { id: string; summary: string; primary: boolean }[];
   selected: string;
   timezone: string;
+  slotFillDirection: 'forward' | 'backward';
 }
 
 // A curated subset, not every IANA zone — Intl.supportedValuesOf('timeZone')
@@ -43,6 +45,7 @@ export default function CalendarPage() {
   // it visually distinct from the booking-calendar id from context above.
   const [googleCalendarId, setGoogleCalendarId] = useState('');
   const [timezone, setTimezone] = useState('');
+  const [slotFillDirection, setSlotFillDirection] = useState<'forward' | 'backward'>('forward');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -51,9 +54,10 @@ export default function CalendarPage() {
     if (!data) return;
     setGoogleCalendarId(data.selected);
     setTimezone(data.timezone);
+    setSlotFillDirection(data.slotFillDirection);
   }, [data]);
 
-  if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
+  if (isLoading) return <Spinner />;
   if (error || !data) return <p className="text-sm text-danger">Failed to load calendar settings.</p>;
 
   async function handleSave(e: React.FormEvent) {
@@ -63,7 +67,7 @@ export default function CalendarPage() {
     setSaved(false);
     setSaving(true);
     try {
-      const body: Record<string, string> = { timezone };
+      const body: Record<string, string> = { timezone, slotFillDirection };
       if (data!.linked) body.googleCalendarId = googleCalendarId;
       const res = await fetch(KEY, {
         method: 'PATCH',
@@ -106,6 +110,23 @@ export default function CalendarPage() {
         <p className="text-xs text-text-secondary">
           Used to write appointments to Google Calendar at the correct time — set this to where
           this calendar&apos;s business actually operates, not where the server runs.
+        </p>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <Select
+          label="Slot fill direction"
+          value={slotFillDirection}
+          onChange={(e) => setSlotFillDirection(e.target.value as 'forward' | 'backward')}
+          disabled={!canWrite}
+        >
+          <option value="forward">Forward — start at the beginning of the day</option>
+          <option value="backward">Backward — start at the end of the day</option>
+        </Select>
+        <p className="text-xs text-text-secondary">
+          When your appointment length doesn&apos;t evenly divide your available hours, this
+          decides which end gets the leftover unbooked time. Forward fills from the start of
+          your hours; backward fills from the end, working earlier.
         </p>
       </div>
 

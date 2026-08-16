@@ -3,6 +3,7 @@ import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { requireCalendarAccess } from '@/lib/require-calendar';
 import { getAvailableSlots } from '@/lib/availability';
+import { parseLocalDateOnly } from '@/lib/date-format';
 import type { Appointment, AppointmentReason, Rule } from '@/lib/types';
 
 export async function GET(req: Request) {
@@ -21,7 +22,7 @@ export async function GET(req: Request) {
   }
 
   const supabase = createServiceClient();
-  const [{ data: rules }, { data: booked }, { data: reasons }] = await Promise.all([
+  const [{ data: rules }, { data: booked }, { data: reasons }, { data: calendarRow }] = await Promise.all([
     supabase.from('rules').select('*').eq('calendar_id', calendar.calendarId),
     supabase
       .from('appointments')
@@ -31,6 +32,7 @@ export async function GET(req: Request) {
     reasonId
       ? supabase.from('appointment_reasons').select('*').eq('id', reasonId)
       : supabase.from('appointment_reasons').select('*').eq('calendar_id', calendar.calendarId).limit(1),
+    supabase.from('booking_calendars').select('slot_fill_direction').eq('id', calendar.calendarId).single(),
   ]);
 
   const reason = reasons?.[0] as AppointmentReason | undefined;
@@ -39,12 +41,13 @@ export async function GET(req: Request) {
   }
 
   const slots = getAvailableSlots({
-    startDate: new Date(startDate),
-    endDate: new Date(endDate),
+    startDate: parseLocalDateOnly(startDate),
+    endDate: parseLocalDateOnly(endDate),
     reason,
     rules: (rules ?? []) as Rule[],
     booked: (booked ?? []) as Appointment[],
     googleBlocks: [],
+    fillDirection: (calendarRow?.slot_fill_direction ?? 'forward') as 'forward' | 'backward',
   });
 
   // Group flat slots + booked appointments into per-day buckets for the

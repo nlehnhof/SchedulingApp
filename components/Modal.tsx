@@ -11,6 +11,7 @@ export default function Modal({
   title,
   children,
   closeOnBackdropClick = false,
+  position = 'center',
 }: {
   open: boolean;
   onClose: () => void;
@@ -21,6 +22,10 @@ export default function Modal({
   // lower-stakes overlays (e.g. the onboarding tour) where PLAN.md
   // explicitly calls for "click outside closes it" behavior.
   closeOnBackdropClick?: boolean;
+  // 'drawer' reuses the same focus-trap/Escape/backdrop machinery below but
+  // renders as a full-height off-canvas panel sliding in from the left
+  // (mobile nav) instead of a centered dialog.
+  position?: 'center' | 'drawer';
 }) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
@@ -69,9 +74,13 @@ export default function Modal({
 
   if (!open) return null;
 
+  const isDrawer = position === 'drawer';
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      className={`fixed inset-0 z-50 flex bg-black/40 ${
+        isDrawer ? 'items-stretch justify-start' : 'items-center justify-center p-4'
+      }`}
       onMouseDown={(e) => {
         if (closeOnBackdropClick && e.target === e.currentTarget) onClose();
       }}
@@ -81,9 +90,13 @@ export default function Modal({
         role="dialog"
         aria-modal="true"
         tabIndex={-1}
-        className="w-full max-w-md rounded-lg border border-border bg-surface p-6 shadow-lg outline-none"
+        className={
+          isDrawer
+            ? 'animate-slide-in flex h-full w-72 max-w-[85vw] flex-col overflow-hidden border-r border-border bg-surface p-4 shadow-medium outline-none'
+            : 'animate-scale-in flex max-h-[90vh] w-full max-w-md flex-col rounded-2xl border border-border bg-surface p-6 shadow-medium outline-none'
+        }
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex shrink-0 items-center justify-between">
           {title && <h2 className="font-serif text-lg font-semibold text-text-primary">{title}</h2>}
           <button
             onClick={onClose}
@@ -93,7 +106,7 @@ export default function Modal({
             ✕
           </button>
         </div>
-        {children}
+        <div className="overflow-y-auto">{children}</div>
       </div>
     </div>
   );

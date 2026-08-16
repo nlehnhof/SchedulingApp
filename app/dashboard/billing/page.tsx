@@ -5,6 +5,7 @@ import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher, postJSON } from '@/lib/fetcher';
 import Button from '@/components/Button';
+import Spinner from '@/components/Spinner';
 import { isAtLeast, type Tier } from '@/lib/tier';
 
 interface BillingData {
@@ -23,7 +24,7 @@ export default function BillingPage() {
   const [redirecting, setRedirecting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
+  if (isLoading) return <Spinner />;
   if (error || !data) return <p className="text-sm text-danger">Failed to load billing status.</p>;
 
   async function goTo(path: string, body: Record<string, unknown> = {}) {

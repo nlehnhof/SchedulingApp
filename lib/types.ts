@@ -22,6 +22,7 @@ export interface BookingCalendar {
   slug: string | null;
   google_calendar_id: string;
   timezone: string;
+  slot_fill_direction: 'forward' | 'backward';
   created_at: string;
   updated_at: string;
 }
@@ -32,6 +33,8 @@ export interface AppointmentReason {
   name: string;
   duration_min: number;
   order: number;
+  info_note: string | null;
+  required_checkboxes: string[];
 }
 
 export interface Rule {
@@ -39,6 +42,7 @@ export interface Rule {
   calendar_id: string;
   rule_type:
     | 'available_hours'
+    | 'specific_dates'
     | 'max_per_window'
     | 'first_n_only'
     | 'blackout'

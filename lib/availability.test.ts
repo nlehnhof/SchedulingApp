@@ -8,6 +8,8 @@ const reason: AppointmentReason = {
   name: 'Recommend',
   duration_min: 15,
   order: 1,
+  info_note: null,
+  required_checkboxes: [],
 };
 
 const allDaysHours: Rule = {
@@ -53,6 +55,44 @@ describe('getAvailableSlots', () => {
     // 09:00-10:00 in 15-min increments = 4 slots
     expect(slots).toHaveLength(4);
     expect(slots.every((s) => s.available)).toBe(true);
+  });
+
+  it('fillDirection "forward" (default) leaves a leftover gap at the end of the window', () => {
+    const day = new Date('2026-08-17T00:00:00'); // Monday, 09:00-10:00
+    const oddDurationReason: AppointmentReason = { ...reason, duration_min: 25 };
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason: oddDurationReason,
+      rules: [allDaysHours],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    // 25-min slots don't divide evenly into a 60-min window: 09:00-09:25,
+    // 09:25-09:50, then 09:50+25=10:15 doesn't fit — 09:50-10:00 goes unused.
+    expect(slots.map((s) => s.start.slice(11, 16))).toEqual(['09:00', '09:25']);
+    expect(slots[slots.length - 1].end.slice(11, 16)).toBe('09:50');
+  });
+
+  it('fillDirection "backward" leaves the same leftover at the start instead of the end', () => {
+    const day = new Date('2026-08-17T00:00:00'); // Monday, 09:00-10:00
+    const oddDurationReason: AppointmentReason = { ...reason, duration_min: 25 };
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason: oddDurationReason,
+      rules: [allDaysHours],
+      booked: [],
+      googleBlocks: [],
+      fillDirection: 'backward',
+    });
+
+    // Anchored to 10:00 and working backward: 09:35-10:00, then 09:10-09:35,
+    // then 08:45-09:10 doesn't fit — 09:00-09:10 goes unused. Still returned
+    // in ascending chronological order.
+    expect(slots.map((s) => s.start.slice(11, 16))).toEqual(['09:10', '09:35']);
+    expect(slots[slots.length - 1].end.slice(11, 16)).toBe('10:00');
   });
 
   // Regression guard for the Saturday/Sunday display bug: slot.start/end
@@ -192,6 +232,109 @@ describe('getAvailableSlots', () => {
     });
 
     expect(slots[0].start.slice(11, 16)).not.toBe('09:00');
+  });
+
+  it('a specific_dates rule opens a date with no matching weekday rule', () => {
+    const sunday = new Date('2026-08-16T00:00:00'); // a Sunday; allDaysHours also covers it,
+    // so use a calendar with only a Wednesday rule to prove the specific date needs no
+    // weekday rule of its own.
+    const wednesdayOnly: Rule = {
+      id: 'rule-wed',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 3,
+      start_time: '09:00:00',
+      end_time: '10:00:00',
+      max_concurrent: null,
+      config: null,
+    };
+    const specificDateRule: Rule = {
+      id: 'rule-specific',
+      calendar_id: 'client-1',
+      rule_type: 'specific_dates',
+      day_of_week: null,
+      start_time: '12:00:00',
+      end_time: '13:00:00',
+      max_concurrent: null,
+      config: { dates: ['2026-08-16'] },
+    };
+
+    const slots = getAvailableSlots({
+      startDate: sunday,
+      endDate: sunday,
+      reason,
+      rules: [wednesdayOnly, specificDateRule],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots.every((s) => s.start.slice(11, 16) >= '12:00' && s.start.slice(11, 16) < '13:00')).toBe(
+      true
+    );
+  });
+
+  it('a specific_dates rule overrides the weekday hours for that exact date', () => {
+    const monday = new Date('2026-08-17T00:00:00'); // Monday; allDaysHours covers 09:00-10:00
+    const specificDateRule: Rule = {
+      id: 'rule-specific',
+      calendar_id: 'client-1',
+      rule_type: 'specific_dates',
+      day_of_week: null,
+      start_time: '15:00:00',
+      end_time: '16:00:00',
+      max_concurrent: null,
+      config: { dates: ['2026-08-17'] },
+    };
+
+    const slots = getAvailableSlots({
+      startDate: monday,
+      endDate: monday,
+      reason,
+      rules: [allDaysHours, specificDateRule],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    expect(slots.length).toBeGreaterThan(0);
+    expect(slots.every((s) => s.start.slice(11, 16) >= '15:00' && s.start.slice(11, 16) < '16:00')).toBe(
+      true
+    );
+  });
+
+  it('a blackout still suppresses a date even when a specific_dates rule also covers it', () => {
+    const monday = new Date('2026-08-17T00:00:00'); // Monday
+    const specificDateRule: Rule = {
+      id: 'rule-specific',
+      calendar_id: 'client-1',
+      rule_type: 'specific_dates',
+      day_of_week: null,
+      start_time: '15:00:00',
+      end_time: '16:00:00',
+      max_concurrent: null,
+      config: { dates: ['2026-08-17'] },
+    };
+    const blackoutRule: Rule = {
+      id: 'rule-blackout',
+      calendar_id: 'client-1',
+      rule_type: 'blackout',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { start_date: '2026-08-17', end_date: '2026-08-17' },
+    };
+
+    const slots = getAvailableSlots({
+      startDate: monday,
+      endDate: monday,
+      reason,
+      rules: [allDaysHours, specificDateRule, blackoutRule],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    expect(slots).toHaveLength(0);
   });
 
   it('generates no slots on a blacked-out day', () => {

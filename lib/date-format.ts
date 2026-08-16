@@ -50,3 +50,16 @@ export function parseLocalDateOnly(dateStr: string): Date {
   const [year, month, day] = dateStr.split('-').map(Number);
   return new Date(year, month - 1, day);
 }
+
+/**
+ * Formats a Date's *local* year/month/day as a plain 'YYYY-MM-DD' string —
+ * the inverse of parseLocalDateOnly(). Use this instead of
+ * `.toISOString().slice(0, 10)` anywhere a Date is being turned into a
+ * date-only bucket/grouping key: `.toISOString()` converts to UTC first,
+ * which rolls the date backward or forward by one near midnight in any
+ * timezone that isn't UTC.
+ */
+export function formatLocalDateOnly(date: Date): string {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}

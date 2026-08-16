@@ -6,7 +6,122 @@ import { fetcher, postJSON } from '@/lib/fetcher';
 import type { AppointmentReason } from '@/lib/types';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
+import Card from '@/components/Card';
+import Spinner from '@/components/Spinner';
 import { useCalendar } from '@/components/CalendarContext';
+
+const ICON_BUTTON = 'flex h-11 w-11 items-center justify-center rounded-md text-text-secondary transition-colors hover:bg-accent-soft/20 disabled:opacity-30';
+
+function ReasonExtras({
+  reason,
+  calendarId,
+  reasonsKey,
+  canWrite,
+}: {
+  reason: AppointmentReason;
+  calendarId: string;
+  reasonsKey: string;
+  canWrite: boolean;
+}) {
+  const [infoNote, setInfoNote] = useState(reason.info_note ?? '');
+  const [checkboxes, setCheckboxes] = useState<string[]>(reason.required_checkboxes ?? []);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const dirty =
+    infoNote !== (reason.info_note ?? '') ||
+    JSON.stringify(checkboxes) !== JSON.stringify(reason.required_checkboxes ?? []);
+
+  async function save() {
+    setSaving(true);
+    setError(null);
+    try {
+      await patchReason(reason.id, calendarId, {
+        infoNote,
+        requiredCheckboxes: checkboxes.map((c) => c.trim()).filter(Boolean),
+      });
+      mutate(reasonsKey);
+    } catch (err: any) {
+      setError(err.message ?? 'Failed to save');
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!canWrite && !reason.info_note && checkboxes.length === 0) return null;
+
+  return (
+    <div className="mt-2 flex flex-col gap-2 border-t border-border pt-2">
+      {canWrite ? (
+        <Input
+          label="Instructions for visitors"
+          value={infoNote}
+          onChange={(e) => setInfoNote(e.target.value)}
+          placeholder="e.g. Please bring your insurance card"
+          maxLength={2000}
+        />
+      ) : (
+        reason.info_note && (
+          <p className="text-xs text-text-secondary">
+            <span className="font-medium">Note:</span> {reason.info_note}
+          </p>
+        )
+      )}
+
+      <div className="flex flex-col gap-1">
+        {(canWrite || checkboxes.length > 0) && (
+          <span className="text-xs font-medium text-text-primary">Required checkboxes</span>
+        )}
+        {checkboxes.map((label, i) =>
+          canWrite ? (
+            <div key={i} className="flex items-center gap-1">
+              <input
+                value={label}
+                onChange={(e) =>
+                  setCheckboxes((prev) => prev.map((l, j) => (j === i ? e.target.value : l)))
+                }
+                className="w-full rounded border border-border px-1.5 py-0.5 text-xs"
+              />
+              <button
+                onClick={() => setCheckboxes((prev) => prev.filter((_, j) => j !== i))}
+                aria-label={`Remove checkbox ${i + 1}`}
+                className="rounded px-1.5 py-0.5 text-xs text-danger hover:bg-danger/10"
+              >
+                ✕
+              </button>
+            </div>
+          ) : (
+            <span key={i} className="text-xs text-text-secondary">
+              ☐ {label}
+            </span>
+          )
+        )}
+        {canWrite && (
+          <button
+            onClick={() => setCheckboxes((prev) => [...prev, ''])}
+            className="w-fit rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-accent-soft/20"
+          >
+            + Add checkbox
+          </button>
+        )}
+      </div>
+
+      {canWrite && (
+        <div className="flex items-center gap-2">
+          <Button
+            variant="secondary"
+            onClick={save}
+            disabled={!dirty || saving || checkboxes.some((c) => !c.trim())}
+            className="px-2 py-1 text-xs"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+          {error && <span className="text-xs text-danger">{error}</span>}
+        </div>
+      )}
+    </div>
+  );
+}
 
 async function patchReason(id: string, calendarId: string, body: Record<string, unknown>) {
   const res = await fetch(`/api/client/reasons/${id}?calendarId=${calendarId}`, {
@@ -123,118 +238,122 @@ export default function ReasonsPage() {
   }
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-6">
       <h1 className="font-serif text-xl font-semibold text-text-primary">Appointment Reasons</h1>
 
-      {isLoading && <p className="text-sm text-text-secondary">Loading…</p>}
+      {isLoading && <Spinner />}
       {error && <p className="text-sm text-danger">Failed to load reasons.</p>}
       {deleteError && <p className="text-sm text-danger">{deleteError}</p>}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {reasons.map((reason, i) => (
-          <li
-            key={reason.id}
-            className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-sm"
-          >
-            <div className="flex flex-col gap-1">
-              {canWrite && editingId === reason.id ? (
-                <div className="flex items-center gap-1">
-                  <input
-                    autoFocus
-                    value={editingName}
-                    onChange={(e) => setEditingName(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') saveRename(reason);
-                      if (e.key === 'Escape') setEditingId(null);
-                    }}
-                    className="rounded border border-border px-1.5 py-0.5 text-sm font-medium"
-                  />
-                  <button
-                    onClick={() => saveRename(reason)}
-                    className="rounded px-1.5 py-0.5 text-xs text-success hover:bg-accent-soft/20"
-                  >
-                    Save
-                  </button>
-                  <button
-                    onClick={() => setEditingId(null)}
-                    className="rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-accent-soft/20"
-                  >
-                    Cancel
-                  </button>
-                </div>
-              ) : canWrite ? (
-                <button
-                  onClick={() => startRename(reason)}
-                  className="w-fit text-left font-medium hover:underline"
-                  title="Click to rename"
-                >
-                  {reason.name}
-                </button>
-              ) : (
-                <span className="font-medium">{reason.name}</span>
-              )}
-              <span className="text-xs text-text-secondary">
-                {canWrite ? (
-                  <input
-                    type="number"
-                    min={1}
-                    defaultValue={reason.duration_min}
-                    className="w-16 rounded border border-border px-1 py-0.5 text-xs"
-                    onBlur={(e) => {
-                      const v = Number(e.target.value);
-                      if (v && v !== reason.duration_min) handleDurationChange(reason, v);
-                    }}
-                  />
-                ) : (
-                  reason.duration_min
-                )}{' '}
-                min
-              </span>
-            </div>
-            {canWrite && (
-              <div className="flex items-center gap-1">
-                <button
-                  onClick={() => moveReason(i, -1)}
-                  disabled={i === 0}
-                  aria-label="Move up"
-                  className="rounded px-2 py-1 text-text-secondary hover:bg-accent-soft/20 disabled:opacity-30"
-                >
-                  ↑
-                </button>
-                <button
-                  onClick={() => moveReason(i, 1)}
-                  disabled={i === reasons.length - 1}
-                  aria-label="Move down"
-                  className="rounded px-2 py-1 text-text-secondary hover:bg-accent-soft/20 disabled:opacity-30"
-                >
-                  ↓
-                </button>
-                {confirmDeleteId === reason.id ? (
-                  <span className="flex items-center gap-1">
+          <li key={reason.id} className="animate-fade-up">
+            <Card hoverable padding="sm" className="flex h-full flex-col gap-2 text-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex flex-col gap-1">
+                  {canWrite && editingId === reason.id ? (
+                    <div className="flex items-center gap-1">
+                      <input
+                        autoFocus
+                        value={editingName}
+                        onChange={(e) => setEditingName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') saveRename(reason);
+                          if (e.key === 'Escape') setEditingId(null);
+                        }}
+                        className="rounded border border-border px-1.5 py-0.5 text-sm font-medium"
+                      />
+                      <button
+                        onClick={() => saveRename(reason)}
+                        className="rounded px-1.5 py-0.5 text-xs text-success hover:bg-accent-soft/20"
+                      >
+                        Save
+                      </button>
+                      <button
+                        onClick={() => setEditingId(null)}
+                        className="rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-accent-soft/20"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  ) : canWrite ? (
                     <button
-                      onClick={() => handleDelete(reason.id)}
-                      className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                      onClick={() => startRename(reason)}
+                      className="w-fit text-left font-medium hover:underline"
+                      title="Click to rename"
                     >
-                      Confirm
+                      {reason.name}
                     </button>
-                    <button
-                      onClick={() => setConfirmDeleteId(null)}
-                      className="rounded px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
-                    >
-                      Cancel
-                    </button>
+                  ) : (
+                    <span className="font-medium">{reason.name}</span>
+                  )}
+                  <span className="text-xs text-text-secondary">
+                    {canWrite ? (
+                      <input
+                        type="number"
+                        min={1}
+                        defaultValue={reason.duration_min}
+                        className="w-16 rounded border border-border px-1 py-0.5 text-xs"
+                        onBlur={(e) => {
+                          const v = Number(e.target.value);
+                          if (v && v !== reason.duration_min) handleDurationChange(reason, v);
+                        }}
+                      />
+                    ) : (
+                      reason.duration_min
+                    )}{' '}
+                    min
                   </span>
-                ) : (
-                  <button
-                    onClick={() => setConfirmDeleteId(reason.id)}
-                    aria-label={`Delete ${reason.name}`}
-                    className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
-                  >
-                    Delete
-                  </button>
+                </div>
+                {canWrite && (
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={() => moveReason(i, -1)}
+                      disabled={i === 0}
+                      aria-label="Move up"
+                      className={ICON_BUTTON}
+                    >
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => moveReason(i, 1)}
+                      disabled={i === reasons.length - 1}
+                      aria-label="Move down"
+                      className={ICON_BUTTON}
+                    >
+                      ↓
+                    </button>
+                    {confirmDeleteId === reason.id ? (
+                      <span className="flex items-center gap-1">
+                        <button
+                          onClick={() => handleDelete(reason.id)}
+                          className="rounded px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          onClick={() => setConfirmDeleteId(null)}
+                          className="rounded px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
+                        >
+                          Cancel
+                        </button>
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmDeleteId(reason.id)}
+                        aria-label={`Delete ${reason.name}`}
+                        className={`${ICON_BUTTON} text-danger hover:bg-danger/10`}
+                      >
+                        ✕
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
-            )}
+              {calendarId && KEY && (
+                <ReasonExtras reason={reason} calendarId={calendarId} reasonsKey={KEY} canWrite={canWrite} />
+              )}
+            </Card>
           </li>
         ))}
         {reasons.length === 0 && !isLoading && (
@@ -245,21 +364,23 @@ export default function ReasonsPage() {
       </ul>
 
       {canWrite && (
-        <form onSubmit={handleAdd} className="flex items-end gap-2 border-t border-border pt-4">
-          <Input label="New reason" value={name} onChange={(e) => setName(e.target.value)} required />
-          <Input
-            label="Duration (min)"
-            type="number"
-            min={1}
-            value={duration}
-            onChange={(e) => setDuration(e.target.value)}
-            className="w-28"
-            required
-          />
-          <Button type="submit" disabled={saving}>
-            {saving ? 'Adding…' : 'Add'}
-          </Button>
-        </form>
+        <Card padding="sm">
+          <form onSubmit={handleAdd} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <Input label="New reason" value={name} onChange={(e) => setName(e.target.value)} required />
+            <Input
+              label="Duration (min)"
+              type="number"
+              min={1}
+              value={duration}
+              onChange={(e) => setDuration(e.target.value)}
+              className="sm:w-28"
+              required
+            />
+            <Button type="submit" disabled={saving}>
+              {saving ? 'Adding…' : 'Add'}
+            </Button>
+          </form>
+        </Card>
       )}
       {submitError && <p className="text-sm text-danger">{submitError}</p>}
     </div>

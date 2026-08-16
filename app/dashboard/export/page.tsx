@@ -48,7 +48,7 @@ export default function ExportPage() {
   }
 
   return (
-    <div className="flex max-w-md flex-col gap-4">
+    <div className="flex max-w-xl flex-col gap-4">
       <h1 className="font-serif text-xl font-semibold text-text-primary">Export</h1>
       <Select
         label="Month"

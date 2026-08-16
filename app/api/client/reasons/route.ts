@@ -69,6 +69,8 @@ export async function POST(req: Request) {
       name: body.name,
       duration_min: body.durationMin,
       order: body.order ?? 0,
+      info_note: body.infoNote ?? null,
+      required_checkboxes: body.requiredCheckboxes ?? [],
     })
     .select()
     .single();

@@ -8,6 +8,7 @@ import AppointmentCard from '@/components/AppointmentCard';
 import { isAtLeast, type Tier } from '@/lib/tier';
 import { useCalendar } from '@/components/CalendarContext';
 import type { Appointment, ErrorLogEntry, Rule } from '@/lib/types';
+import Spinner from '@/components/Spinner';
 
 interface DashboardResponse {
   appointments: Appointment[];
@@ -37,7 +38,7 @@ export default function DashboardHome() {
     fetcher
   );
 
-  if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
+  if (isLoading) return <Spinner />;
   if (error) return <p className="text-sm text-danger">Failed to load dashboard: {String(error.message)}</p>;
   if (!data) return null;
 
@@ -53,7 +54,7 @@ export default function DashboardHome() {
   const reasonNameById = new Map(data.reasons.map((r) => [r.id, r.name]));
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex max-w-5xl flex-col gap-8">
       <h1 className="font-serif text-xl font-semibold text-text-primary">Dashboard</h1>
 
       {/* Previously there was no way to find your own visitor booking link

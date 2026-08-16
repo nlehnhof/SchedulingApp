@@ -9,27 +9,51 @@ import { z } from 'zod';
 //   buffer_time     -> config.buffer_minutes (number)
 //   min_notice      -> config.notice_hours (number)
 //   sequential_fill -> config.max_gap_minutes (number)
-export const ruleSchema = z.object({
-  ruleType: z.enum([
-    'available_hours',
-    'max_per_window',
-    'first_n_only',
-    'blackout',
-    'buffer_time',
-    'min_notice',
-    'sequential_fill',
-  ]),
-  dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
-  startTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
-  endTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
-  maxConcurrent: z.number().int().positive().optional(),
-  config: z.record(z.unknown()).optional(),
-});
+//   specific_dates  -> config.dates (string[] of 'YYYY-MM-DD') + startTime/endTime,
+//                      same time columns as available_hours but keyed by exact
+//                      calendar date instead of day_of_week — see
+//                      lib/availability.ts's findSpecificDateRule()
+export const ruleSchema = z
+  .object({
+    ruleType: z.enum([
+      'available_hours',
+      'specific_dates',
+      'max_per_window',
+      'first_n_only',
+      'blackout',
+      'buffer_time',
+      'min_notice',
+      'sequential_fill',
+    ]),
+    dayOfWeek: z.number().int().min(0).max(6).nullable().optional(),
+    startTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
+    endTime: z.string().regex(/^\d{2}:\d{2}(:\d{2})?$/).optional(),
+    maxConcurrent: z.number().int().positive().optional(),
+    config: z.record(z.unknown()).optional(),
+  })
+  .refine(
+    (v) =>
+      v.ruleType !== 'specific_dates' ||
+      (Array.isArray((v.config as any)?.dates) &&
+        (v.config as any).dates.length > 0 &&
+        (v.config as any).dates.every(
+          (d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
+        )),
+    { message: 'specific_dates rules require config.dates as a non-empty array of YYYY-MM-DD strings' }
+  );
 
 export const reasonSchema = z.object({
   name: z.string().min(1).max(255),
   durationMin: z.number().int().positive(),
   order: z.number().int().optional(),
+  // infoNote: client-authored text shown to the visitor while booking this
+  // reason (not to be confused with bookSchema.notes / appointments.notes,
+  // which is the visitor's own free-text note to the client, the opposite
+  // direction). requiredCheckboxes: label strings the visitor must all tick
+  // before they can submit a booking — enforced server-side in
+  // app/api/visitor/[clientLink]/book/route.ts, never trusted from the client.
+  infoNote: z.string().max(2000).optional(),
+  requiredCheckboxes: z.array(z.string().min(1).max(255)).max(20).optional(),
 });
 
 // PATCH /api/client/reasons/[id]: unlike reasonSchema (create), every field
@@ -40,10 +64,20 @@ export const reasonUpdateSchema = z
     name: z.string().min(1).max(255).optional(),
     durationMin: z.number().int().positive().optional(),
     order: z.number().int().optional(),
+    infoNote: z.string().max(2000).optional(),
+    requiredCheckboxes: z.array(z.string().min(1).max(255)).max(20).optional(),
   })
-  .refine((v) => v.name !== undefined || v.durationMin !== undefined || v.order !== undefined, {
-    message: 'At least one of name, durationMin, order is required',
-  });
+  .refine(
+    (v) =>
+      v.name !== undefined ||
+      v.durationMin !== undefined ||
+      v.order !== undefined ||
+      v.infoNote !== undefined ||
+      v.requiredCheckboxes !== undefined,
+    {
+      message: 'At least one of name, durationMin, order, infoNote, requiredCheckboxes is required',
+    }
+  );
 
 export const bookSchema = z.object({
   visitorName: z.string().min(1).max(255),
@@ -52,6 +86,10 @@ export const bookSchema = z.object({
   reasonId: z.string().uuid(),
   startTime: z.string().datetime({ offset: true }).or(z.string().min(1)),
   notes: z.string().max(2000).optional(),
+  // Labels the visitor claims to have checked, for reasons with
+  // required_checkboxes — the book route re-verifies this against the
+  // reason's actual stored list rather than trusting it outright.
+  checkedRequiredCheckboxes: z.array(z.string()).optional(),
 });
 
 export const exportSchema = z.object({
@@ -148,10 +186,15 @@ export const calendarSelectSchema = z
         }
       }, 'Not a recognized time zone')
       .optional(),
+    // Which end of an available-hours window slot generation starts from —
+    // see lib/availability.ts's computeSlotIntervals().
+    slotFillDirection: z.enum(['forward', 'backward']).optional(),
   })
-  .refine((v) => v.googleCalendarId !== undefined || v.timezone !== undefined, {
-    message: 'At least one of googleCalendarId, timezone is required',
-  });
+  .refine(
+    (v) =>
+      v.googleCalendarId !== undefined || v.timezone !== undefined || v.slotFillDirection !== undefined,
+    { message: 'At least one of googleCalendarId, timezone, slotFillDirection is required' }
+  );
 
 // POST /api/client/team — Elite team access (0018 migration), owner-only.
 // Email is lowercased at validation time to match client_collaborators'

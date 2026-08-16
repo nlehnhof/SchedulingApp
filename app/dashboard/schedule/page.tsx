@@ -10,6 +10,7 @@ import AppointmentEditor, { AppointmentEditValues } from '@/components/Appointme
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import Select from '@/components/Select';
+import Spinner from '@/components/Spinner';
 import { useCalendar } from '@/components/CalendarContext';
 
 interface DayBucket {
@@ -101,7 +102,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="flex flex-col gap-6 lg:flex-row">
+    <div className="flex max-w-5xl flex-col gap-6 lg:flex-row">
       <div className="lg:w-96">
         <div className="mb-4">
           <Select label="Appointment reason" value={activeReasonId} onChange={(e) => setReasonId(e.target.value)}>
@@ -112,7 +113,7 @@ export default function SchedulePage() {
             ))}
           </Select>
         </div>
-        {isLoading && <p className="text-sm text-text-secondary">Loading…</p>}
+        {isLoading && <Spinner />}
         <Calendar
           days={calendarDays}
           selectedDate={selectedDate}

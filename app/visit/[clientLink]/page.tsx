@@ -8,12 +8,16 @@ import { fetcher, postJSON } from '@/lib/fetcher';
 import { parseLocalDateOnly } from '@/lib/date-format';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
+import Card from '@/components/Card';
+import Spinner from '@/components/Spinner';
 import TimeSlotGrid, { DisplaySlot } from '@/components/TimeSlotGrid';
 
 interface VisitorReason {
   id: string;
   name: string;
   durationMin: number;
+  infoNote: string | null;
+  requiredCheckboxes: string[];
 }
 
 interface VisitorSlot extends DisplaySlot {
@@ -57,6 +61,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [selectedSlot, setSelectedSlot] = useState<VisitorSlot | null>(null);
   const [details, setDetails] = useState<DetailsForm | null>(null);
+  const [checkedBoxes, setCheckedBoxes] = useState<Record<string, boolean>>({});
   const [confirmed, setConfirmed] = useState<{
     start: string;
     end: string;
@@ -114,6 +119,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
   const {
     register,
     handleSubmit,
+    reset: resetDetailsForm,
     formState: { errors },
   } = useForm<DetailsForm>({ resolver: zodResolver(detailsSchema) });
 
@@ -135,6 +141,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
         reasonId: selectedReason.id,
         startTime,
         notes: details.notes,
+        checkedRequiredCheckboxes: Object.keys(checkedBoxes).filter((label) => checkedBoxes[label]),
       });
 
       if (result.status === 'booked' && result.appointment) {
@@ -150,6 +157,21 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
     }
   }
 
+  // Lets a visitor book a second appointment without reloading the page —
+  // the confirmation step previously had no way forward at all.
+  function bookAnother() {
+    setStep('reason');
+    setSelectedReason(null);
+    setSlots([]);
+    setSelectedDate(null);
+    setSelectedSlot(null);
+    setDetails(null);
+    setCheckedBoxes({});
+    setConfirmed(null);
+    setConflict(null);
+    resetDetailsForm();
+  }
+
   // Applied as inline styles (not swapped Tailwind classes, which are
   // compiled statically and can't take an arbitrary per-client hex value)
   // to the page's primary call-to-action controls — the most visible,
@@ -162,7 +184,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
   const stepIndex = STEPS.indexOf(step);
 
   return (
-    <main className="mx-auto max-w-lg p-6">
+    <main className="mx-auto flex min-h-screen max-w-lg flex-col p-6">
       {branding?.logoUrl && (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -185,7 +207,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
           <li key={s} className="flex items-center gap-2">
             <span
               aria-current={s === step ? 'step' : undefined}
-              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+              className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium transition-colors ${
                 i <= stepIndex ? 'bg-accent text-white' : 'bg-border text-text-secondary'
               }`}
               style={i <= stepIndex ? accentStyle : undefined}
@@ -210,8 +232,8 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
       )}
 
       {step === 'reason' && (
-        <div className="flex flex-col gap-2">
-          {reasonsLoading && <p className="text-sm text-text-secondary">Loading options…</p>}
+        <div className="flex flex-1 flex-col gap-2 animate-fade-up">
+          {reasonsLoading && <Spinner label="Loading options…" />}
           {!reasonsLoading && !loadError && reasons.length === 0 && (
             <p className="text-sm text-text-secondary">
               No booking reasons are available yet. Please check back later.
@@ -222,27 +244,36 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
               key={reason.id}
               onClick={() => {
                 setSelectedReason(reason);
+                setCheckedBoxes({});
                 setStep('datetime');
               }}
-              className="rounded-md border border-border p-3 text-left text-sm hover:bg-accent-soft/15"
+              className="w-full rounded-2xl text-left transition-transform focus:outline-none focus:ring-2 focus:ring-accent/40 active:scale-[0.99]"
             >
-              {reason.name} ({reason.durationMin} min)
+              <Card hoverable padding="sm" className="flex flex-col gap-1">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-text-primary">{reason.name}</span>
+                  <span className="shrink-0 text-xs text-text-secondary">{reason.durationMin} min</span>
+                </div>
+                {reason.infoNote && (
+                  <p className="line-clamp-2 text-xs text-text-secondary">{reason.infoNote}</p>
+                )}
+              </Card>
             </button>
           ))}
         </div>
       )}
 
       {step === 'datetime' && selectedReason && (
-        <div className="flex flex-col gap-4">
+        <div className="flex flex-1 flex-col gap-4 animate-fade-up">
           <p className="text-sm text-text-secondary">{selectedReason.name}</p>
-          {availabilityLoading && <p className="text-sm text-text-secondary">Loading availability…</p>}
-          <div className="flex flex-wrap gap-2">
+          {availabilityLoading && <Spinner label="Loading availability…" />}
+          <div className="-mx-1 flex snap-x snap-mandatory gap-2 overflow-x-auto px-1 pb-1">
             {datesWithSlots.map((date) => (
               <button
                 key={date}
                 onClick={() => setSelectedDate(date)}
-                className={`rounded-md border px-3 py-2 text-sm ${
-                  date === selectedDate ? 'border-accent bg-accent text-white' : 'border-border'
+                className={`min-h-11 shrink-0 snap-start rounded-md border px-3 py-2 text-sm transition-colors ${
+                  date === selectedDate ? 'border-accent bg-accent text-white' : 'border-border hover:bg-accent-soft/15'
                 }`}
                 style={date === selectedDate ? accentStyle : undefined}
               >
@@ -262,9 +293,11 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
               slots={slotsForSelectedDate}
               selectedStart={selectedSlot?.start}
               onSelect={(s) => setSelectedSlot(s as VisitorSlot)}
+              accentStyle={accentStyle}
             />
           )}
-          <div className="flex justify-between">
+          <div className="flex-1" />
+          <div className="sticky bottom-0 -mx-6 flex justify-between border-t border-border bg-background/95 px-6 py-3 backdrop-blur">
             <Button variant="ghost" onClick={() => setStep('reason')}>
               Back
             </Button>
@@ -281,7 +314,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
             setDetails(values);
             book(selectedSlot.start);
           })}
-          className="flex flex-col gap-4"
+          className="flex flex-1 flex-col gap-4 animate-fade-up"
         >
           <p className="text-sm text-text-secondary">
             {new Date(selectedSlot.start).toLocaleString([], {
@@ -293,6 +326,13 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
             })}{' '}
             — {selectedReason?.name}
           </p>
+
+          {selectedReason?.infoNote && (
+            <Card padding="sm" className="text-sm text-text-primary">
+              {selectedReason.infoNote}
+            </Card>
+          )}
+
           <Input label="Name" {...register('visitorName')} error={errors.visitorName?.message} />
           <Input
             label="Phone"
@@ -311,8 +351,29 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
           />
           <Input label="Notes (optional)" {...register('notes')} />
 
+          {!!selectedReason?.requiredCheckboxes.length && (
+            <div className="flex flex-col gap-1">
+              {selectedReason.requiredCheckboxes.map((label) => (
+                <label
+                  key={label}
+                  className="flex min-h-11 items-center gap-2 rounded-md text-sm text-text-primary hover:bg-accent-soft/10"
+                >
+                  <input
+                    type="checkbox"
+                    checked={!!checkedBoxes[label]}
+                    onChange={(e) =>
+                      setCheckedBoxes((prev) => ({ ...prev, [label]: e.target.checked }))
+                    }
+                    className="h-5 w-5 shrink-0 accent-accent"
+                  />
+                  <span>{label}</span>
+                </label>
+              ))}
+            </div>
+          )}
+
           {conflict && (
-            <div className="rounded-md border border-accent/40 bg-accent-soft/25 p-3 text-sm text-text-primary">
+            <Card padding="sm" className="animate-scale-in border-accent/40 bg-accent-soft/25 text-sm text-text-primary">
               <p className="font-medium">{conflict.message ?? 'That slot just booked!'}</p>
               {conflict.nextAvailable && (
                 <div className="mt-2 flex items-center justify-between">
@@ -329,8 +390,8 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
                   <div className="flex gap-2">
                     <Button
                       type="button"
-                      variant="secondary"
                       onClick={() => book(conflict.nextAvailable!.start)}
+                      style={accentStyle}
                     >
                       Accept
                     </Button>
@@ -340,14 +401,22 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
                   </div>
                 </div>
               )}
-            </div>
+            </Card>
           )}
 
-          <div className="flex justify-between">
+          <div className="flex-1" />
+          <div className="sticky bottom-0 -mx-6 flex justify-between border-t border-border bg-background/95 px-6 py-3 backdrop-blur">
             <Button type="button" variant="ghost" onClick={() => setStep('datetime')}>
               Back
             </Button>
-            <Button type="submit" disabled={loading} style={accentStyle}>
+            <Button
+              type="submit"
+              disabled={
+                loading ||
+                !!selectedReason?.requiredCheckboxes.some((label) => !checkedBoxes[label])
+              }
+              style={accentStyle}
+            >
               {loading ? 'Booking…' : 'Confirm booking'}
             </Button>
           </div>
@@ -355,7 +424,13 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
       )}
 
       {step === 'confirmation' && confirmed && (
-        <div className="flex flex-col gap-2">
+        <div className="flex flex-1 flex-col items-center gap-2 py-4 text-center animate-fade-up">
+          <div
+            className="animate-scale-in mb-2 flex h-16 w-16 items-center justify-center rounded-full bg-success/15 text-3xl text-success"
+            aria-hidden="true"
+          >
+            ✓
+          </div>
           <h2 className="font-serif text-lg font-semibold text-text-primary">Your appointment is booked!</h2>
           <p className="text-sm text-text-secondary">
             {new Date(confirmed.start).toLocaleString([], {
@@ -389,6 +464,9 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
               {clientName ?? 'the client'} can see it.
             </p>
           )}
+          <Button variant="secondary" onClick={bookAnother} className="mt-4">
+            Book another appointment
+          </Button>
         </div>
       )}
     </main>

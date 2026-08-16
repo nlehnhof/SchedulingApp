@@ -6,6 +6,8 @@ import { fetcher, postJSON } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Select from '@/components/Select';
+import Card from '@/components/Card';
+import Spinner from '@/components/Spinner';
 import { useCalendar } from '@/components/CalendarContext';
 
 interface Collaborator {
@@ -35,7 +37,7 @@ export default function TeamPage() {
   const [confirmRevokeId, setConfirmRevokeId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
-  if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
+  if (isLoading) return <Spinner />;
   if (error || !data) return <p className="text-sm text-danger">Failed to load your team.</p>;
 
   const collaborators = data.collaborators;
@@ -87,7 +89,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-6">
       <div>
         <h1 className="font-serif text-xl font-semibold text-text-primary">Team</h1>
         <p className="mt-1 text-sm text-text-secondary">
@@ -99,53 +101,53 @@ export default function TeamPage() {
 
       {actionError && <p className="text-sm text-danger">{actionError}</p>}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="flex flex-col gap-3">
         {collaborators.map((c) => (
-          <li
-            key={c.id}
-            className="flex items-center justify-between gap-3 rounded-md border border-border p-3 text-sm"
-          >
-            <div className="flex flex-col">
-              <span className="font-medium text-text-primary">{c.email}</span>
-              <span className="text-xs text-text-secondary">
-                {c.accepted_at
-                  ? `Accepted ${new Date(c.accepted_at).toLocaleDateString()}`
-                  : `Invited ${new Date(c.invited_at).toLocaleDateString()} — pending`}
-              </span>
-            </div>
+          <li key={c.id} className="animate-fade-up">
+            <Card hoverable padding="sm" className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex flex-col">
+                <span className="font-medium text-text-primary">{c.email}</span>
+                <span className="text-xs text-text-secondary">
+                  {c.accepted_at
+                    ? `Accepted ${new Date(c.accepted_at).toLocaleDateString()}`
+                    : `Invited ${new Date(c.invited_at).toLocaleDateString()} — pending`}
+                </span>
+              </div>
 
-            {confirmRevokeId === c.id ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-danger">Revoke access?</span>
-                <Button variant="danger" onClick={() => handleRevoke(c.id)} className="px-2 py-1 text-xs">
-                  Confirm
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setConfirmRevokeId(null)}
-                  className="px-2 py-1 text-xs"
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <div className="flex items-center gap-2">
-                <select
-                  value={c.role}
-                  onChange={(e) => handleRoleChange(c.id, e.target.value as 'viewer' | 'editor')}
-                  className="rounded-md border border-border bg-surface px-2 py-1 text-xs"
-                >
-                  <option value="viewer">Viewer</option>
-                  <option value="editor">Editor</option>
-                </select>
-                <button
-                  onClick={() => setConfirmRevokeId(c.id)}
-                  className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/10"
-                >
-                  Revoke
-                </button>
-              </div>
-            )}
+              {confirmRevokeId === c.id ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-danger">Revoke access?</span>
+                  <Button variant="danger" onClick={() => handleRevoke(c.id)} className="px-2 py-1 text-xs">
+                    Confirm
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setConfirmRevokeId(null)}
+                    className="px-2 py-1 text-xs"
+                  >
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <Select
+                    value={c.role}
+                    onChange={(e) => handleRoleChange(c.id, e.target.value as 'viewer' | 'editor')}
+                    className="text-xs"
+                  >
+                    <option value="viewer">Viewer</option>
+                    <option value="editor">Editor</option>
+                  </Select>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setConfirmRevokeId(c.id)}
+                    className="px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                  >
+                    Revoke
+                  </Button>
+                </div>
+              )}
+            </Card>
           </li>
         ))}
         {collaborators.length === 0 && (
@@ -155,23 +157,25 @@ export default function TeamPage() {
         )}
       </ul>
 
-      <form onSubmit={handleInvite} className="flex items-end gap-2 border-t border-border pt-4">
-        <Input
-          label="Email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          placeholder="colleague@example.com"
-          required
-        />
-        <Select label="Role" value={role} onChange={(e) => setRole(e.target.value as 'viewer' | 'editor')}>
-          <option value="editor">Editor</option>
-          <option value="viewer">Viewer</option>
-        </Select>
-        <Button type="submit" disabled={inviting}>
-          {inviting ? 'Sending…' : 'Send invite'}
-        </Button>
-      </form>
+      <Card padding="sm">
+        <form onSubmit={handleInvite} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+          <Input
+            label="Email"
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="colleague@example.com"
+            required
+          />
+          <Select label="Role" value={role} onChange={(e) => setRole(e.target.value as 'viewer' | 'editor')}>
+            <option value="editor">Editor</option>
+            <option value="viewer">Viewer</option>
+          </Select>
+          <Button type="submit" disabled={inviting}>
+            {inviting ? 'Sending…' : 'Send invite'}
+          </Button>
+        </form>
+      </Card>
       {inviteError && <p className="text-sm text-danger">{inviteError}</p>}
     </div>
   );

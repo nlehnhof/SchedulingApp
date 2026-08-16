@@ -4,6 +4,8 @@ import type { ReactNode } from 'react';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import { useCalendar } from '@/components/CalendarContext';
+import PremiumLockCard from '@/components/PremiumLockCard';
+import Spinner from '@/components/Spinner';
 
 interface AnalyticsData {
   windowDays: number;
@@ -22,7 +24,7 @@ export default function AnalyticsPage() {
     fetcher
   );
 
-  if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
+  if (isLoading) return <Spinner />;
 
   if (error) {
     // The API 403s free-tier clients (defense-in-depth even though the nav
@@ -33,16 +35,10 @@ export default function AnalyticsPage() {
     const locked = /\(403\)/.test(String(error.message));
     if (locked) {
       return (
-        <div className="flex max-w-xl flex-col gap-4">
-          <h1 className="font-serif text-xl font-semibold text-text-primary">Analytics</h1>
-          <div className="rounded-lg border border-accent-soft bg-accent-soft/15 p-6">
-            <p className="text-sm font-medium text-text-primary">This is a premium feature.</p>
-            <p className="mt-1 text-sm text-text-secondary">
-              Upgrade to Premium to see booking volume trends, busiest days/hours, appointment
-              status breakdown, and which reasons visitors book most.
-            </p>
-          </div>
-        </div>
+        <PremiumLockCard
+          title="Analytics"
+          description="Upgrade to Premium to see booking volume trends, busiest days/hours, appointment status breakdown, and which reasons visitors book most."
+        />
       );
     }
     return <p className="text-sm text-danger">Failed to load analytics.</p>;
@@ -55,7 +51,7 @@ export default function AnalyticsPage() {
   const maxReason = Math.max(1, ...data.reasonPopularity.map((r) => r.count));
 
   return (
-    <div className="flex flex-col gap-8">
+    <div className="flex max-w-5xl flex-col gap-8">
       <div>
         <h1 className="font-serif text-xl font-semibold text-text-primary">Analytics</h1>
         <p className="text-sm text-text-secondary">
@@ -94,14 +90,19 @@ export default function AnalyticsPage() {
       </Section>
 
       <Section title="Most-booked reasons">
-        <ul className="flex flex-col gap-2 text-sm">
+        <ul className="flex flex-col gap-3 text-sm">
           {data.reasonPopularity.map((r) => (
-            <li key={r.reason} className="flex items-center gap-2">
-              <span className="w-32 shrink-0 truncate">{r.reason}</span>
-              <div className="h-2 flex-1 rounded-full bg-border">
-                <div className="h-2 rounded-full bg-accent" style={{ width: `${(r.count / maxReason) * 100}%` }} />
+            <li key={r.reason} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
+              <span className="sm:w-32 sm:shrink-0 sm:truncate">{r.reason}</span>
+              <div className="flex items-center gap-2">
+                <div className="h-2 w-full min-w-24 flex-1 rounded-full bg-border sm:w-auto">
+                  <div
+                    className="h-2 rounded-full bg-accent transition-all"
+                    style={{ width: `${(r.count / maxReason) * 100}%` }}
+                  />
+                </div>
+                <span className="w-8 shrink-0 text-right text-text-secondary">{r.count}</span>
               </div>
-              <span className="w-8 shrink-0 text-right text-text-secondary">{r.count}</span>
             </li>
           ))}
           {data.reasonPopularity.length === 0 && (
@@ -133,17 +134,25 @@ function BarRow({
 }) {
   if (items.length === 0) return <p className="text-sm text-text-secondary">No data yet.</p>;
   return (
-    <div className="flex items-end gap-1 overflow-x-auto pb-2">
-      {items.map((item, i) => (
-        <div key={`${item.label}-${i}`} className="flex flex-col items-center gap-1">
-          <div
-            className="w-4 rounded-t bg-accent"
-            style={{ height: `${Math.max(2, (item.value / max) * 80)}px` }}
-            title={`${item.label}: ${item.value}`}
-          />
-          {!compact && <span className="text-[10px] text-text-secondary">{item.label}</span>}
-        </div>
-      ))}
+    <div className="relative">
+      <div className="flex items-end gap-2 overflow-x-auto pb-2">
+        {items.map((item, i) => (
+          <div key={`${item.label}-${i}`} className="flex shrink-0 flex-col items-center gap-1">
+            {/* Value shown as real text, not a `title` tooltip — those never
+                fire on touch, which made this data invisible on mobile. */}
+            <span className="text-[10px] font-medium text-text-secondary">{item.value}</span>
+            <div
+              className="w-5 rounded-t-md bg-accent transition-all hover:bg-accent-hover"
+              style={{ height: `${Math.max(2, (item.value / max) * 80)}px` }}
+            />
+            {!compact && <span className="text-[10px] text-text-secondary">{item.label}</span>}
+          </div>
+        ))}
+      </div>
+      {/* Fades the right edge when the row overflows, as a visual hint that
+          there's more to scroll to (the old version had no such affordance
+          — data could silently scroll off-screen with nothing to suggest it). */}
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent" />
     </div>
   );
 }

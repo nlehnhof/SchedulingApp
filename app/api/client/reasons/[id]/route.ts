@@ -29,6 +29,8 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   if (body.name !== undefined) update.name = body.name;
   if (body.durationMin !== undefined) update.duration_min = body.durationMin;
   if (body.order !== undefined) update.order = body.order;
+  if (body.infoNote !== undefined) update.info_note = body.infoNote;
+  if (body.requiredCheckboxes !== undefined) update.required_checkboxes = body.requiredCheckboxes;
 
   const { data, error } = await supabase
     .from('appointment_reasons')

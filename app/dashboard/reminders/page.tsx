@@ -5,6 +5,8 @@ import Link from 'next/link';
 import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import Button from '@/components/Button';
+import PremiumLockCard from '@/components/PremiumLockCard';
+import Spinner from '@/components/Spinner';
 import { isAtLeast, type Tier } from '@/lib/tier';
 
 interface RemindersData {
@@ -34,22 +36,15 @@ export default function RemindersPage() {
     setSmsRemindersEnabled(data.sms_reminders_enabled);
   }, [data]);
 
-  if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
+  if (isLoading) return <Spinner />;
   if (error || !data) return <p className="text-sm text-danger">Failed to load reminder settings.</p>;
 
   if (!isAtLeast(data.tier, 'premium')) {
     return (
-      <div className="flex max-w-xl flex-col gap-4">
-        <h1 className="font-serif text-xl font-semibold text-text-primary">Reminders &amp; Confirmations</h1>
-        <div className="rounded-lg border border-accent-soft bg-accent-soft/15 p-6">
-          <p className="text-sm font-medium text-text-primary">This is a premium feature.</p>
-          <p className="mt-1 text-sm text-text-secondary">
-            Upgrade to Premium and every visitor automatically gets a booking confirmation email
-            under your business name — plus the option to send a text reminder before each
-            appointment, to cut down on no-shows.
-          </p>
-        </div>
-      </div>
+      <PremiumLockCard
+        title="Reminders & Confirmations"
+        description="Upgrade to Premium and every visitor automatically gets a booking confirmation email under your business name — plus the option to send a text reminder before each appointment, to cut down on no-shows."
+      />
     );
   }
 

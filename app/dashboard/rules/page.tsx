@@ -8,6 +8,10 @@ import Button from '@/components/Button';
 import Modal from '@/components/Modal';
 import RuleEditor, { RuleFormValues } from '@/components/RuleEditor';
 import { useCalendar } from '@/components/CalendarContext';
+import InfoTooltip from '@/components/InfoTooltip';
+import Spinner from '@/components/Spinner';
+import Card from '@/components/Card';
+import Badge from '@/components/Badge';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
@@ -15,6 +19,10 @@ function summarize(rule: Rule): string {
   if (rule.rule_type === 'available_hours') {
     const day = rule.day_of_week === null ? 'Every day' : DAY_LABELS[rule.day_of_week];
     return `${day}: ${rule.start_time?.slice(0, 5)}–${rule.end_time?.slice(0, 5)}`;
+  }
+  if (rule.rule_type === 'specific_dates') {
+    const dates = ((rule.config as any)?.dates ?? []) as string[];
+    return `${dates.length} specific date${dates.length === 1 ? '' : 's'}: ${rule.start_time?.slice(0, 5)}–${rule.end_time?.slice(0, 5)}`;
   }
   if (rule.rule_type === 'max_per_window') {
     const windowMin = (rule.config as any)?.window_minutes ?? 60;
@@ -65,6 +73,7 @@ function toFormValues(rule: Rule): RuleFormValues {
       (rule.config as any)?.max_gap_minutes != null
         ? String((rule.config as any).max_gap_minutes)
         : '',
+    specificDates: ((rule.config as any)?.dates ?? []) as string[],
   };
 }
 
@@ -74,12 +83,13 @@ function toFormValues(rule: Rule): RuleFormValues {
 // actually see (PLAN.md Section 1/2 item 10).
 const RULE_TYPE_ORDER: Record<Rule['rule_type'], number> = {
   available_hours: 0,
-  blackout: 1,
-  max_per_window: 2,
-  first_n_only: 3,
-  buffer_time: 4,
-  min_notice: 5,
-  sequential_fill: 6,
+  specific_dates: 1,
+  blackout: 2,
+  max_per_window: 3,
+  first_n_only: 4,
+  buffer_time: 5,
+  min_notice: 6,
+  sequential_fill: 7,
 };
 
 function sortRules(rules: Rule[]): Rule[] {
@@ -103,6 +113,10 @@ function toRequestBody(values: RuleFormValues): Record<string, unknown> {
     body.startTime = values.startTime;
     body.endTime = values.endTime;
     body.config = { permanent: dayOfWeek === null };
+  } else if (values.ruleType === 'specific_dates') {
+    body.startTime = values.startTime;
+    body.endTime = values.endTime;
+    body.config = { dates: values.specificDates ?? [] };
   } else if (values.ruleType === 'max_per_window') {
     body.maxConcurrent = Number(values.maxConcurrent);
     body.config = { window_minutes: Number(values.windowMinutes || 60) };
@@ -178,64 +192,61 @@ export default function RulesPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-6">
       <div className="flex items-center justify-between">
-        <h1 className="font-serif text-xl font-semibold text-text-primary">Rules Editor</h1>
+        <div className="flex items-center gap-2">
+          <h1 className="font-serif text-xl font-semibold text-text-primary">Rules Editor</h1>
+          <InfoTooltip text="Day-specific hours override an all-days rule for that day; blackout dates close a day entirely regardless of hours; the remaining capacity/timing rules (max per window, first N only, buffer time, minimum notice) apply on top of your hours." />
+        </div>
         {canWrite && <Button onClick={openCreate}>New rule</Button>}
       </div>
 
-      {isLoading && <p className="text-sm text-text-secondary">Loading…</p>}
+      {isLoading && <Spinner />}
       {error && <p className="text-sm text-danger">Failed to load rules.</p>}
-      {!!data?.rules.length && (
-        <p className="text-sm text-text-secondary">
-          Day-specific hours override an all-days rule for that day; blackout dates close a day
-          entirely regardless of hours; the remaining capacity/timing rules (max per window,
-          first N only, buffer time, minimum notice) apply on top of your hours.
-        </p>
-      )}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {sortRules(data?.rules ?? []).map((rule) => (
-          <li
-            key={rule.id}
-            className="flex items-center justify-between rounded-md border border-border p-3 text-sm"
-          >
-            <div className="flex flex-col">
-              <span>{summarize(rule)}</span>
-              <span className="text-xs uppercase tracking-wide text-text-secondary">{rule.rule_type}</span>
-            </div>
+          <li key={rule.id} className="animate-fade-up">
+            <Card hoverable padding="sm" className="flex h-full flex-col gap-2 text-sm">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex flex-col gap-1">
+                  <span>{summarize(rule)}</span>
+                  <Badge tone="neutral" className="w-fit normal-case">
+                    {rule.rule_type.replace(/_/g, ' ')}
+                  </Badge>
+                </div>
+              </div>
 
-            {canWrite &&
-              (confirmDeleteId === rule.id ? (
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-danger">Delete this rule?</span>
-                  <Button variant="danger" onClick={() => handleDelete(rule.id)} className="px-2 py-1 text-xs">
-                    Confirm
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setConfirmDeleteId(null)}
-                    className="px-2 py-1 text-xs"
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              ) : (
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openEdit(rule)}
-                    className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
-                  >
-                    Edit
-                  </button>
-                  <button
-                    onClick={() => setConfirmDeleteId(rule.id)}
-                    className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/10"
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
+              {canWrite &&
+                (confirmDeleteId === rule.id ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs text-danger">Delete this rule?</span>
+                    <Button variant="danger" onClick={() => handleDelete(rule.id)} className="px-2 py-1 text-xs">
+                      Confirm
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setConfirmDeleteId(null)}
+                      className="px-2 py-1 text-xs"
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <Button variant="ghost" onClick={() => openEdit(rule)} className="px-2 py-1 text-xs">
+                      Edit
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      onClick={() => setConfirmDeleteId(rule.id)}
+                      className="px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                ))}
+            </Card>
           </li>
         ))}
         {data?.rules.length === 0 && (

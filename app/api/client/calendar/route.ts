@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   const supabase = createServiceClient();
   const { data: calendarRow, error } = await supabase
     .from('booking_calendars')
-    .select('google_calendar_id, timezone, clients(google_refresh_token)')
+    .select('google_calendar_id, timezone, slot_fill_direction, clients(google_refresh_token)')
     .eq('id', calendar.calendarId)
     .single();
   if (error) return errorResponse(error, 'Could not load calendar settings.');
@@ -39,14 +39,16 @@ export async function GET(req: Request) {
   // No Google account linked at all (e.g. the admin test-credentials login,
   // or a client who hasn't reconnected since enabling Calendar scopes) —
   // nothing to list, but not an error: the page shows a "connect Google"
-  // state instead of a picker. Timezone is still returned/settable either
-  // way — it's a per-calendar setting, not dependent on Google linkage.
+  // state instead of a picker. Timezone/slot fill direction are still
+  // returned/settable either way — they're per-calendar settings, not
+  // dependent on Google linkage.
   if (!owner?.google_refresh_token) {
     return NextResponse.json({
       linked: false,
       calendars: [],
       selected: calendarRow.google_calendar_id,
       timezone: calendarRow.timezone,
+      slotFillDirection: calendarRow.slot_fill_direction,
     });
   }
 
@@ -57,6 +59,7 @@ export async function GET(req: Request) {
       calendars,
       selected: calendarRow.google_calendar_id,
       timezone: calendarRow.timezone,
+      slotFillDirection: calendarRow.slot_fill_direction,
     });
   } catch (err) {
     return errorResponse(
@@ -127,11 +130,19 @@ export async function PATCH(req: Request) {
     updates.timezone = body.timezone;
   }
 
+  if (body.slotFillDirection !== undefined) {
+    updates.slot_fill_direction = body.slotFillDirection;
+  }
+
   const { error: updateError } = await supabase
     .from('booking_calendars')
     .update(updates)
     .eq('id', calendar.calendarId);
   if (updateError) return errorResponse(updateError, 'Could not save calendar settings.');
 
-  return NextResponse.json({ selected: body.googleCalendarId, timezone: body.timezone });
+  return NextResponse.json({
+    selected: body.googleCalendarId,
+    timezone: body.timezone,
+    slotFillDirection: body.slotFillDirection,
+  });
 }

@@ -6,6 +6,8 @@ import { fetcher, postJSON } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
 import Modal from '@/components/Modal';
+import Card from '@/components/Card';
+import Spinner from '@/components/Spinner';
 import { useCalendar, type CalendarSummary } from '@/components/CalendarContext';
 
 const KEY = '/api/client/calendars';
@@ -30,7 +32,7 @@ export default function CalendarsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
+  if (isLoading) return <Spinner />;
   if (error || !data) return <p className="text-sm text-danger">Failed to load your calendars.</p>;
 
   // Owned calendars only — this page manages what an account owns.
@@ -92,8 +94,8 @@ export default function CalendarsPage() {
   }
 
   return (
-    <div className="flex flex-col gap-6">
-      <div className="flex items-center justify-between">
+    <div className="flex max-w-2xl flex-col gap-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="font-serif text-xl font-semibold text-text-primary">Calendars</h1>
           <p className="mt-1 text-sm text-text-secondary">
@@ -101,7 +103,7 @@ export default function CalendarsPage() {
             reasons, branding, booking link, and Google Calendar selection.
           </p>
         </div>
-        <Button onClick={handleCreate} disabled={creating || atLimit}>
+        <Button onClick={handleCreate} disabled={creating || atLimit} className="shrink-0">
           {creating ? 'Creating…' : 'New calendar'}
         </Button>
       </div>
@@ -119,57 +121,51 @@ export default function CalendarsPage() {
       {createError && <p className="text-sm text-danger">{createError}</p>}
       {deleteError && <p className="text-sm text-danger">{deleteError}</p>}
 
-      <ul className="flex flex-col gap-2">
+      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         {owned.map((cal) => (
-          <li
-            key={cal.id}
-            className="flex items-center justify-between rounded-md border border-border p-3 text-sm"
-          >
-            <div className="flex flex-col">
-              <span className="font-medium text-text-primary">
-                {cal.display_name || 'Untitled calendar'}
-              </span>
-              {cal.slug && <span className="text-xs text-text-secondary">/visit/{cal.slug}</span>}
-            </div>
+          <li key={cal.id} className="animate-fade-up">
+            <Card hoverable padding="sm" className="flex h-full flex-col justify-between gap-3 text-sm">
+              <div className="flex flex-col">
+                <span className="font-medium text-text-primary">
+                  {cal.display_name || 'Untitled calendar'}
+                </span>
+                {cal.slug && <span className="text-xs text-text-secondary">/visit/{cal.slug}</span>}
+              </div>
 
-            {confirmDeleteId === cal.id ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs text-danger">Delete this calendar and everything on it?</span>
-                <Button variant="danger" onClick={() => handleDelete(cal.id)} className="px-2 py-1 text-xs">
-                  Confirm
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => setConfirmDeleteId(null)}
-                  className="px-2 py-1 text-xs"
-                >
-                  Cancel
-                </Button>
-              </div>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setCalendarId(cal.id)}
-                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
-                >
-                  Switch to
-                </button>
-                <button
-                  onClick={() => openRename(cal)}
-                  className="rounded-md px-2 py-1 text-xs text-text-secondary hover:bg-accent-soft/20"
-                >
-                  Rename
-                </button>
-                {owned.length > 1 && (
-                  <button
-                    onClick={() => setConfirmDeleteId(cal.id)}
-                    className="rounded-md px-2 py-1 text-xs text-danger hover:bg-danger/10"
+              {confirmDeleteId === cal.id ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-xs text-danger">Delete this calendar and everything on it?</span>
+                  <Button variant="danger" onClick={() => handleDelete(cal.id)} className="px-2 py-1 text-xs">
+                    Confirm
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setConfirmDeleteId(null)}
+                    className="px-2 py-1 text-xs"
                   >
-                    Delete
-                  </button>
-                )}
-              </div>
-            )}
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button variant="ghost" onClick={() => setCalendarId(cal.id)} className="px-2 py-1 text-xs">
+                    Switch to
+                  </Button>
+                  <Button variant="ghost" onClick={() => openRename(cal)} className="px-2 py-1 text-xs">
+                    Rename
+                  </Button>
+                  {owned.length > 1 && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setConfirmDeleteId(cal.id)}
+                      className="px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                    >
+                      Delete
+                    </Button>
+                  )}
+                </div>
+              )}
+            </Card>
           </li>
         ))}
       </ul>
