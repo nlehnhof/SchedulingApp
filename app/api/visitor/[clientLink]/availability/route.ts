@@ -4,6 +4,7 @@ import { getAvailableSlots } from '@/lib/availability';
 import { getGoogleCalendarEvents } from '@/lib/google-calendar';
 import { resolveClientLink } from '@/lib/resolve-client-link';
 import { getEffectiveTier } from '@/lib/premium-grants';
+import { isAtLeast } from '@/lib/tier';
 import type { Appointment, AppointmentReason, GoogleBlock, Rule } from '@/lib/types';
 
 export async function GET(
@@ -85,7 +86,7 @@ export async function GET(
   // (PLAN.md Section 4 feature 1 downgrade behavior). Anonymous route, no
   // session, so the premium_grants override (lib/premium-grants.ts) has to
   // be checked explicitly here too.
-  const isPremium = (await getEffectiveTier(client.tier, client.email)) === 'premium';
+  const isPremium = isAtLeast(await getEffectiveTier(client.tier, client.email), 'premium');
 
   return NextResponse.json({
     // display_name replaces the raw login email visitors used to see

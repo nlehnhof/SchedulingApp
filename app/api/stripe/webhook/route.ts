@@ -2,6 +2,40 @@ import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { getStripe } from '@/lib/stripe';
 import { createServiceClient } from '@/lib/supabase';
+import type { Tier } from '@/lib/tier';
+
+// Maps a Stripe Price id back to the tier it sells. Built from env so this
+// stays in sync with whichever Price ids are actually configured — an unset
+// STRIPE_ELITE_PRICE_ID (until the user creates that Price and adds the env
+// var) just means no subscription can ever match 'elite' yet, not a crash.
+function priceIdToTier(priceId: string | undefined): Tier | null {
+  if (!priceId) return null;
+  if (priceId === process.env.STRIPE_ELITE_PRICE_ID) return 'elite';
+  if (priceId === process.env.STRIPE_PREMIUM_PRICE_ID) return 'premium';
+  return null;
+}
+
+/**
+ * Derives the tier a subscription grants from the Price it's actually on,
+ * not just its status — previously this only checked
+ * active/trialing-vs-not, so a real Elite subscription would have silently
+ * collapsed into 'premium' (both are "paid and active") once a second paid
+ * tier existed. Falls back to the old status-only premium/free split only
+ * if no line item's price matches a known tier (defensive — shouldn't
+ * happen for a subscription created through this app's own checkout).
+ */
+function tierFromSubscription(subscription: Stripe.Subscription): Tier {
+  if (!['active', 'trialing'].includes(subscription.status)) return 'free';
+
+  const matchedTiers = subscription.items.data
+    .map((item) => priceIdToTier(item.price?.id))
+    .filter((t): t is Tier => t !== null);
+  // Highest-ranked match wins if a subscription somehow has multiple line
+  // items on different tiers (shouldn't happen given single-price checkout).
+  if (matchedTiers.includes('elite')) return 'elite';
+  if (matchedTiers.includes('premium')) return 'premium';
+  return 'premium'; // active/trialing but no price matched a known tier — fall back to today's behavior.
+}
 
 // Stripe's SDK needs Node APIs (crypto) for signature verification — the
 // default edge runtime doesn't have them.
@@ -52,7 +86,7 @@ export async function POST(req: Request) {
       const customerId =
         typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
 
-      const tier = ['active', 'trialing'].includes(subscription.status) ? 'premium' : 'free';
+      const tier = tierFromSubscription(subscription);
       const { error, count } = await supabase
         .from('clients')
         .update(

@@ -4,6 +4,7 @@ import { requireClient } from '@/lib/require-client';
 import { brandingSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 import { getEffectiveTier } from '@/lib/premium-grants';
+import { isAtLeast } from '@/lib/tier';
 
 // Read-only, open to any authenticated client (not premium-gated) — a
 // free-tier client still needs to see their own current tier/values so the
@@ -40,7 +41,7 @@ export async function GET() {
 }
 
 // The actual write path for premium features 1 (branding) and 2 (slug) —
-// both persist through this one route. Must check tier === 'premium'
+// both persist through this one route. Must check tier is premium-or-above
 // server-side regardless of what the UI already hides, per PLAN.md
 // Section 5: a free-tier client hand-crafting this request must get a 403.
 // `client.tier` here already reflects premium_grants (lib/auth.ts's session
@@ -49,7 +50,7 @@ export async function PATCH(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
 
-  if (client.tier !== 'premium') {
+  if (!isAtLeast(client.tier, 'premium')) {
     return NextResponse.json({ error: 'Branding is a premium feature.' }, { status: 403 });
   }
 

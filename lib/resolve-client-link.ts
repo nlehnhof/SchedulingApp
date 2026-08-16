@@ -1,5 +1,6 @@
 import { createServiceClient } from './supabase';
 import { getEffectiveTier } from './premium-grants';
+import { isAtLeast } from './tier';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -51,5 +52,5 @@ export async function resolveClientLink(clientLink: string): Promise<{ clientId:
   if (!data) return null;
 
   const tier = await getEffectiveTier(data.tier, data.email);
-  return tier === 'premium' ? { clientId: data.id } : null;
+  return isAtLeast(tier, 'premium') ? { clientId: data.id } : null;
 }

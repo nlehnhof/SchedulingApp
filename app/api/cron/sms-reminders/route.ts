@@ -3,6 +3,7 @@ import { requireCron } from '@/lib/require-cron';
 import { createServiceClient } from '@/lib/supabase';
 import { sendSms, isSmsConfigured } from '@/lib/sms';
 import { getEffectiveTier } from '@/lib/premium-grants';
+import { isAtLeast } from '@/lib/tier';
 
 /**
  * STUB — premium feature 3 (PLAN.md Section 4 feature 3), deliberately
@@ -58,7 +59,7 @@ export async function POST(req: Request) {
 
   const clientIds: string[] = [];
   for (const c of candidateClients ?? []) {
-    if ((await getEffectiveTier(c.tier, c.email)) === 'premium') clientIds.push(c.id);
+    if (isAtLeast(await getEffectiveTier(c.tier, c.email), 'premium')) clientIds.push(c.id);
   }
   if (clientIds.length === 0) {
     return NextResponse.json({ status: 'ok', sent: 0, failed: 0, total: 0 });

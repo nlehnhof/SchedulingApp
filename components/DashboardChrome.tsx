@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import DashboardNav from './DashboardNav';
 import OnboardingTour from './OnboardingTour';
+import type { Tier } from '@/lib/tier';
 
 // Client-side container so the nav's "Replay tutorial" button and the tour
 // overlay can share open/close state without needing a session provider or
@@ -17,7 +18,7 @@ export default function DashboardChrome({
   children,
 }: {
   email?: string | null;
-  tier: 'free' | 'premium';
+  tier: Tier;
   tutorialCompletedAt: string | null;
   isAdminTestAccount?: boolean;
   children: React.ReactNode;

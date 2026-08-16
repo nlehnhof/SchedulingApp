@@ -5,13 +5,14 @@ import Link from 'next/link';
 import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import AppointmentCard from '@/components/AppointmentCard';
+import { isAtLeast, type Tier } from '@/lib/tier';
 import type { Appointment, ErrorLogEntry, Rule } from '@/lib/types';
 
 interface DashboardResponse {
   appointments: Appointment[];
   rules: Rule[];
   errors: ErrorLogEntry[];
-  client: { id: string; displayName: string | null; slug: string | null; tier: 'free' | 'premium' } | null;
+  client: { id: string; displayName: string | null; slug: string | null; tier: Tier } | null;
   hasReasons: boolean;
   reasons: { id: string; name: string }[];
   stats: {
@@ -55,7 +56,7 @@ export default function DashboardHome() {
           scripts/seed.js (PLAN.md Section 1/2 item 1, the single
           highest-value fix identified). */}
       {data.client && <BookingLinkCard client={data.client} />}
-      {data.client && data.client.tier !== 'premium' && <PremiumFeaturesCard />}
+      {data.client && !isAtLeast(data.client.tier, 'premium') && <PremiumFeaturesCard />}
 
       {(!data.hasReasons || !hasRules) && (
         <div className="flex flex-col gap-2 rounded-md border border-accent/40 bg-accent-soft/25 p-4 text-sm">
@@ -129,10 +130,10 @@ export default function DashboardHome() {
 function BookingLinkCard({
   client,
 }: {
-  client: { id: string; displayName: string | null; slug: string | null; tier: 'free' | 'premium' };
+  client: { id: string; displayName: string | null; slug: string | null; tier: Tier };
 }) {
   const [copied, setCopied] = useState(false);
-  const path = client.tier === 'premium' && client.slug ? client.slug : client.id;
+  const path = isAtLeast(client.tier, 'premium') && client.slug ? client.slug : client.id;
   const origin = typeof window !== 'undefined' ? window.location.origin : '';
   const link = `${origin}/visit/${path}`;
 
@@ -161,7 +162,7 @@ function BookingLinkCard({
       </div>
       <p className="mt-2 text-xs text-text-secondary">
         Share this with visitors — anyone with this link can book an appointment with you.
-        {client.tier !== 'premium' && (
+        {!isAtLeast(client.tier, 'premium') && (
           <>
             {' '}
             <Link href="/dashboard/billing" className="text-accent-hover hover:underline">

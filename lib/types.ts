@@ -1,8 +1,10 @@
+import type { Tier } from './tier';
+
 export interface Client {
   id: string;
   email: string;
   timezone: string;
-  tier: 'free' | 'premium';
+  tier: Tier;
   display_name: string | null;
   accent_color: string | null;
   logo_url: string | null;

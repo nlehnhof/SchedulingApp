@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import SignOutButton from './SignOutButton';
 import { postJSON } from '@/lib/fetcher';
+import { isAtLeast, type Tier } from '@/lib/tier';
 
 interface NavLink {
   href: string;
@@ -35,6 +36,10 @@ const PREMIUM_LINKS: NavLink[] = [
   { href: '/dashboard/analytics', label: 'Analytics', premium: true },
 ];
 
+// Dev tier-toggle cycles free -> premium -> elite -> free, rather than a
+// boolean flip, now that there are three tiers to click through.
+const NEXT_TIER: Record<Tier, Tier> = { free: 'premium', premium: 'elite', elite: 'free' };
+
 export default function DashboardNav({
   email,
   tier,
@@ -42,13 +47,14 @@ export default function DashboardNav({
   onReplayTutorial,
 }: {
   email?: string | null;
-  tier?: 'free' | 'premium';
+  tier?: Tier;
   isAdminTestAccount?: boolean;
   onReplayTutorial?: () => void;
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const isPremium = tier === 'premium';
+  const currentTier: Tier = tier ?? 'free';
+  const isPremium = isAtLeast(currentTier, 'premium');
   const [toggling, setToggling] = useState(false);
 
   async function toggleTier() {
@@ -126,10 +132,10 @@ export default function DashboardNav({
             className="mt-1 flex items-center justify-between gap-2 rounded-md border border-dashed border-accent/50 bg-accent-soft/10 px-2 py-1.5 text-left text-[11px] text-text-secondary hover:bg-accent-soft/20 disabled:opacity-60"
           >
             <span>
-              Viewing as <span className="font-semibold capitalize text-text-primary">{tier ?? 'free'}</span>
+              Viewing as <span className="font-semibold capitalize text-text-primary">{currentTier}</span>
             </span>
             <span className="rounded-full bg-accent px-1.5 py-0.5 text-[10px] font-semibold text-white">
-              {toggling ? '…' : isPremium ? 'Switch to free' : 'Switch to premium'}
+              {toggling ? '…' : `Switch to ${NEXT_TIER[currentTier]}`}
             </span>
           </button>
         )}

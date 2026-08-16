@@ -36,7 +36,10 @@ Migrations must be applied **in order**: `0001_init` → `0002_booking_function`
 `0003_rls` → `0004_error_log_ack` → `0005_service_role_grants` →
 `0006_update_appointment_function` → `0007_client_onboarding_and_tier` →
 `0008_visitor_email` → `0009_stripe_billing` → `0010_premium_grants` →
-`0011_client_calendar_selection`. `0005` looks redundant but isn't — tables created via the
+`0011_client_calendar_selection` → `0012_appointment_google_event` → `0013_elite_tier`.
+`0013` also needs `STRIPE_ELITE_PRICE_ID` set (alongside the existing `STRIPE_PREMIUM_PRICE_ID`)
+once an Elite Price exists in Stripe — see its migration file header. `0005` looks redundant but
+isn't — tables created via the
 Supabase SQL Editor don't inherit default `service_role` grants, which surfaces as Postgres
 42501 `permission denied` errors even though RLS is correct.
 
@@ -108,22 +111,31 @@ way slot times are built. Left un-stripped, that mismatch silently un-blocks any
 visibly overlaps a real Google Calendar event whenever the server isn't running in that
 calendar's own offset — this shipped as a live bug once, don't reintroduce it.
 
-**Premium tier has two independent sources, and every read must account for both.**
-`clients.tier` (`'free' | 'premium'`) is the column every route ultimately checks, but it can
+**Tier is three-valued and ranked, not a boolean, and has two independent sources per read.**
+`clients.tier` (`'free' | 'premium' | 'elite'`, widened from two values by the `0013` migration
+— `elite` is $99/mo, unlocking multiple booking calendars and shared per-calendar dashboard
+access; see `gather-elite-proposal.md`) is the column every route ultimately checks, but it can
 be set two ways: the Stripe webhook (`app/api/stripe/webhook/route.ts`, the only place that
-writes it for a real subscription) and the `premium_grants` table (`0010` migration) — an
-admin-managed allowlist of emails that get premium access indefinitely, independent of
-billing, checked live on every read rather than synced onto the column. `lib/premium-grants.ts`'s
-`getEffectiveTier(dbTier, email)` combines the two and is what every authorization/display
-decision must call instead of reading `tier` straight off a `clients` row. Session-based
-routes get this for free — `lib/auth.ts`'s session callback already runs `getEffectiveTier()`
-once per request, so anything going through `lib/require-client.ts` (branding, analytics,
-reminders, dashboard nav/home) sees the combined value automatically. Anonymous/cron code
-paths that query `clients.tier` directly (`lib/resolve-client-link.ts`, `lib/booking.ts`,
-`app/api/visitor/[clientLink]/availability/route.ts`, `app/api/cron/sms-reminders/route.ts`,
-`app/api/client/billing/route.ts`, `app/api/client/dashboard/route.ts`) call
-`getEffectiveTier()` explicitly instead. `premium_grants` is managed directly via the
-Supabase SQL Editor (insert/delete rows) — there's no admin UI for it.
+writes it for a real subscription — it derives tier from *which Stripe Price* the subscription's
+line item is on, via `STRIPE_PREMIUM_PRICE_ID`/`STRIPE_ELITE_PRICE_ID`, not just active/trialing
+status, since two paid tiers can both be "active") and the `premium_grants` table (`0010`
+migration) — an admin-managed allowlist of emails that get **premium** access indefinitely
+(grants never reach `elite`), independent of billing, checked live on every read rather than
+synced onto the column. `lib/premium-grants.ts`'s `getEffectiveTier(dbTier, email)` combines the
+two and is what every authorization/display decision must call instead of reading `tier`
+straight off a `clients` row. Because there are now three ranked tiers, a gate for "premium or
+better" must use `lib/tier.ts`'s `isAtLeast(tier, 'premium')` rather than `tier === 'premium'` —
+the latter would wrongly exclude Elite clients from every premium feature (branding, custom
+slug, analytics, reminders, confirmation emails). An Elite-exclusive feature checks
+`tier === 'elite'` directly instead. Session-based routes get the grants-combination for free —
+`lib/auth.ts`'s session callback already runs `getEffectiveTier()` once per request, so anything
+going through `lib/require-client.ts` (branding, analytics, reminders, dashboard nav/home) sees
+the combined value automatically. Anonymous/cron code paths that query `clients.tier` directly
+(`lib/resolve-client-link.ts`, `lib/booking.ts`, `app/api/visitor/[clientLink]/availability/route.ts`,
+`app/api/cron/sms-reminders/route.ts`, `app/api/client/billing/route.ts`,
+`app/api/client/dashboard/route.ts`) call `getEffectiveTier()` explicitly instead.
+`premium_grants` is managed directly via the Supabase SQL Editor (insert/delete rows) — there's
+no admin UI for it.
 
 **API route conventions** (`app/api/client/*`, `app/api/visitor/*`): resolve identity first
 (`requireClient()` or the `[clientLink]` param) and short-circuit on the `NextResponse` case,

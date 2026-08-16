@@ -5,9 +5,10 @@ import { useSearchParams } from 'next/navigation';
 import useSWR from 'swr';
 import { fetcher, postJSON } from '@/lib/fetcher';
 import Button from '@/components/Button';
+import { isAtLeast, type Tier } from '@/lib/tier';
 
 interface BillingData {
-  tier: 'free' | 'premium';
+  tier: Tier;
   stripe_customer_id: string | null;
   stripe_subscription_status: string | null;
 }
@@ -25,11 +26,11 @@ export default function BillingPage() {
   if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
   if (error || !data) return <p className="text-sm text-danger">Failed to load billing status.</p>;
 
-  async function goTo(path: string) {
+  async function goTo(path: string, body: Record<string, unknown> = {}) {
     setActionError(null);
     setRedirecting(true);
     try {
-      const { url } = await postJSON<{ url: string }>(path, {});
+      const { url } = await postJSON<{ url: string }>(path, body);
       window.location.href = url;
     } catch (err: any) {
       setActionError(err.message ?? 'Something went wrong.');
@@ -37,7 +38,8 @@ export default function BillingPage() {
     }
   }
 
-  const isPremium = data.tier === 'premium';
+  const isPremiumOrAbove = isAtLeast(data.tier, 'premium');
+  const isElite = data.tier === 'elite';
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
@@ -64,28 +66,51 @@ export default function BillingPage() {
           </div>
         )}
 
-        {!isPremium && (
+        {!isPremiumOrAbove && (
           <p className="mt-2 text-sm text-text-secondary">
-            Upgrade to unlock custom branding, a custom booking link, analytics, and text
-            reminders.
+            Upgrade to Premium to unlock custom branding, a custom booking link, analytics, and
+            text reminders — or go straight to Elite for multiple booking calendars and shared
+            dashboard access too.
+          </p>
+        )}
+        {isPremiumOrAbove && !isElite && (
+          <p className="mt-2 text-sm text-text-secondary">
+            Upgrade to Elite to unlock multiple booking calendars and shared dashboard access for
+            your team.
           </p>
         )}
 
         {actionError && <p className="mt-2 text-sm text-danger">{actionError}</p>}
 
-        <div className="mt-4">
-          {isPremium ? (
+        <div className="mt-4 flex flex-wrap gap-2">
+          {isPremiumOrAbove ? (
+            // Already on a paid tier — checkout/route.ts sends any further
+            // upgrade (premium -> elite) through this same portal session
+            // rather than a fresh Checkout, so one button covers both
+            // "manage" and "upgrade" once a subscription already exists.
             <Button
               variant="secondary"
               disabled={redirecting}
               onClick={() => goTo('/api/client/billing/portal')}
             >
-              {redirecting ? 'Opening…' : 'Manage billing'}
+              {redirecting ? 'Opening…' : isElite ? 'Manage billing' : 'Manage billing / upgrade to Elite'}
             </Button>
           ) : (
-            <Button disabled={redirecting} onClick={() => goTo('/api/client/billing/checkout')}>
-              {redirecting ? 'Redirecting…' : 'Upgrade to Premium'}
-            </Button>
+            <>
+              <Button
+                disabled={redirecting}
+                onClick={() => goTo('/api/client/billing/checkout', { tier: 'premium' })}
+              >
+                {redirecting ? 'Redirecting…' : 'Upgrade to Premium'}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={redirecting}
+                onClick={() => goTo('/api/client/billing/checkout', { tier: 'elite' })}
+              >
+                {redirecting ? 'Redirecting…' : 'Upgrade to Elite'}
+              </Button>
+            </>
           )}
         </div>
       </div>

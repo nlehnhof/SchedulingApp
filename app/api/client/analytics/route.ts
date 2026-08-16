@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { errorResponse } from '@/lib/error-response';
+import { isAtLeast } from '@/lib/tier';
 
 const WINDOW_DAYS = 180;
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -9,8 +10,8 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 /**
  * Premium feature 4 (PLAN.md Section 4 feature 4): booking volume,
  * busiest days/hours, status breakdown, and reason popularity, aggregated
- * from data the app already has. tier === 'premium' is checked here
- * server-side (403 for free) as defense-in-depth even though the UI
+ * from data the app already has. Premium-or-above is checked here
+ * server-side (403 below premium) as defense-in-depth even though the UI
  * already hides the nav entry — PLAN.md Section 5.
  *
  * Aggregation happens here in the route rather than shipping raw
@@ -34,7 +35,7 @@ export async function GET() {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
 
-  if (client.tier !== 'premium') {
+  if (!isAtLeast(client.tier, 'premium')) {
     return NextResponse.json({ error: 'Analytics is a premium feature.' }, { status: 403 });
   }
 

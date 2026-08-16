@@ -3,6 +3,11 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { createServiceClient } from '@/lib/supabase';
 import { errorResponse } from '@/lib/error-response';
+import type { Tier } from '@/lib/tier';
+
+// free -> premium -> elite -> free, matching components/DashboardNav.tsx's
+// NEXT_TIER cycle (the toggle button's label there is computed the same way).
+const NEXT_TIER: Record<Tier, Tier> = { free: 'premium', premium: 'elite', elite: 'free' };
 
 // Dev-only tier toggle: lets the admin test account (ALLOW_ADMIN_LOGIN)
 // flip itself between free/premium so premium features can actually be
@@ -28,8 +33,10 @@ export async function POST() {
     return NextResponse.json({ error: 'not_found' }, { status: 404 });
   }
 
-  const currentTier: 'free' | 'premium' = (session as any)?.tier === 'premium' ? 'premium' : 'free';
-  const nextTier: 'free' | 'premium' = currentTier === 'premium' ? 'free' : 'premium';
+  const sessionTier = (session as any)?.tier;
+  const currentTier: Tier =
+    sessionTier === 'elite' ? 'elite' : sessionTier === 'premium' ? 'premium' : 'free';
+  const nextTier: Tier = NEXT_TIER[currentTier];
 
   const supabase = createServiceClient();
   const { data, error } = await supabase

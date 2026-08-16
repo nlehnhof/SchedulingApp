@@ -6,6 +6,7 @@ import useSWR, { mutate } from 'swr';
 import { fetcher } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Input from '@/components/Input';
+import { isAtLeast, type Tier } from '@/lib/tier';
 
 interface BrandingData {
   id: string;
@@ -13,7 +14,7 @@ interface BrandingData {
   accent_color: string | null;
   logo_url: string | null;
   slug: string | null;
-  tier: 'free' | 'premium';
+  tier: Tier;
 }
 
 const KEY = '/api/client/branding';
@@ -68,7 +69,7 @@ export default function BrandingPage() {
   if (isLoading) return <p className="text-sm text-text-secondary">Loading…</p>;
   if (error || !data) return <p className="text-sm text-danger">Failed to load branding settings.</p>;
 
-  if (data.tier !== 'premium') {
+  if (!isAtLeast(data.tier, 'premium')) {
     return (
       <div className="flex max-w-xl flex-col gap-4">
         <h1 className="font-serif text-xl font-semibold text-text-primary">Branding</h1>

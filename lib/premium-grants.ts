@@ -1,4 +1,5 @@
 import { createServiceClient } from './supabase';
+import type { Tier } from './tier';
 
 /**
  * Premium trial/comp feature: some client accounts get 'premium' access
@@ -45,13 +46,13 @@ export async function isEmailGranted(email: string): Promise<boolean> {
 
 /**
  * A grant always wins — 'indefinitely', regardless of Stripe subscription
- * state — but never downgrades: a client who's already premium via Stripe
- * reads as premium without needing a grants-table round trip.
+ * state — but never downgrades: a client who's already premium or elite via
+ * Stripe reads as that tier without needing a grants-table round trip.
+ * `premium_grants` only ever grants 'premium', never 'elite' — there's no
+ * comp path onto the Elite tier today, since it wasn't a bought-and-paid-for
+ * tier when this table was designed.
  */
-export async function getEffectiveTier(
-  dbTier: 'free' | 'premium',
-  email: string
-): Promise<'free' | 'premium'> {
-  if (dbTier === 'premium') return 'premium';
+export async function getEffectiveTier(dbTier: Tier, email: string): Promise<Tier> {
+  if (dbTier === 'elite' || dbTier === 'premium') return dbTier;
   return (await isEmailGranted(email)) ? 'premium' : 'free';
 }
