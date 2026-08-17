@@ -22,7 +22,7 @@ export async function GET(req: Request) {
   }
 
   const supabase = createServiceClient();
-  const [{ data: rules }, { data: booked }, { data: reasons }, { data: calendarRow }] = await Promise.all([
+  const [{ data: rules }, { data: booked }, { data: reasons }] = await Promise.all([
     supabase.from('rules').select('*').eq('calendar_id', calendar.calendarId),
     supabase
       .from('appointments')
@@ -32,7 +32,6 @@ export async function GET(req: Request) {
     reasonId
       ? supabase.from('appointment_reasons').select('*').eq('id', reasonId)
       : supabase.from('appointment_reasons').select('*').eq('calendar_id', calendar.calendarId).limit(1),
-    supabase.from('booking_calendars').select('slot_fill_direction').eq('id', calendar.calendarId).single(),
   ]);
 
   const reason = reasons?.[0] as AppointmentReason | undefined;
@@ -47,7 +46,6 @@ export async function GET(req: Request) {
     rules: (rules ?? []) as Rule[],
     booked: (booked ?? []) as Appointment[],
     googleBlocks: [],
-    fillDirection: (calendarRow?.slot_fill_direction ?? 'forward') as 'forward' | 'backward',
   });
 
   // Group flat slots + booked appointments into per-day buckets for the

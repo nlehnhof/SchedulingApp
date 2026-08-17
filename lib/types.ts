@@ -22,7 +22,6 @@ export interface BookingCalendar {
   slug: string | null;
   google_calendar_id: string;
   timezone: string;
-  slot_fill_direction: 'forward' | 'backward';
   created_at: string;
   updated_at: string;
 }

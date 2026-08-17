@@ -12,14 +12,6 @@ export interface GetAvailableSlotsParams {
   // never need to pass this; it exists so tests can pin a deterministic
   // clock instead of racing the real one.
   now?: Date;
-  // Which end of the day's available window slots get generated from —
-  // 'forward' (default) fills from start_time and moves later, so any
-  // leftover time that doesn't divide evenly into duration_min-sized slots
-  // ends up unused at the *end* of the window. 'backward' fills from
-  // end_time and moves earlier, so the leftover ends up at the *start*
-  // instead. Sourced from the calendar's `slot_fill_direction` column —
-  // see lib/types.ts's BookingCalendar.
-  fillDirection?: 'forward' | 'backward';
 }
 
 /**
@@ -119,6 +111,15 @@ function isBlackedOut(blackoutRules: Rule[], day: Date): boolean {
 }
 
 /**
+ * Per-rule, not per-calendar: each available_hours/specific_dates block
+ * picks its own fill direction via config.fill_direction, defaulting to
+ * 'forward' when absent — see RuleEditor.tsx's "Fill direction" field.
+ */
+function ruleFillDirection(rule: Rule): 'forward' | 'backward' {
+  return rule.config?.fill_direction === 'backward' ? 'backward' : 'forward';
+}
+
+/**
  * Pure, DB-free slot calculator. Given rules, a reason, existing bookings, and
  * Google Calendar blocks, returns every candidate slot in the date range with
  * an availability flag. Callers are responsible for fetching the inputs and
@@ -132,7 +133,6 @@ export function getAvailableSlots({
   booked,
   googleBlocks,
   now,
-  fillDirection = 'forward',
 }: GetAvailableSlotsParams): Slot[] {
   const durationMs = reason.duration_min * 60 * 1000;
   const slots: Slot[] = [];
@@ -179,7 +179,7 @@ export function getAvailableSlots({
       }, dayStart);
     }
 
-    const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, fillDirection);
+    const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, ruleFillDirection(availableHours));
     for (const { start: slotStart, end: slotEnd } of intervals) {
       const isBooked = booked.some((apt) =>
         overlaps(slotStart, slotEnd, new Date(apt.start_time), new Date(apt.end_time))

@@ -43,7 +43,11 @@ Migrations must be applied **in order**: `0001_init` → `0002_booking_function`
 `0008_visitor_email` → `0009_stripe_billing` → `0010_premium_grants` →
 `0011_client_calendar_selection` → `0012_appointment_google_event` → `0013_elite_tier` →
 `0014_booking_calendars` → `0015_booking_calendars_backfill` → `0016_calendar_id_fk_move` →
-`0017_booking_functions_calendar_scoped` → `0018_client_collaborators`. `0013` also needs `STRIPE_ELITE_PRICE_ID` set
+`0017_booking_functions_calendar_scoped` → `0018_client_collaborators` →
+`0019_reason_notes_and_checkboxes` → `0020_slot_fill_direction` →
+`0021_slot_fill_direction_per_rule`. `0020` added a per-calendar `slot_fill_direction` column
+that `0021` immediately superseded — see "Rule types" below; the column no longer exists,
+only its migration history does. `0013` also needs `STRIPE_ELITE_PRICE_ID` set
 (alongside the existing `STRIPE_PREMIUM_PRICE_ID`) once an Elite Price exists in Stripe — see
 its migration file header. `0014`-`0017` are the multi-calendar migration (see "Multi-calendar
 architecture" below) — `0016` is a genuinely destructive schema change (drops `client_id` off
@@ -89,6 +93,11 @@ Keep it this way — it's what makes `lib/availability.test.ts` possible without
 rule takes precedence over an "all days" rule with `day_of_week: null`), `first_n_only`
 (caps bookings within a rolling window via `config.first_n`/`config.window_minutes`), and
 `max_per_window` (caps concurrent bookings via `max_concurrent`/`config.window_minutes`).
+Both `available_hours` and `specific_dates` also read `config.fill_direction`
+(`'forward'`/`'backward'`, defaults to `'forward'` when absent) — which end of that one
+rule's window slot generation starts from when `duration_min` doesn't evenly divide it. This
+is a per-rule setting, not per-calendar (`0021` migration) — two different available-hours
+blocks on the same calendar can each pick their own direction independently.
 
 **Google Calendar sync is one-way and polling-based**, not webhook-based: a cron job
 (`app/api/cron/google-sync`) polls every 30 min per booking calendar's `google_calendar_id`

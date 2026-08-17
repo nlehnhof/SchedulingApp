@@ -14,14 +14,18 @@ import Badge from '@/components/Badge';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 
+function fillDirectionSuffix(rule: Rule): string {
+  return (rule.config as any)?.fill_direction === 'backward' ? ' (fills backward)' : '';
+}
+
 function summarize(rule: Rule): string {
   if (rule.rule_type === 'available_hours') {
     const day = rule.day_of_week === null ? 'Every day' : DAY_LABELS[rule.day_of_week];
-    return `${day}: ${rule.start_time?.slice(0, 5)} to ${rule.end_time?.slice(0, 5)}`;
+    return `${day}: ${rule.start_time?.slice(0, 5)} to ${rule.end_time?.slice(0, 5)}${fillDirectionSuffix(rule)}`;
   }
   if (rule.rule_type === 'specific_dates') {
     const dates = ((rule.config as any)?.dates ?? []) as string[];
-    return `${dates.length} specific date${dates.length === 1 ? '' : 's'}: ${rule.start_time?.slice(0, 5)} to ${rule.end_time?.slice(0, 5)}`;
+    return `${dates.length} specific date${dates.length === 1 ? '' : 's'}: ${rule.start_time?.slice(0, 5)} to ${rule.end_time?.slice(0, 5)}${fillDirectionSuffix(rule)}`;
   }
   if (rule.rule_type === 'max_per_window') {
     const windowMin = (rule.config as any)?.window_minutes ?? 60;
@@ -73,6 +77,7 @@ function toFormValues(rule: Rule): RuleFormValues {
         ? String((rule.config as any).max_gap_minutes)
         : '',
     specificDates: ((rule.config as any)?.dates ?? []) as string[],
+    fillDirection: (rule.config as any)?.fill_direction === 'backward' ? 'backward' : 'forward',
   };
 }
 
@@ -111,11 +116,11 @@ function toRequestBody(values: RuleFormValues): Record<string, unknown> {
     body.dayOfWeek = dayOfWeek;
     body.startTime = values.startTime;
     body.endTime = values.endTime;
-    body.config = { permanent: dayOfWeek === null };
+    body.config = { permanent: dayOfWeek === null, fill_direction: values.fillDirection || 'forward' };
   } else if (values.ruleType === 'specific_dates') {
     body.startTime = values.startTime;
     body.endTime = values.endTime;
-    body.config = { dates: values.specificDates ?? [] };
+    body.config = { dates: values.specificDates ?? [], fill_direction: values.fillDirection || 'forward' };
   } else if (values.ruleType === 'max_per_window') {
     body.maxConcurrent = Number(values.maxConcurrent);
     body.config = { window_minutes: Number(values.windowMinutes || 60) };
@@ -191,7 +196,7 @@ export default function RulesPage() {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="flex max-w-4xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <h1 className="font-display text-display-md text-text">Rules Editor</h1>

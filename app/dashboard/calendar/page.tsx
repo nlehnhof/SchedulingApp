@@ -13,7 +13,6 @@ interface GoogleCalendarData {
   calendars: { id: string; summary: string; primary: boolean }[];
   selected: string;
   timezone: string;
-  slotFillDirection: 'forward' | 'backward';
 }
 
 // A curated subset, not every IANA zone — Intl.supportedValuesOf('timeZone')
@@ -45,7 +44,6 @@ export default function CalendarPage() {
   // it visually distinct from the booking-calendar id from context above.
   const [googleCalendarId, setGoogleCalendarId] = useState('');
   const [timezone, setTimezone] = useState('');
-  const [slotFillDirection, setSlotFillDirection] = useState<'forward' | 'backward'>('forward');
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -54,7 +52,6 @@ export default function CalendarPage() {
     if (!data) return;
     setGoogleCalendarId(data.selected);
     setTimezone(data.timezone);
-    setSlotFillDirection(data.slotFillDirection);
   }, [data]);
 
   if (isLoading) return <Spinner />;
@@ -67,7 +64,7 @@ export default function CalendarPage() {
     setSaved(false);
     setSaving(true);
     try {
-      const body: Record<string, string> = { timezone, slotFillDirection };
+      const body: Record<string, string> = { timezone };
       if (data!.linked) body.googleCalendarId = googleCalendarId;
       const res = await fetch(KEY, {
         method: 'PATCH',
@@ -88,7 +85,7 @@ export default function CalendarPage() {
   }
 
   return (
-    <form onSubmit={handleSave} className="flex max-w-xl flex-col gap-4">
+    <form onSubmit={handleSave} className="flex max-w-2xl flex-col gap-4">
       <h1 className="font-display text-display-md text-text">Calendar</h1>
 
       <div className="flex flex-col gap-1">
@@ -110,23 +107,6 @@ export default function CalendarPage() {
         <p className="text-body-sm text-text-2">
           Used to write appointments to Google Calendar at the correct time. Set this to where
           this calendar&apos;s business actually operates, not where the server runs.
-        </p>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <Select
-          label="Slot fill direction"
-          value={slotFillDirection}
-          onChange={(e) => setSlotFillDirection(e.target.value as 'forward' | 'backward')}
-          disabled={!canWrite}
-        >
-          <option value="forward">Forward, start at the beginning of the day</option>
-          <option value="backward">Backward, start at the end of the day</option>
-        </Select>
-        <p className="text-body-sm text-text-2">
-          When your appointment length doesn&apos;t evenly divide your available hours, this
-          decides which end gets the leftover unbooked time. Forward fills from the start of
-          your hours; backward fills from the end, working earlier.
         </p>
       </div>
 

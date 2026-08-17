@@ -78,14 +78,17 @@ describe('getAvailableSlots', () => {
   it('fillDirection "backward" leaves the same leftover at the start instead of the end', () => {
     const day = new Date('2026-08-17T00:00:00'); // Monday, 09:00-10:00
     const oddDurationReason: AppointmentReason = { ...reason, duration_min: 25 };
+    const backwardHours: Rule = {
+      ...allDaysHours,
+      config: { permanent: true, fill_direction: 'backward' },
+    };
     const slots = getAvailableSlots({
       startDate: day,
       endDate: day,
       reason: oddDurationReason,
-      rules: [allDaysHours],
+      rules: [backwardHours],
       booked: [],
       googleBlocks: [],
-      fillDirection: 'backward',
     });
 
     // Anchored to 10:00 and working backward: 09:35-10:00, then 09:10-09:35,
@@ -93,6 +96,42 @@ describe('getAvailableSlots', () => {
     // in ascending chronological order.
     expect(slots.map((s) => s.start.slice(11, 16))).toEqual(['09:10', '09:35']);
     expect(slots[slots.length - 1].end.slice(11, 16)).toBe('10:00');
+  });
+
+  it('fill direction is per available_hours rule, not one setting for the whole calendar', () => {
+    // Monday forward (default), Tuesday backward — two day-specific rules in
+    // the same rule set, each carrying its own config.fill_direction. This
+    // is the whole point of the per-rule change: no shared calendar-level
+    // setting controls both days.
+    const mondayForward: Rule = {
+      ...allDaysHours,
+      id: 'rule-monday',
+      day_of_week: 1,
+      config: { fill_direction: 'forward' },
+    };
+    const tuesdayBackward: Rule = {
+      ...allDaysHours,
+      id: 'rule-tuesday',
+      day_of_week: 2,
+      config: { fill_direction: 'backward' },
+    };
+    const oddDurationReason: AppointmentReason = { ...reason, duration_min: 25 };
+    const monday = new Date('2026-08-17T00:00:00');
+    const tuesday = new Date('2026-08-18T00:00:00');
+
+    const slots = getAvailableSlots({
+      startDate: monday,
+      endDate: tuesday,
+      reason: oddDurationReason,
+      rules: [mondayForward, tuesdayBackward],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    const mondaySlots = slots.filter((s) => s.start.startsWith('2026-08-17'));
+    const tuesdaySlots = slots.filter((s) => s.start.startsWith('2026-08-18'));
+    expect(mondaySlots.map((s) => s.start.slice(11, 16))).toEqual(['09:00', '09:25']);
+    expect(tuesdaySlots.map((s) => s.start.slice(11, 16))).toEqual(['09:10', '09:35']);
   });
 
   // Regression guard for the Saturday/Sunday display bug: slot.start/end

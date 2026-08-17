@@ -31,7 +31,7 @@ export async function GET(
       supabase
         .from('booking_calendars')
         .select(
-          'id, display_name, accent_color, logo_url, google_calendar_id, slot_fill_direction, clients(email, tier, google_refresh_token)'
+          'id, display_name, accent_color, logo_url, google_calendar_id, clients(email, tier, google_refresh_token)'
         )
         .eq('id', calendarId)
         .maybeSingle(),
@@ -90,7 +90,6 @@ export async function GET(
     rules: (rules ?? []) as Rule[],
     booked: (booked ?? []) as Appointment[],
     googleBlocks,
-    fillDirection: calendar.slot_fill_direction as 'forward' | 'backward',
   });
 
   // Custom branding (premium feature 1) is only ever returned when the

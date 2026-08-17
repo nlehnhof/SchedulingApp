@@ -13,6 +13,12 @@ import { z } from 'zod';
 //                      same time columns as available_hours but keyed by exact
 //                      calendar date instead of day_of_week — see
 //                      lib/availability.ts's findSpecificDateRule()
+//   available_hours and specific_dates also both read
+//   config.fill_direction ('forward' | 'backward', optional, defaults to
+//   'forward' when absent) — which end of that one rule's window slots get
+//   generated from. Per rule, not per calendar: each available-hours block
+//   picks its own direction independently — see
+//   lib/availability.ts's ruleFillDirection().
 export const ruleSchema = z
   .object({
     ruleType: z.enum([
@@ -186,15 +192,10 @@ export const calendarSelectSchema = z
         }
       }, 'Not a recognized time zone')
       .optional(),
-    // Which end of an available-hours window slot generation starts from —
-    // see lib/availability.ts's computeSlotIntervals().
-    slotFillDirection: z.enum(['forward', 'backward']).optional(),
   })
-  .refine(
-    (v) =>
-      v.googleCalendarId !== undefined || v.timezone !== undefined || v.slotFillDirection !== undefined,
-    { message: 'At least one of googleCalendarId, timezone, slotFillDirection is required' }
-  );
+  .refine((v) => v.googleCalendarId !== undefined || v.timezone !== undefined, {
+    message: 'At least one of googleCalendarId, timezone is required',
+  });
 
 // POST /api/client/team — Elite team access (0018 migration), owner-only.
 // Email is lowercased at validation time to match client_collaborators'

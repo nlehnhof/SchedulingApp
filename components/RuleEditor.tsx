@@ -23,6 +23,7 @@ const formSchema = z.object({
   dayOfWeek: z.string(), // 'all' or '0'..'6'
   startTime: z.string().optional(),
   endTime: z.string().optional(),
+  fillDirection: z.enum(['forward', 'backward']).optional(),
   maxConcurrent: z.string().optional(),
   firstN: z.string().optional(),
   windowMinutes: z.string().optional(),
@@ -96,6 +97,7 @@ export default function RuleEditor({
       ruleType: 'available_hours',
       dayOfWeek: 'all',
       specificDates: [],
+      fillDirection: 'forward',
       ...initialValues,
     },
   });
@@ -133,6 +135,16 @@ export default function RuleEditor({
             <Input type="time" label="Start time" {...register('startTime')} />
             <Input type="time" label="End time" {...register('endTime')} />
           </div>
+          <div className="flex flex-col gap-1">
+            <Select label="Fill direction" {...register('fillDirection')}>
+              <option value="forward">Forward, start at the beginning</option>
+              <option value="backward">Backward, start at the end</option>
+            </Select>
+            <p className="text-body-sm text-text-2">
+              When your appointment length doesn&apos;t evenly divide this window, this decides
+              which end gets the leftover unbooked time.
+            </p>
+          </div>
         </>
       )}
 
@@ -145,6 +157,16 @@ export default function RuleEditor({
           <div className="flex gap-2">
             <Input type="time" label="Start time" {...register('startTime')} />
             <Input type="time" label="End time" {...register('endTime')} />
+          </div>
+          <div className="flex flex-col gap-1">
+            <Select label="Fill direction" {...register('fillDirection')}>
+              <option value="forward">Forward, start at the beginning</option>
+              <option value="backward">Backward, start at the end</option>
+            </Select>
+            <p className="text-body-sm text-text-2">
+              When your appointment length doesn&apos;t evenly divide this window, this decides
+              which end gets the leftover unbooked time.
+            </p>
           </div>
         </>
       )}

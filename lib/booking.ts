@@ -155,7 +155,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         .gt('expires_at', new Date().toISOString()),
       supabase
         .from('booking_calendars')
-        .select('google_calendar_id, slot_fill_direction, clients(google_refresh_token)')
+        .select('google_calendar_id, clients(google_refresh_token)')
         .eq('id', input.calendarId)
         .maybeSingle(),
     ]);
@@ -190,7 +190,6 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       rules: (rules ?? []) as Rule[],
       booked: (booked ?? []) as Appointment[],
       googleBlocks,
-      fillDirection: (googleCalendar?.slot_fill_direction ?? 'forward') as 'forward' | 'backward',
     });
     nextAvailable = nextAvailableSlot(slots, searchStart);
   }
