@@ -1,64 +1,60 @@
 ---
-page: dashboard-time
+page: dashboard-data
 layout: foundation
-phase: 6
+phase: 8
 ---
 
-Restyle `app/dashboard/schedule/page.tsx` and `app/dashboard/calendar/page.tsx` against the
-Nightshift system. This is where the Lightline signature pays off on a real product surface: a
-"now" indicator that tracks the clock, per `DESIGN.md` section 1.1 item 2.
-
-Read `.design/DESIGN.md` in full and `.design/PLAN.md` Phase 6 before starting. Read both files
-in full first — read `components/Lightline.tsx` and `components/DayStrip.tsx` (Phase 2) and
-`components/Calendar.tsx` (already restyled in Phase 2, day cells already follow jade/rose
-rails and the availability-is-light rule) before touching either page; reuse rather than
-reinvent.
+Restyle `app/dashboard/analytics/page.tsx`, `app/dashboard/errors/page.tsx`, and
+`app/dashboard/export/page.tsx` against the Nightshift system. Read `.design/DESIGN.md` in
+full and `.design/PLAN.md` Phase 8 before starting, and read each file in full first (they're
+small) — restyle in place rather than rearchitecting the data fetching or the hand-rolled bar
+charts.
 
 **Scope, exactly:**
 
-1. **`app/dashboard/schedule/page.tsx`.** The `Calendar` component itself is already
-   Nightshift-correct (Phase 2). Restyle the surrounding page chrome:
-   - The legend row under the calendar (`bg-jade`/`bg-rose`/dimmed dots) — restyle to the
-     token system; consider whether a legend is still needed now that `Calendar`'s own
-     `aria-label` composition already describes state, or keep it as a compact visual key.
-   - The selected-day heading (currently an uppercase-tracked caption showing the raw date
-     string) and the "Click a day to see its appointments" / "No appointments booked on this
-     day" empty states — restyle to `label`/`body-sm` tokens.
-   - The inline delete-confirm row and its `Button` sizing overrides.
-   - **Real "now" indicator.** This is the payoff. Add a live Lightline-driven view of today:
-     when the selected date is today (or by default, before a date is selected), show a
-     `DayStrip` for today's bucket built from the fetched `DayBucket.slots`/`.appointments`
-     (real availability data is present here, unlike the dashboard home in Phase 5, which only
-     had appointments) so open gaps render lit (`lume/8`) and booked segments render matte
-     (`surface-2`), not just booked blocks on a blank strip. Scroll it into view on load if the
-     page is tall enough to need it (a real "now" indicator that tracks the clock and scrolls
-     into view on load, per `PLAN.md` Phase 6).
-2. **`app/dashboard/calendar/page.tsx`.** A settings form, not a time-surface, but it's grouped
-   into this phase by the plan. Restyle the `h1`, helper-text paragraphs (`text-xs`/`text-sm` →
-   `body-sm`), the "No Google account connected" panel (already `bg-surface border-hairline` —
-   bump radius to the documented system), and the save/error/saved feedback lines
-   (`text-jade`/`text-rose` already correct, just retype the sizes). **Fix the em-dashes in
-   this file's user-visible strings** (the timezone helper text, both slot-fill-direction
-   option labels, and the "No Google account connected" helper text all currently use " — " as
-   a separator; DESIGN.md section 9 bans this).
-3. Day cells in `Calendar` already follow the availability-is-light rule and use jade/rose
-   rails (Phase 2) — verify only, don't re-restyle `Calendar.tsx` itself here.
+1. **`app/dashboard/analytics/page.tsx`.** Keep the hand-rolled bars; no chart library
+   (`DESIGN.md` section 10 is explicit about this). Single series in `lume`, a second series
+   in `ice` where one exists (there currently isn't a true second series in this file's data —
+   verify against the fetched `AnalyticsData` shape before inventing one; if every chart here
+   is genuinely single-series, `ice` simply doesn't get used on this page, which is fine).
+   - `BarRow`'s per-bar value labels (`text-[10px]`) and axis labels → `data-sm` (mono, per
+     `DESIGN.md` section 3.3: these are stat values). Keep them always-visible (not
+     hover/title-only) and keep the scroll-affordance edge fade on `BarRow` — both are
+     deliberate mobile fixes noted in the existing comments, not decoration to remove.
+   - The "Most-booked reasons" bar track (`bg-hairline`) → `surface-2` per the plan's "track in
+     surface-2" instruction; the fill stays `lume`. That count value → `data-sm`.
+   - `Section`'s heading treatment (currently an uppercase-tracked caption) → `display-sm`,
+     per the plan ("Section headings move from uppercase-tracked captions to display-sm" is
+     specific to this phase, unlike the `label`-caption treatment used on earlier surfaces).
+   - Page `h1` → `display-md` (matches every other dashboard page h1 as of Phases 5-7). The
+     "Last N days · N appointments" subline: the `·` separator is fine (not a banned
+     dash), just retype to `body-sm`, and put both counts in `data`/mono since they're stat
+     values.
+   - Status-breakdown and reason-popularity list rows: retype `text-sm`/raw sizes to
+     `body`/`body-sm`, counts to `data-sm` mono.
+   - `PremiumLockCard` usage and the 403-detection logic are untouched (presentation-only
+     phase; don't touch the error-message sniffing).
+2. **`app/dashboard/errors/page.tsx`.** Small page. `h1` → `display-md`, empty/error/loading
+   states → `body-sm`. `ErrorBanner` itself is already restyled (Phase 1) — don't touch it.
+3. **`app/dashboard/export/page.tsx`.** `h1` → `display-md`. The confirm callout
+   (`border-lume/40 bg-lume/25`) → bump radius to the documented system (`rounded-xl`, it's a
+   callout). Retype `text-sm` → `body-sm`. **Fix the em-dash** in "email a CSV of {month}'s
+   appointments to your account email — continue?" (use a question on its own sentence, e.g.
+   ending the statement with a period and asking "Continue?" separately, or a colon). Also fix
+   "Sent — {message}" the same way.
 
 **Out of bounds:** routes, API shapes, form field names, SWR keys, tier gating logic, anything
-under `lib/booking.ts` or `supabase/`. Do not touch `Calendar.tsx`, `AppointmentCard.tsx`, or
-`AppointmentEditor.tsx` beyond what's needed to consume them correctly (their own restyle
-already happened in Phase 2, and `AppointmentEditor` is a form built on Phase 1 primitives —
-if it has stray raw tokens, note them but don't scope-creep a full restyle here unless trivial).
+under `lib/booking.ts` or `supabase/`. Don't touch `ErrorBanner.tsx` (already Phase 1) or the
+analytics 403-detection/premium-gating logic.
 
-**Done when:** the schedule page's `DayStrip` renders real availability (lit gaps, matte
-bookings) for today and updates its Lightline position live, both pages render correctly at
-375px and 1280px, a grep for em-dash/en-dash separators in `app/dashboard/calendar/page.tsx`
-and `app/dashboard/schedule/page.tsx` returns nothing outside comments, `npx tsc --noEmit` is
-clean, `npm run lint` is clean, and `npm test` passes.
+**Done when:** all three pages render correctly at 375px and 1280px, the analytics bar charts'
+value labels stay visible without hover/tap, the horizontal-scroll edge fade on `BarRow` still
+works, a grep for em-dash/en-dash separators across all three files returns nothing outside
+comments, `npx tsc --noEmit` is clean, `npm run lint` is clean, and `npm test` passes.
 
-**Before finishing, write the Phase 7 baton to `.design/next-prompt.md`** using
-`.design/PLAN.md` Phase 7 as the body, with the design system block below copied in, and mark
-`dashboard-time` complete in `.design/SURFACES.md` section 4. If you skip this, the loop
+**Before finishing, write the Phase 9 baton to `.design/next-prompt.md`** using
+`.design/PLAN.md` Phase 9 as the body, with the design system block below copied in, and mark
+`dashboard-data` complete in `.design/SURFACES.md` section 4. If you skip this, the loop
 stops.
 
 ---

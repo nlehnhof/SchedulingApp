@@ -10,7 +10,6 @@ import RuleEditor, { RuleFormValues } from '@/components/RuleEditor';
 import { useCalendar } from '@/components/CalendarContext';
 import InfoTooltip from '@/components/InfoTooltip';
 import Spinner from '@/components/Spinner';
-import Card from '@/components/Card';
 import Badge from '@/components/Badge';
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
@@ -18,11 +17,11 @@ const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 function summarize(rule: Rule): string {
   if (rule.rule_type === 'available_hours') {
     const day = rule.day_of_week === null ? 'Every day' : DAY_LABELS[rule.day_of_week];
-    return `${day}: ${rule.start_time?.slice(0, 5)}–${rule.end_time?.slice(0, 5)}`;
+    return `${day}: ${rule.start_time?.slice(0, 5)} to ${rule.end_time?.slice(0, 5)}`;
   }
   if (rule.rule_type === 'specific_dates') {
     const dates = ((rule.config as any)?.dates ?? []) as string[];
-    return `${dates.length} specific date${dates.length === 1 ? '' : 's'}: ${rule.start_time?.slice(0, 5)}–${rule.end_time?.slice(0, 5)}`;
+    return `${dates.length} specific date${dates.length === 1 ? '' : 's'}: ${rule.start_time?.slice(0, 5)} to ${rule.end_time?.slice(0, 5)}`;
   }
   if (rule.rule_type === 'max_per_window') {
     const windowMin = (rule.config as any)?.window_minutes ?? 60;
@@ -195,70 +194,64 @@ export default function RulesPage() {
     <div className="flex max-w-2xl flex-col gap-6">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <h1 className="font-display text-xl font-semibold text-text">Rules Editor</h1>
+          <h1 className="font-display text-display-md text-text">Rules Editor</h1>
           <InfoTooltip text="Day-specific hours override an all-days rule for that day; blackout dates close a day entirely regardless of hours; the remaining capacity/timing rules (max per window, first N only, buffer time, minimum notice) apply on top of your hours." />
         </div>
         {canWrite && <Button onClick={openCreate}>New rule</Button>}
       </div>
 
       {isLoading && <Spinner />}
-      {error && <p className="text-sm text-rose">Failed to load rules.</p>}
+      {error && <p className="text-body-sm text-rose">Failed to load rules.</p>}
 
-      <ul className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+      <ul className="flex flex-col divide-y divide-hairline">
         {sortRules(data?.rules ?? []).map((rule) => (
-          <li key={rule.id} className="animate-fade-up">
-            <Card hoverable padding="sm" className="flex h-full flex-col gap-2 text-sm">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex flex-col gap-1">
-                  <span>{summarize(rule)}</span>
-                  <Badge tone="neutral" className="w-fit normal-case">
-                    {rule.rule_type.replace(/_/g, ' ')}
-                  </Badge>
-                </div>
+          <li key={rule.id} className="flex flex-col gap-2 py-3 first:pt-0">
+            <div className="flex items-start justify-between gap-2">
+              <div className="flex flex-col gap-1">
+                <span className="text-body text-text">{summarize(rule)}</span>
+                <Badge tone="neutral" className="w-fit normal-case">
+                  {rule.rule_type.replace(/_/g, ' ')}
+                </Badge>
               </div>
+            </div>
 
-              {canWrite &&
-                (confirmDeleteId === rule.id ? (
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-xs text-rose">Delete this rule?</span>
-                    <Button variant="danger" onClick={() => handleDelete(rule.id)} className="px-2 py-1 text-xs">
-                      Confirm
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setConfirmDeleteId(null)}
-                      className="px-2 py-1 text-xs"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <Button variant="ghost" onClick={() => openEdit(rule)} className="px-2 py-1 text-xs">
-                      Edit
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      onClick={() => setConfirmDeleteId(rule.id)}
-                      className="px-2 py-1 text-xs text-rose hover:bg-rose/10"
-                    >
-                      Delete
-                    </Button>
-                  </div>
-                ))}
-            </Card>
+            {canWrite &&
+              (confirmDeleteId === rule.id ? (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-body-sm text-rose">Delete this rule?</span>
+                  <Button variant="danger" onClick={() => handleDelete(rule.id)}>
+                    Confirm
+                  </Button>
+                  <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
+                    Cancel
+                  </Button>
+                </div>
+              ) : (
+                <div className="flex gap-2">
+                  <Button variant="ghost" onClick={() => openEdit(rule)}>
+                    Edit
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    onClick={() => setConfirmDeleteId(rule.id)}
+                    className="text-rose hover:bg-rose/10"
+                  >
+                    Delete
+                  </Button>
+                </div>
+              ))}
           </li>
         ))}
         {data?.rules.length === 0 && (
-          <p className="text-sm text-text-2">
-            No rules yet — visitors won&apos;t see any available slots until you add an
+          <p className="text-body-sm text-text-2">
+            No rules yet. Visitors won&apos;t see any available slots until you add an
             available-hours rule.
           </p>
         )}
       </ul>
 
       <Modal open={modalOpen} onClose={() => setModalOpen(false)} title={editingRule ? 'Edit rule' : 'New rule'}>
-        {submitError && <p className="mb-2 text-sm text-rose">{submitError}</p>}
+        {submitError && <p className="mb-2 text-body-sm text-rose">{submitError}</p>}
         <RuleEditor
           key={editingRule?.id ?? 'new'}
           onSubmit={handleSave}

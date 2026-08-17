@@ -51,8 +51,8 @@ Update this when an iteration completes. Do not rebuild anything already marked 
 - [x] `visit` - `/visit/[clientLink]` booking flow and its layout
 - [x] `dashboard-shell` - `DashboardNav`, `DashboardChrome`, `CollaboratorBanner`, `OnboardingTour`, dashboard layout signed-out state
 - [x] `dashboard-home` - `/dashboard`
-- [ ] `dashboard-time` - `/dashboard/schedule`, `/dashboard/calendar` (the Lightline payoff)
-- [ ] `dashboard-setup` - `/dashboard/reasons`, `/dashboard/rules`, `RuleEditor`
+- [x] `dashboard-time` - `/dashboard/schedule`, `/dashboard/calendar` (the Lightline payoff)
+- [x] `dashboard-setup` - `/dashboard/reasons`, `/dashboard/rules`, `RuleEditor`
 - [ ] `dashboard-data` - `/dashboard/analytics`, `/dashboard/errors`, `/dashboard/export`
 - [ ] `dashboard-account` - `/dashboard/branding`, `/dashboard/reminders`, `/dashboard/billing`, `/dashboard/team`, `/dashboard/calendars`
 - [ ] `marketing` - `/` home page
