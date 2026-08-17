@@ -639,6 +639,72 @@ describe('getAvailableSlots', () => {
     expect(starts).toEqual(['08:00', '08:25', '12:10', '12:35']);
     expect(slots.every((s) => s.available)).toBe(true);
   });
+
+  it('sequential_fill frontier is independent per window, not shared for the whole day', () => {
+    // Regression: a Google Calendar block eating into one window (8-11)
+    // used to push a single, day-wide sequential_fill frontier past a
+    // second, disjoint window (12-2:30) entirely, blocking every slot in
+    // it even though nothing was actually busy there yet. Each window must
+    // track its own progress.
+    const day = new Date('2026-08-17T00:00:00'); // Monday
+    const morningWindow: Rule = {
+      id: 'rule-morning',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 1,
+      start_time: '08:00:00',
+      end_time: '11:00:00',
+      max_concurrent: null,
+      config: { permanent: false, fill_direction: 'forward' },
+    };
+    const afternoonWindow: Rule = {
+      id: 'rule-afternoon',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 1,
+      start_time: '12:00:00',
+      end_time: '13:00:00',
+      max_concurrent: null,
+      config: { permanent: false, fill_direction: 'forward' },
+    };
+    const sequentialFillRule: Rule = {
+      id: 'rule-sequential',
+      calendar_id: 'client-1',
+      rule_type: 'sequential_fill',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { max_gap_minutes: 30 },
+    };
+    const blockStart = new Date(day);
+    blockStart.setHours(8, 0, 0, 0);
+    const blockEnd = new Date(day);
+    blockEnd.setHours(10, 45, 0, 0);
+    const googleBlocks: GoogleBlock[] = [
+      {
+        id: 'g1',
+        summary: 'Standing meeting',
+        start: toNaiveISOString(blockStart).slice(0, 19),
+        end: toNaiveISOString(blockEnd).slice(0, 19),
+      },
+    ];
+
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [morningWindow, afternoonWindow, sequentialFillRule],
+      booked: [],
+      googleBlocks,
+    });
+
+    // The afternoon window's frontier is seeded at its own 12:00 start,
+    // unaffected by the morning window's Google block — its first slot
+    // must be available even though the morning block's end (10:45) plus
+    // the 30-minute gap (11:15) is well before 12:00.
+    expect(slots.find((s) => s.start.slice(11, 16) === '12:00')?.available).toBe(true);
+  });
 });
 
 describe('nextAvailableSlot', () => {

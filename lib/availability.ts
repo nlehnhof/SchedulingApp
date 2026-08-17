@@ -175,41 +175,43 @@ export function getAvailableSlots({
       dayEnd: parseTimeOnDate(date, rule.end_time as string),
     }));
 
-    // sequential_fill: the "frontier" is how far into the day bookings have
-    // progressed so far — the earliest of the day's window starts until
-    // something is booked, then the latest booked appointment's end time on
-    // that same day. Slots are only offered within max_gap_minutes of the
-    // frontier, which nudges visitors toward the earliest open slot instead
-    // of cherry-picking a late one and leaving gaps behind it. This is a
-    // single per-day value shared across all of the day's windows, not
-    // recomputed per window.
+    // sequential_fill: the "frontier" is how far into a window bookings
+    // have progressed so far — that window's own start until something is
+    // booked, then the latest busy period's end time within it. Slots are
+    // only offered within max_gap_minutes of the frontier, which nudges
+    // visitors toward the earliest open slot instead of cherry-picking a
+    // late one and leaving gaps behind it. Computed independently per
+    // window (not one shared value for the whole day) so a day with
+    // several disjoint windows (e.g. an 8-11 block and a separate 12-2:30
+    // block) can offer slots in more than one of them at once — a booking
+    // or Google event that's progressed one window doesn't hold the others
+    // hostage.
     //
     // The frontier also has to walk forward past any Google Calendar block
     // that already occupies the start of the window, not just real
     // bookings. Without this, a practitioner whose available window opens
     // straight into an existing Google Calendar commitment (a standing
     // meeting, etc.) with zero appointments booked yet hits a permanent
-    // deadlock: the frontier never leaves dayStart because nothing has been
-    // booked, but dayStart itself is never actually offerable (it's inside
-    // the Google block), so nothing is ever bookable to advance it either.
-    // This shipped as a live bug once — see the "sequential_fill deadlocks
-    // on a leading Google Calendar block" test.
-    let sequentialFrontier: Date | null = null;
-    if (
-      sequentialFillRule?.config &&
-      typeof sequentialFillRule.config.max_gap_minutes === 'number'
-    ) {
-      const dayKey = dateOnly(date);
-      const dayBusyPeriods = [
-        ...booked
-          .filter((apt) => dateOnly(new Date(apt.start_time)) === dayKey)
-          .map((apt) => ({ start: new Date(apt.start_time), end: new Date(apt.end_time) })),
-        ...googleBlocks
-          .filter((block) => dateOnly(new Date(block.start)) === dayKey)
-          .map((block) => ({ start: new Date(block.start), end: new Date(block.end) })),
-      ];
+    // deadlock: the frontier never leaves the window's start because
+    // nothing has been booked, but the start itself is never actually
+    // offerable (it's inside the Google block), so nothing is ever
+    // bookable to advance it either. This shipped as a live bug once — see
+    // the "sequential_fill deadlocks on a leading Google Calendar block"
+    // test. Because each window seeds its own walk at its own start, a
+    // busy period that falls entirely inside a different window never
+    // affects this one — the walk only reacts to periods it actually
+    // reaches.
+    const dayBusyPeriods = [
+      ...booked
+        .filter((apt) => dateOnly(new Date(apt.start_time)) === dateKey)
+        .map((apt) => ({ start: new Date(apt.start_time), end: new Date(apt.end_time) })),
+      ...googleBlocks
+        .filter((block) => dateOnly(new Date(block.start)) === dateKey)
+        .map((block) => ({ start: new Date(block.start), end: new Date(block.end) })),
+    ];
 
-      let frontier = new Date(Math.min(...windows.map((w) => w.dayStart.getTime())));
+    function windowFrontier(windowStart: Date): Date {
+      let frontier = windowStart;
       let advanced = true;
       while (advanced) {
         advanced = false;
@@ -220,13 +222,17 @@ export function getAvailableSlots({
           }
         }
       }
-      sequentialFrontier = frontier;
+      return frontier;
     }
 
     const daySlots: Slot[] = [];
     const seenStarts = new Set<number>();
 
     for (const { rule, dayStart, dayEnd } of windows) {
+      const sequentialFrontier =
+        sequentialFillRule?.config && typeof sequentialFillRule.config.max_gap_minutes === 'number'
+          ? windowFrontier(dayStart)
+          : null;
       const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, ruleFillDirection(rule));
       for (const { start: slotStart, end: slotEnd } of intervals) {
         // Guards against two windows on the same day producing the exact

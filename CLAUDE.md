@@ -101,9 +101,10 @@ read `config.fill_direction` (`'forward'`/`'backward'`, defaults to `'forward'` 
 which end of that one rule's window slot generation starts from when `duration_min` doesn't
 evenly divide it. This is a per-rule setting, not per-calendar (`0021` migration) — two
 different available-hours blocks on the same calendar (whether on different days or the same
-day) can each pick their own direction independently. `sequential_fill`'s frontier is a single
-per-day value shared across all of that day's windows, not recomputed per window — see
-`lib/availability.ts`'s frontier-calculation comment.
+day) can each pick their own direction independently. `sequential_fill`'s frontier is computed
+independently per window, seeded at that window's own start time — a booking or Google event
+that's progressed one window (e.g. 8-11) doesn't hold a separate disjoint window (e.g. 12-2:30)
+on the same day hostage; see `lib/availability.ts`'s `windowFrontier()`.
 
 **Google Calendar sync is one-way and polling-based**, not webhook-based: a cron job
 (`app/api/cron/google-sync`) polls every 30 min per booking calendar's `google_calendar_id`
