@@ -55,21 +55,23 @@ Update this when an iteration completes. Do not rebuild anything already marked 
 - [x] `dashboard-setup` - `/dashboard/reasons`, `/dashboard/rules`, `RuleEditor`
 - [x] `dashboard-data` - `/dashboard/analytics`, `/dashboard/errors`, `/dashboard/export`
 - [x] `dashboard-account` - `/dashboard/branding`, `/dashboard/reminders`, `/dashboard/billing`, `/dashboard/team`, `/dashboard/calendars`
-- [ ] `marketing` - `/` home page
-- [ ] `docs` - rewrite `theme_brand.md`, update `CLAUDE.md` styling section
+- [x] `marketing` - `/` home page
+- [x] `docs` - rewrite `theme_brand.md`, update `CLAUDE.md` styling section
 
 ## 5. Roadmap
 
 ### High priority
-- [ ] Everything in section 4, in the listed order. The order is a dependency chain, not a
+- [x] Everything in section 4, in the listed order. The order is a dependency chain, not a
       preference: tokens before primitives, primitives before surfaces, real product
-      components before the marketing page that embeds them.
+      components before the marketing page that embeds them. All 11 surfaces complete.
 
 ### Medium priority
 - [x] `lib/brand-color.ts` with luminance and contrast-lift helpers, plus Vitest coverage,
       for the premium per-client accent override (done in Phase 3)
 - [ ] Open Graph image for `/` rendered from the token system
-- [ ] Replace or regrade `public/tetons.jpg`; it belongs to the retired warm palette
+- [x] Regrade `public/tetons.jpg` via CSS filters (grayscale/contrast/brightness/sepia/
+      hue-rotate) in the marketing page's guarantee section (Phase 10) — the source file
+      itself is untouched; a real re-edit of the photo asset is still open if wanted
 
 ### Low priority
 - [ ] Light theme variant (explicitly out of scope for this pass)

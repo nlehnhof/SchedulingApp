@@ -281,3 +281,9 @@ shared store (e.g. Upstash Redis) or the effective limit silently multiplies by 
   read/write through the `app/api/*` routes, not `lib/` directly, except where routes
   themselves import it
 - `supabase/migrations/*.sql` — applied in numeric order (see Commands)
+- **Styling** — the design system is Nightshift (dark, `lume` accent, Space Grotesk/Geist).
+  Source of truth is `.design/DESIGN.md`; `tailwind.config.js` and `app/globals.css`
+  implement it directly. `theme_brand.md` at the repo root is a short pointer/summary for
+  anyone who lands there without reading `.design/`, not a second source of truth. The
+  redesign that replaced the old "Golden Hour" system is tracked phase-by-phase in
+  `.design/PLAN.md` and `.design/SURFACES.md`.
