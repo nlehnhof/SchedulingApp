@@ -87,6 +87,10 @@ module.exports = {
           '0%, 100%': { opacity: '0.55' },
           '50%': { opacity: '1' },
         },
+        kenBurns: {
+          '0%': { transform: 'scale(1)' },
+          '100%': { transform: 'scale(1.08)' },
+        },
       },
       animation: {
         'fade-up': 'fadeUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) both',
@@ -94,6 +98,10 @@ module.exports = {
         'slide-in': 'slideInRight 0.2s cubic-bezier(0.16, 1, 0.3, 1) both',
         shimmer: 'shimmer 1.6s linear infinite',
         bloom: 'bloom 4s ease-in-out infinite',
+        // Slow, ambient background-photo zoom — not the Lightline motif
+        // (DESIGN.md 1.1, which is reserved for exactly three places), just
+        // a cinematic drift on full-bleed photography sections.
+        'ken-burns': 'kenBurns 22s ease-in-out infinite alternate',
       },
     },
   },

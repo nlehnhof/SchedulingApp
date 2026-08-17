@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import useSWR from 'swr';
 import { Lock } from '@phosphor-icons/react';
@@ -12,6 +13,7 @@ import { isAtLeast, type Tier } from '@/lib/tier';
 import { useCalendar } from '@/components/CalendarContext';
 import type { Appointment, ErrorLogEntry, Rule } from '@/lib/types';
 import Spinner from '@/components/Spinner';
+import everest from '@/public/everest.jpg';
 
 interface DashboardResponse {
   appointments: Appointment[];
@@ -71,7 +73,7 @@ export default function DashboardHome() {
 
   return (
     <div className="flex max-w-6xl flex-col gap-8">
-      <h1 className="font-display text-display-md text-text">Dashboard</h1>
+      <DashboardHeroBanner />
 
       {/* Previously there was no way to find your own visitor booking link
           from the UI at all — it was only ever printed to the console by
@@ -147,6 +149,38 @@ export default function DashboardHome() {
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function DashboardHeroBanner() {
+  return (
+    <div className="relative isolate overflow-hidden rounded-2xl border border-hairline">
+      <div className="absolute inset-0 motion-safe:animate-ken-burns">
+        <Image
+          src={everest}
+          alt=""
+          aria-hidden="true"
+          fill
+          placeholder="blur"
+          className="object-cover contrast-[1.25] saturate-[1.1] brightness-[0.7]"
+        />
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-r from-canvas via-canvas/45 to-canvas/5" />
+      {/* Same restrained highlight treatment as the marketing page's Summit
+          section — amplifies the photo's own golden light, not a new
+          decorative glow, and not the Lightline (DESIGN.md 1.1). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute right-[10%] top-[0%] h-56 w-56 -translate-y-1/3 rounded-full bg-lume/50 mix-blend-screen blur-[90px] motion-safe:animate-bloom"
+      />
+      <div className="relative flex flex-col gap-1 px-6 py-10 sm:px-8 sm:py-14">
+        <span className="text-label uppercase tracking-wide text-lume-bright">Gather</span>
+        <h1 className="font-display text-display-md text-text sm:text-display-lg">Dashboard</h1>
+        <p className="max-w-md text-body-sm text-text-2">
+          The hours you open are the highest point anyone can book.
+        </p>
       </div>
     </div>
   );

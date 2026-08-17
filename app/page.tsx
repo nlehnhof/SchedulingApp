@@ -4,6 +4,7 @@ import { useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import tetons from '@/public/tetons.jpg';
+import everest from '@/public/everest.jpg';
 import MarketingNav from '@/components/marketing/MarketingNav';
 import ConflictDemo from '@/components/marketing/ConflictDemo';
 import Reveal from '@/components/marketing/Reveal';
@@ -67,6 +68,7 @@ export default function HomePage() {
       <HowRulesWork />
       <WhatVisitorsSee />
       <Plans />
+      <Summit />
       <Footer />
     </main>
   );
@@ -256,6 +258,41 @@ function Plans() {
           <p className="mt-2 text-body-sm text-text-2">
             Up to 5 booking calendars and shared dashboard access for your team, on top of
             everything in Premium.
+          </p>
+        </Reveal>
+      </div>
+    </section>
+  );
+}
+
+function Summit() {
+  return (
+    <section className="relative isolate overflow-hidden py-28 sm:py-36">
+      <div className="absolute inset-0 motion-safe:animate-ken-burns">
+        <Image
+          src={everest}
+          alt=""
+          aria-hidden="true"
+          fill
+          placeholder="blur"
+          className="object-cover contrast-[1.3] saturate-[1.15] brightness-[0.75]"
+        />
+      </div>
+      <div className="absolute inset-0 bg-gradient-to-t from-canvas via-canvas/55 to-canvas/10" />
+      {/* Warm highlight breathing over the sunlit summit — amplifies the
+          photo's own golden light rather than adding a decorative UI glow;
+          not the Lightline (DESIGN.md 1.1, reserved for exactly three
+          places elsewhere in the product). */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute left-[58%] top-[8%] h-72 w-72 -translate-x-1/2 -translate-y-1/2 rounded-full bg-lume/60 mix-blend-screen blur-[110px] motion-safe:animate-bloom sm:h-96 sm:w-96"
+      />
+      <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-4 px-6 text-center sm:px-10">
+        <Reveal className="flex flex-col items-center gap-4">
+          <h2 className="font-display text-display-lg text-text">Your calendar has a summit.</h2>
+          <p className="max-w-xl text-body text-text-2">
+            The hours you open are the highest point anyone can book. Nothing gets scheduled
+            above the line you draw.
           </p>
         </Reveal>
       </div>
