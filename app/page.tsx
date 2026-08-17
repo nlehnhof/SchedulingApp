@@ -289,7 +289,9 @@ function Summit() {
       />
       <div className="relative mx-auto flex max-w-3xl flex-col items-center gap-4 px-6 text-center sm:px-10">
         <Reveal className="flex flex-col items-center gap-4">
-          <h2 className="font-display text-display-lg text-text">Your calendar has a summit.</h2>
+          <h2 className="font-display text-display-lg text-text">
+            Summiting Everest is hard. Your calendar doesn&apos;t have to be.
+          </h2>
           <p className="max-w-xl text-body text-text-2">
             The hours you open are the highest point anyone can book. Nothing gets scheduled
             above the line you draw.
