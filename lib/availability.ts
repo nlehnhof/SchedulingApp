@@ -176,31 +176,35 @@ export function getAvailableSlots({
     }));
 
     // sequential_fill: the "frontier" is how far into a window bookings
-    // have progressed so far — that window's own start until something is
-    // booked, then the latest busy period's end time within it. Slots are
-    // only offered within max_gap_minutes of the frontier, which nudges
-    // visitors toward the earliest open slot instead of cherry-picking a
-    // late one and leaving gaps behind it. Computed independently per
-    // window (not one shared value for the whole day) so a day with
-    // several disjoint windows (e.g. an 8-11 block and a separate 12-2:30
-    // block) can offer slots in more than one of them at once — a booking
-    // or Google event that's progressed one window doesn't hold the others
-    // hostage.
+    // have progressed so far, and which end it progresses FROM follows that
+    // window's own fill_direction — a forward window's frontier starts at
+    // its start time and walks toward its end as bookings/blocks fill it
+    // in; a backward window's frontier mirrors this, starting at its END
+    // time and walking toward its start, so a backward window with nothing
+    // booked yet prioritizes its latest slots (e.g. 10:45-11:00 before
+    // 8:00-8:15) exactly the way a forward window prioritizes its earliest
+    // ones. Slots are only offered within max_gap_minutes of the frontier,
+    // which nudges visitors toward the current edge of progress instead of
+    // cherry-picking a slot far from it and leaving gaps behind it.
+    // Computed independently per window (not one shared value for the
+    // whole day) so a day with several disjoint windows (e.g. an 8-11
+    // block and a separate 12-2:30 block) can offer slots in more than one
+    // of them at once — a booking or Google event that's progressed one
+    // window doesn't hold the others hostage.
     //
-    // The frontier also has to walk forward past any Google Calendar block
-    // that already occupies the start of the window, not just real
-    // bookings. Without this, a practitioner whose available window opens
-    // straight into an existing Google Calendar commitment (a standing
-    // meeting, etc.) with zero appointments booked yet hits a permanent
-    // deadlock: the frontier never leaves the window's start because
-    // nothing has been booked, but the start itself is never actually
-    // offerable (it's inside the Google block), so nothing is ever
-    // bookable to advance it either. This shipped as a live bug once — see
-    // the "sequential_fill deadlocks on a leading Google Calendar block"
-    // test. Because each window seeds its own walk at its own start, a
-    // busy period that falls entirely inside a different window never
-    // affects this one — the walk only reacts to periods it actually
-    // reaches.
+    // The frontier also has to walk past any Google Calendar block that
+    // already occupies the edge it starts from, not just real bookings.
+    // Without this, a practitioner whose available window opens straight
+    // into an existing Google Calendar commitment (a standing meeting,
+    // etc.) with zero appointments booked yet hits a permanent deadlock:
+    // the frontier never leaves the window's edge because nothing has been
+    // booked, but the edge itself is never actually offerable (it's inside
+    // the Google block), so nothing is ever bookable to advance it either.
+    // This shipped as a live bug once — see the "sequential_fill deadlocks
+    // on a leading Google Calendar block" test. Because each window seeds
+    // its own walk at its own edge, a busy period that falls entirely
+    // inside a different window never affects this one — the walk only
+    // reacts to periods it actually reaches.
     const dayBusyPeriods = [
       ...booked
         .filter((apt) => dateOnly(new Date(apt.start_time)) === dateKey)
@@ -210,7 +214,7 @@ export function getAvailableSlots({
         .map((block) => ({ start: new Date(block.start), end: new Date(block.end) })),
     ];
 
-    function windowFrontier(windowStart: Date): Date {
+    function windowFrontierForward(windowStart: Date): Date {
       let frontier = windowStart;
       let advanced = true;
       while (advanced) {
@@ -225,15 +229,33 @@ export function getAvailableSlots({
       return frontier;
     }
 
+    function windowFrontierBackward(windowEnd: Date): Date {
+      let frontier = windowEnd;
+      let advanced = true;
+      while (advanced) {
+        advanced = false;
+        for (const period of dayBusyPeriods) {
+          if (period.end >= frontier && period.start < frontier) {
+            frontier = period.start;
+            advanced = true;
+          }
+        }
+      }
+      return frontier;
+    }
+
     const daySlots: Slot[] = [];
     const seenStarts = new Set<number>();
 
     for (const { rule, dayStart, dayEnd } of windows) {
+      const direction = ruleFillDirection(rule);
       const sequentialFrontier =
         sequentialFillRule?.config && typeof sequentialFillRule.config.max_gap_minutes === 'number'
-          ? windowFrontier(dayStart)
+          ? direction === 'backward'
+            ? windowFrontierBackward(dayEnd)
+            : windowFrontierForward(dayStart)
           : null;
-      const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, ruleFillDirection(rule));
+      const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, direction);
       for (const { start: slotStart, end: slotEnd } of intervals) {
         // Guards against two windows on the same day producing the exact
         // same slot start (shouldn't happen with sane, non-overlapping
@@ -309,7 +331,10 @@ export function getAvailableSlots({
         let withinSequentialFill = true;
         if (sequentialFrontier && sequentialFillRule?.config) {
           const maxGapMs = (sequentialFillRule.config.max_gap_minutes as number) * 60 * 1000;
-          withinSequentialFill = slotStart.getTime() <= sequentialFrontier.getTime() + maxGapMs;
+          withinSequentialFill =
+            direction === 'backward'
+              ? slotEnd.getTime() >= sequentialFrontier.getTime() - maxGapMs
+              : slotStart.getTime() <= sequentialFrontier.getTime() + maxGapMs;
         }
 
         const available =

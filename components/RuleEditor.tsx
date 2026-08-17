@@ -141,8 +141,11 @@ export default function RuleEditor({
               <option value="backward">Backward, start at the end</option>
             </Select>
             <p className="text-body-sm text-text-2">
-              When your appointment length doesn&apos;t evenly divide this window, this decides
-              which end gets the leftover unbooked time.
+              Controls which end of this window fills first when a Sequential fill rule is
+              active — Backward prioritizes your latest slots (e.g. offering 10:45 before
+              8:00), the mirror of Forward&apos;s earliest-first behavior. It also decides which
+              end absorbs leftover unbooked time when your appointment length doesn&apos;t
+              evenly divide this window.
             </p>
           </div>
         </>
@@ -164,8 +167,11 @@ export default function RuleEditor({
               <option value="backward">Backward, start at the end</option>
             </Select>
             <p className="text-body-sm text-text-2">
-              When your appointment length doesn&apos;t evenly divide this window, this decides
-              which end gets the leftover unbooked time.
+              Controls which end of this window fills first when a Sequential fill rule is
+              active — Backward prioritizes your latest slots (e.g. offering 10:45 before
+              8:00), the mirror of Forward&apos;s earliest-first behavior. It also decides which
+              end absorbs leftover unbooked time when your appointment length doesn&apos;t
+              evenly divide this window.
             </p>
           </div>
         </>

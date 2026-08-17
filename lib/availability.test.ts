@@ -705,6 +705,48 @@ describe('getAvailableSlots', () => {
     // the 30-minute gap (11:15) is well before 12:00.
     expect(slots.find((s) => s.start.slice(11, 16) === '12:00')?.available).toBe(true);
   });
+
+  it('a backward window prioritizes its latest slots under sequential_fill, mirroring forward', () => {
+    const day = new Date('2026-08-17T00:00:00'); // Monday
+    const backwardWindow: Rule = {
+      id: 'rule-backward',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 1,
+      start_time: '08:00:00',
+      end_time: '11:00:00',
+      max_concurrent: null,
+      config: { permanent: false, fill_direction: 'backward' },
+    };
+    const sequentialFillRule: Rule = {
+      id: 'rule-sequential',
+      calendar_id: 'client-1',
+      rule_type: 'sequential_fill',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { max_gap_minutes: 30 },
+    };
+
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [backwardWindow, sequentialFillRule],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    // Nothing booked yet, so the backward frontier stays at the window's
+    // own end (11:00) — only slots within 30 minutes of it are offered.
+    const byStart = (t: string) => slots.find((s) => s.start.slice(11, 16) === t);
+    expect(byStart('10:45')?.available).toBe(true);
+    expect(byStart('10:30')?.available).toBe(true);
+    expect(byStart('10:00')?.available).toBe(false);
+    expect(byStart('08:00')?.available).toBe(false);
+    expect(byStart('08:00')?.reason).toBe('sequential_fill_gap_exceeded');
+  });
 });
 
 describe('nextAvailableSlot', () => {
