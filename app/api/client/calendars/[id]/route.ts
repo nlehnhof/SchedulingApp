@@ -3,6 +3,12 @@ import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { calendarCreateSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
+import { syncExtraCalendarQuantity } from '@/lib/stripe';
+
+// Kept in sync with app/api/client/calendars/route.ts's
+// CALENDAR_INCLUDED_LIMIT_BY_TIER — only used here to recompute the
+// extra-calendar billing quantity after a delete, not to gate anything.
+const CALENDAR_INCLUDED_LIMIT_BY_TIER: Record<string, number> = { free: 1, premium: 1, elite: 10 };
 
 // Quick rename from the "Manage calendars" list — full branding
 // (accent color, logo, slug) still goes through PATCH /api/client/branding
@@ -67,5 +73,22 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
 
   if (error) return errorResponse(error, 'Could not delete calendar.');
   if (!deletedCount) return NextResponse.json({ error: 'not_found' }, { status: 404 });
+
+  if (client.tier === 'elite') {
+    const included = CALENDAR_INCLUDED_LIMIT_BY_TIER.elite;
+    const remaining = (count ?? 0) - deletedCount;
+    const extraCount = Math.max(0, remaining - included);
+    try {
+      const { data: row } = await supabase
+        .from('clients')
+        .select('stripe_subscription_id')
+        .eq('id', client.clientId)
+        .single();
+      await syncExtraCalendarQuantity(row?.stripe_subscription_id ?? null, extraCount);
+    } catch (err) {
+      console.error(`Failed to sync extra-calendar billing for client ${client.clientId}.`, err);
+    }
+  }
+
   return NextResponse.json({ status: 'deleted' });
 }

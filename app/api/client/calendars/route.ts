@@ -3,14 +3,20 @@ import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { calendarCreateSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
+import { syncExtraCalendarQuantity } from '@/lib/stripe';
 
 // Elite feature: multiple booking calendars per client account. Free and
 // Premium stay at the pre-Elite behavior of exactly 1 calendar (created
 // automatically for every client — see lib/auth.ts's signIn callback and
-// the 0015 migration's backfill for existing clients); Elite can create up
-// to 5. This is a hard cap, not metered — see gather-elite-proposal.md's
-// "Suggested limits" and the approved plan.
-const CALENDAR_LIMIT_BY_TIER: Record<string, number> = { free: 1, premium: 1, elite: 5 };
+// the 0015 migration's backfill for existing clients); Elite includes 10 in
+// the base $99/mo plan. Calendars past the included 10 aren't blocked
+// outright — each one adds $5/mo to the subscription (see
+// lib/stripe.ts's syncExtraCalendarQuantity) — up to a hard cap of 20 total,
+// which *is* a flat block (prevents runaway per-seat billing/abuse rather
+// than metering indefinitely).
+const CALENDAR_INCLUDED_LIMIT_BY_TIER: Record<string, number> = { free: 1, premium: 1, elite: 10 };
+const CALENDAR_MAX_LIMIT_BY_TIER: Record<string, number> = { free: 1, premium: 1, elite: 20 };
+const EXTRA_CALENDAR_PRICE_PER_MONTH = 5;
 
 // Powers both the "Manage calendars" page (owned calendars only, via
 // client.clientId) and the dashboard calendar switcher (owned + accepted
@@ -48,8 +54,13 @@ export async function GET() {
   return NextResponse.json({
     calendars,
     // Only meaningful against owned calendars — a collaborator isn't
-    // subject to the owner's calendar cap.
-    limit: client.clientId ? CALENDAR_LIMIT_BY_TIER[client.tier] ?? 1 : 0,
+    // subject to the owner's calendar cap. `limit` stays the hard max for
+    // backward compat with existing consumers (gates "can I even create
+    // another one at all"); `includedLimit` is the free-with-plan count,
+    // and only differs from `limit` for Elite.
+    limit: client.clientId ? CALENDAR_MAX_LIMIT_BY_TIER[client.tier] ?? 1 : 0,
+    includedLimit: client.clientId ? CALENDAR_INCLUDED_LIMIT_BY_TIER[client.tier] ?? 1 : 0,
+    extraCalendarPricePerMonth: EXTRA_CALENDAR_PRICE_PER_MONTH,
   });
 }
 
@@ -66,18 +77,20 @@ export async function POST(req: Request) {
   }
 
   const supabase = createServiceClient();
-  const limit = CALENDAR_LIMIT_BY_TIER[client.tier] ?? 1;
+  const included = CALENDAR_INCLUDED_LIMIT_BY_TIER[client.tier] ?? 1;
+  const max = CALENDAR_MAX_LIMIT_BY_TIER[client.tier] ?? 1;
   const { count } = await supabase
     .from('booking_calendars')
     .select('id', { count: 'exact', head: true })
     .eq('client_id', client.clientId);
 
-  if ((count ?? 0) >= limit) {
+  const currentCount = count ?? 0;
+  if (currentCount >= max) {
     return NextResponse.json(
       {
         error:
           client.tier === 'elite'
-            ? `You've reached the ${limit}-calendar limit.`
+            ? `You've reached the ${max}-calendar limit.`
             : 'Upgrade to Elite to add more than one booking calendar.',
       },
       { status: 403 }
@@ -91,5 +104,20 @@ export async function POST(req: Request) {
     .single();
 
   if (error) return errorResponse(error, 'Could not create calendar.');
+
+  const extraCount = currentCount + 1 - included;
+  if (client.tier === 'elite' && extraCount > 0) {
+    try {
+      const { data: row } = await supabase
+        .from('clients')
+        .select('stripe_subscription_id')
+        .eq('id', client.clientId)
+        .single();
+      await syncExtraCalendarQuantity(row?.stripe_subscription_id ?? null, extraCount);
+    } catch (err) {
+      console.error(`Failed to sync extra-calendar billing for client ${client.clientId}.`, err);
+    }
+  }
+
   return NextResponse.json(data);
 }

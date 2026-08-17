@@ -160,9 +160,18 @@ Google Calendar selection (`google_calendar_id`), and `timezone`. A client can o
 calendars — free/premium are capped at 1 (created automatically: `lib/auth.ts`'s `signIn`
 callback creates one, same id as the client, on a brand-new signup; `0015`'s migration
 backfilled one for every pre-existing client the same way, which is also why an old client's
-`/visit/[uuid]` link kept resolving unchanged after the migration), Elite up to 5
-(`app/api/client/calendars/route.ts` enforces the cap; `CALENDAR_LIMIT_BY_TIER` there is the
-single place the 1-vs-5 limit is defined).
+`/visit/[uuid]` link kept resolving unchanged after the migration). Elite includes 10 calendars
+in the base $99/mo plan; calendars 11-20 aren't blocked, they're metered — each one adds
+$5/mo to the subscription as a quantity-based Stripe subscription item
+(`STRIPE_ELITE_EXTRA_CALENDAR_PRICE_ID`, `lib/stripe.ts`'s `syncExtraCalendarQuantity()`), and
+20 total is a hard cap (`app/api/client/calendars/route.ts`'s `CALENDAR_INCLUDED_LIMIT_BY_TIER`/
+`CALENDAR_MAX_LIMIT_BY_TIER` define the 10-vs-20 numbers; the `[id]/route.ts` DELETE handler
+keeps its own copy of the included-limit constant in sync so it can recompute the billed
+quantity after a calendar is removed). The Stripe sync is best-effort on both create and
+delete — a failure logs via `console.error` (matching the webhook route's own pattern for
+Stripe-side failures) rather than blocking the calendar operation or `error_log`, since
+`error_log` rows are FK'd to a `booking_calendars` row and the delete path's failure case can
+have just removed the one that would've been referenced.
 
 - **Every `app/api/client/*` route that touches a calendar-scoped table takes a `calendarId`
   query param** (never a body field — kept separate from each resource's own zod schema on

@@ -13,15 +13,19 @@ import { useCalendar, type CalendarSummary } from '@/components/CalendarContext'
 const KEY = '/api/client/calendars';
 
 // Elite feature: multiple independently-configured booking calendars per
-// client account (hard-capped at 5 — see app/api/client/calendars/route.ts).
-// This page manages the list; picking which one is "active" for every other
-// dashboard page happens via the switcher in the nav (components/DashboardNav.tsx),
-// both backed by the same CalendarContext.
+// client account. Elite includes 10 in the base plan; calendars 11-20 each
+// add $5/mo to the subscription instead of being blocked outright, with 20
+// as a hard cap — see app/api/client/calendars/route.ts. This page manages
+// the list; picking which one is "active" for every other dashboard page
+// happens via the switcher in the nav (components/DashboardNav.tsx), both
+// backed by the same CalendarContext.
 export default function CalendarsPage() {
-  const { data, error, isLoading } = useSWR<{ calendars: CalendarSummary[]; limit: number }>(
-    KEY,
-    fetcher
-  );
+  const { data, error, isLoading } = useSWR<{
+    calendars: CalendarSummary[];
+    limit: number;
+    includedLimit: number;
+    extraCalendarPricePerMonth: number;
+  }>(KEY, fetcher);
   const { setCalendarId } = useCalendar();
 
   const [creating, setCreating] = useState(false);
@@ -40,6 +44,8 @@ export default function CalendarsPage() {
   // (components/DashboardNav.tsx) but aren't listed/manageable here.
   const owned = data.calendars.filter((c) => c.role === 'owner');
   const atLimit = owned.length >= data.limit;
+  const extraCount = Math.max(0, owned.length - data.includedLimit);
+  const nextIsExtra = owned.length >= data.includedLimit;
 
   async function handleCreate() {
     setCreateError(null);
@@ -100,23 +106,38 @@ export default function CalendarsPage() {
           <h1 className="font-display text-display-md text-text">Calendars</h1>
           <p className="mt-1 text-body-sm text-text-2">
             <span className="font-mono text-data">{owned.length}</span> of{' '}
-            <span className="font-mono text-data">{data.limit}</span> used. Each calendar has its
-            own rules, reasons, branding, booking link, and Google Calendar selection.
+            <span className="font-mono text-data">{data.includedLimit}</span> included used
+            {extraCount > 0 && (
+              <>
+                {' '}
+                (<span className="font-mono text-data">{extraCount}</span> extra at{' '}
+                <span className="font-mono text-data">${data.extraCalendarPricePerMonth}/mo</span>{' '}
+                each)
+              </>
+            )}
+            . Each calendar has its own rules, reasons, branding, booking link, and Google
+            Calendar selection.
           </p>
         </div>
         <Button onClick={handleCreate} disabled={creating || atLimit} className="shrink-0">
-          {creating ? 'Creating…' : 'New calendar'}
+          {creating ? 'Creating…' : nextIsExtra ? `New calendar (+$${data.extraCalendarPricePerMonth}/mo)` : 'New calendar'}
         </Button>
       </div>
 
-      {atLimit && data.limit === 1 && (
+      {atLimit && data.includedLimit === 1 && (
         <p className="rounded-xl border border-lume/40 bg-lume/25 p-3 text-body-sm text-text">
           Upgrade to Elite to create more than one booking calendar.
         </p>
       )}
-      {atLimit && data.limit > 1 && (
+      {atLimit && data.includedLimit > 1 && (
         <p className="rounded-xl border border-hairline bg-surface p-3 text-body-sm text-text-2">
           You&apos;ve reached the {data.limit}-calendar limit for your plan.
+        </p>
+      )}
+      {!atLimit && nextIsExtra && (
+        <p className="rounded-xl border border-hairline bg-surface p-3 text-body-sm text-text-2">
+          You&apos;ve used your {data.includedLimit} included calendars. Additional calendars are
+          ${data.extraCalendarPricePerMonth}/mo each, up to {data.limit} total.
         </p>
       )}
       {createError && <p className="text-body-sm text-rose">{createError}</p>}
