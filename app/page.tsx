@@ -63,12 +63,12 @@ export default function HomePage() {
   return (
     <main className="min-h-[100dvh] bg-canvas">
       <MarketingNav />
+      <Summit />
       <Hero />
       <Guarantee />
       <HowRulesWork />
       <WhatVisitorsSee />
       <Plans />
-      <Summit />
       <Footer />
     </main>
   );
