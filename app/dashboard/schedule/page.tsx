@@ -1,12 +1,15 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import useSWR, { mutate } from 'swr';
+import { useReducedMotion } from 'motion/react';
 import { fetcher } from '@/lib/fetcher';
+import { formatLocalDateOnly, parseLocalDateOnly } from '@/lib/date-format';
 import type { Appointment, AppointmentReason } from '@/lib/types';
 import Calendar, { CalendarDayMeta } from '@/components/Calendar';
 import AppointmentCard from '@/components/AppointmentCard';
 import AppointmentEditor, { AppointmentEditValues } from '@/components/AppointmentEditor';
+import DayStrip, { DayStripBlock } from '@/components/DayStrip';
 import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import Select from '@/components/Select';
@@ -69,6 +72,40 @@ export default function SchedulePage() {
   const selectedBucket = data?.days.find((d) => d.date === selectedDate);
   const reasonNameById = new Map(reasons.map((r) => [r.id, r.name]));
 
+  const selectedDateLabel = selectedDate
+    ? parseLocalDateOnly(selectedDate).toLocaleDateString(undefined, {
+        weekday: 'long',
+        month: 'long',
+        day: 'numeric',
+      })
+    : 'Select a date';
+
+  // The Lightline payoff (DESIGN.md section 1.1 item 2): today's real
+  // availability, not just its bookings, so open gaps render lit and booked
+  // segments render matte. Only present when the viewed month includes
+  // today; navigating to a different month just shows the moving Lightline
+  // with no colored blocks.
+  const todayStr = formatLocalDateOnly(new Date());
+  const todayBucket = data?.days.find((d) => d.date === todayStr);
+  const todayBlocks: DayStripBlock[] = (todayBucket?.slots ?? []).map((s) => {
+    const start = new Date(s.start);
+    const end = new Date(s.end);
+    return {
+      startMin: start.getHours() * 60 + start.getMinutes(),
+      endMin: end.getHours() * 60 + end.getMinutes(),
+      booked: !s.available,
+    };
+  });
+
+  const nowStripRef = useRef<HTMLDivElement>(null);
+  const prefersReducedMotion = useReducedMotion();
+  useEffect(() => {
+    nowStripRef.current?.scrollIntoView({
+      behavior: prefersReducedMotion ? 'auto' : 'smooth',
+      block: 'nearest',
+    });
+  }, [prefersReducedMotion]);
+
   async function handleEditSubmit(values: AppointmentEditValues) {
     if (!editingAppointment || !calendarId) return;
     setEditError(null);
@@ -120,27 +157,30 @@ export default function SchedulePage() {
           onSelectDate={setSelectedDate}
           onMonthChange={(year, month) => setMonthCursor({ year, month })}
         />
-        <div className="mt-3 flex flex-wrap gap-4 text-xs text-text-2">
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-jade" /> Confirmed
+        <div className="mt-3 flex flex-wrap gap-4 text-label text-text-2">
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-3 rounded-full bg-jade" /> Confirmed
           </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full bg-rose" /> Conflict
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-3 rounded-full bg-rose" /> Conflict
           </span>
-          <span className="flex items-center gap-1">
-            <span className="h-2 w-2 rounded-full border border-text-2/50 bg-text-2/20" />
-            Dimmed = no availability
+          <span className="flex items-center gap-1.5">
+            <span className="h-0.5 w-3 rounded-full bg-hairline" />
+            Dimmed: no availability
           </span>
         </div>
       </div>
 
       <div className="flex-1">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-2">
-          {selectedDate ?? 'Select a date'}
-        </h2>
-        {!selectedDate && <p className="text-sm text-text-2">Click a day to see its appointments.</p>}
+        <div ref={nowStripRef} className="mb-6">
+          <h2 className="mb-2 text-label uppercase text-text-2">Today</h2>
+          <DayStrip blocks={todayBlocks} />
+        </div>
+
+        <h2 className="mb-3 text-label text-text-2">{selectedDateLabel}</h2>
+        {!selectedDate && <p className="text-body-sm text-text-2">Click a day to see its appointments.</p>}
         {selectedDate && selectedBucket && selectedBucket.appointments.length === 0 && (
-          <p className="text-sm text-text-2">No appointments booked on this day.</p>
+          <p className="text-body-sm text-text-2">No appointments booked on this day.</p>
         )}
         <div className="flex flex-col gap-2">
           {selectedBucket?.appointments
@@ -149,18 +189,14 @@ export default function SchedulePage() {
               canWrite && confirmDeleteId === apt.id ? (
                 <div
                   key={apt.id}
-                  className="flex items-center justify-between rounded-md border border-rose/30 bg-rose/10 p-3 text-sm"
+                  className="flex items-center justify-between rounded-lg border border-rose/30 bg-rose/10 p-3 text-body-sm"
                 >
                   <span className="text-rose">Delete this appointment?</span>
                   <div className="flex gap-2">
-                    <Button variant="danger" className="px-2 py-1 text-xs" onClick={() => handleDelete(apt.id)}>
+                    <Button variant="danger" onClick={() => handleDelete(apt.id)}>
                       Confirm
                     </Button>
-                    <Button
-                      variant="ghost"
-                      className="px-2 py-1 text-xs"
-                      onClick={() => setConfirmDeleteId(null)}
-                    >
+                    <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
                       Cancel
                     </Button>
                   </div>
@@ -190,7 +226,7 @@ export default function SchedulePage() {
         onClose={() => setEditingAppointment(null)}
         title="Edit appointment"
       >
-        {editError && <p className="mb-2 text-sm text-rose">{editError}</p>}
+        {editError && <p className="mb-2 text-body-sm text-rose">{editError}</p>}
         {editingAppointment && (
           <AppointmentEditor
             reasons={reasons}

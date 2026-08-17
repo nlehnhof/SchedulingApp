@@ -58,7 +58,7 @@ export default function CalendarPage() {
   }, [data]);
 
   if (isLoading) return <Spinner />;
-  if (error || !data) return <p className="text-sm text-rose">Failed to load calendar settings.</p>;
+  if (error || !data) return <p className="text-body-sm text-rose">Failed to load calendar settings.</p>;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -89,7 +89,7 @@ export default function CalendarPage() {
 
   return (
     <form onSubmit={handleSave} className="flex max-w-xl flex-col gap-4">
-      <h1 className="font-display text-xl font-semibold text-text">Calendar</h1>
+      <h1 className="font-display text-display-md text-text">Calendar</h1>
 
       <div className="flex flex-col gap-1">
         <Select
@@ -107,8 +107,8 @@ export default function CalendarPage() {
             </option>
           ))}
         </Select>
-        <p className="text-xs text-text-2">
-          Used to write appointments to Google Calendar at the correct time — set this to where
+        <p className="text-body-sm text-text-2">
+          Used to write appointments to Google Calendar at the correct time. Set this to where
           this calendar&apos;s business actually operates, not where the server runs.
         </p>
       </div>
@@ -120,10 +120,10 @@ export default function CalendarPage() {
           onChange={(e) => setSlotFillDirection(e.target.value as 'forward' | 'backward')}
           disabled={!canWrite}
         >
-          <option value="forward">Forward — start at the beginning of the day</option>
-          <option value="backward">Backward — start at the end of the day</option>
+          <option value="forward">Forward, start at the beginning of the day</option>
+          <option value="backward">Backward, start at the end of the day</option>
         </Select>
-        <p className="text-xs text-text-2">
+        <p className="text-body-sm text-text-2">
           When your appointment length doesn&apos;t evenly divide your available hours, this
           decides which end gets the leftover unbooked time. Forward fills from the start of
           your hours; backward fills from the end, working earlier.
@@ -145,24 +145,24 @@ export default function CalendarPage() {
               </option>
             ))}
           </Select>
-          <p className="text-xs text-text-2">
+          <p className="text-body-sm text-text-2">
             Gather polls this calendar every 30 minutes for busy blocks and flags any booked
             appointment that conflicts with one, and writes new bookings to it directly.
           </p>
         </div>
       ) : (
-        <div className="rounded-lg border border-hairline bg-surface p-6">
-          <p className="text-sm font-medium text-text">No Google account connected.</p>
-          <p className="mt-1 text-sm text-text-2">
-            Sign in with Google to link a calendar — Gather uses it to check for conflicts before
+        <div className="rounded-xl border border-hairline bg-surface p-6">
+          <p className="text-body font-medium text-text">No Google account connected.</p>
+          <p className="mt-1 text-body-sm text-text-2">
+            Sign in with Google to link a calendar. Gather uses it to check for conflicts before
             confirming a booking, and writes bookings back to it. (The admin test login
             doesn&apos;t connect a real calendar.)
           </p>
         </div>
       )}
 
-      {saveError && <p className="text-sm text-rose">{saveError}</p>}
-      {saved && <p className="text-sm text-jade">Saved.</p>}
+      {saveError && <p className="text-body-sm text-rose">{saveError}</p>}
+      {saved && <p className="text-body-sm text-jade">Saved.</p>}
       {canWrite && (
         <Button type="submit" disabled={saving || !timezone || (data.linked && !googleCalendarId)}>
           {saving ? 'Saving…' : 'Save'}
