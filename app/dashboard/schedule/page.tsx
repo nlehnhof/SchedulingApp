@@ -139,7 +139,7 @@ export default function SchedulePage() {
   }
 
   return (
-    <div className="flex max-w-5xl flex-col gap-6 lg:flex-row">
+    <div className="flex max-w-6xl flex-col gap-6 lg:flex-row">
       <div className="lg:w-96">
         <div className="mb-4">
           <Select label="Appointment reason" value={activeReasonId} onChange={(e) => setReasonId(e.target.value)}>

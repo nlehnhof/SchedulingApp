@@ -70,7 +70,7 @@ export default function DashboardHome() {
     });
 
   return (
-    <div className="flex max-w-5xl flex-col gap-8">
+    <div className="flex max-w-6xl flex-col gap-8">
       <h1 className="font-display text-display-md text-text">Dashboard</h1>
 
       {/* Previously there was no way to find your own visitor booking link
@@ -132,8 +132,12 @@ export default function DashboardHome() {
       </div>
 
       <div>
+        <h2 className="mb-2 text-label uppercase text-text-2">Today</h2>
+        <DayStrip blocks={todayBlocks} />
+      </div>
+
+      <div>
         <h2 className="mb-3 text-label uppercase text-text-2">Upcoming (next 7 days)</h2>
-        <DayStrip className="mb-4" blocks={todayBlocks} />
         {upcoming.length === 0 ? (
           <p className="text-body-sm text-text-2">Nothing booked in the next 7 days.</p>
         ) : (

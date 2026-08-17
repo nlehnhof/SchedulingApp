@@ -51,7 +51,7 @@ function ReasonExtras({
   if (!canWrite && !reason.info_note && checkboxes.length === 0) return null;
 
   return (
-    <div className="mt-2 flex flex-col gap-2 border-t border-hairline pt-2">
+    <div className="mt-3 flex flex-col gap-2">
       {canWrite ? (
         <Input
           label="Instructions for visitors"
@@ -234,7 +234,7 @@ export default function ReasonsPage() {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="flex max-w-4xl flex-col gap-6">
       <h1 className="font-display text-display-md text-text">Appointment Reasons</h1>
 
       {isLoading && <Spinner />}

@@ -31,7 +31,7 @@ export default function ErrorsPage() {
   const errors = data?.errors ?? [];
 
   return (
-    <div className="flex max-w-2xl flex-col gap-4">
+    <div className="flex max-w-4xl flex-col gap-4">
       <h1 className="font-display text-display-md text-text">Error Log</h1>
       {isLoading && <Spinner />}
       {error && <p className="text-body-sm text-rose">Failed to load error log.</p>}

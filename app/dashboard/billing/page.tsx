@@ -43,7 +43,7 @@ export default function BillingPage() {
   const isElite = data.tier === 'elite';
 
   return (
-    <div className="flex max-w-xl flex-col gap-4">
+    <div className="flex max-w-2xl flex-col gap-4">
       <h1 className="font-display text-display-md text-text">Billing</h1>
 
       {checkoutParam === 'success' && (

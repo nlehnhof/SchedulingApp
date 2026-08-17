@@ -51,7 +51,7 @@ export default function AnalyticsPage() {
   const maxReason = Math.max(1, ...data.reasonPopularity.map((r) => r.count));
 
   return (
-    <div className="flex max-w-5xl flex-col gap-8">
+    <div className="flex max-w-6xl flex-col gap-8">
       <div>
         <h1 className="font-display text-display-md text-text">Analytics</h1>
         <p className="text-body-sm text-text-2">

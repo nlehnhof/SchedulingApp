@@ -89,7 +89,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="flex max-w-2xl flex-col gap-6">
+    <div className="flex max-w-4xl flex-col gap-6">
       <div>
         <h1 className="font-display text-display-md text-text">Team</h1>
         <p className="mt-1 text-body-sm text-text-2">

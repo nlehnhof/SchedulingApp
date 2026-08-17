@@ -73,7 +73,7 @@ export default function RemindersPage() {
   }
 
   return (
-    <div className="flex max-w-xl flex-col gap-6">
+    <div className="flex max-w-2xl flex-col gap-6">
       <div>
         <h1 className="font-display text-display-md text-text">Reminders &amp; Confirmations</h1>
         <p className="mt-1 text-body-sm text-text-2">

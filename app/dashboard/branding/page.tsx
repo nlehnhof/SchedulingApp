@@ -130,7 +130,7 @@ export default function BrandingPage() {
   }
 
   return (
-    <form onSubmit={handleSave} className="flex max-w-xl flex-col gap-4">
+    <form onSubmit={handleSave} className="flex max-w-2xl flex-col gap-4">
       <h1 className="font-display text-display-md text-text">Branding</h1>
       <p className="text-body-sm text-text-2">
         These show up on your public booking page instead of the default look.
