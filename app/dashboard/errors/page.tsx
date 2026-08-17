@@ -32,11 +32,11 @@ export default function ErrorsPage() {
 
   return (
     <div className="flex max-w-2xl flex-col gap-4">
-      <h1 className="font-display text-xl font-semibold text-text">Error Log</h1>
+      <h1 className="font-display text-display-md text-text">Error Log</h1>
       {isLoading && <Spinner />}
-      {error && <p className="text-sm text-rose">Failed to load error log.</p>}
+      {error && <p className="text-body-sm text-rose">Failed to load error log.</p>}
       {errors.length === 0 && !isLoading && (
-        <p className="text-sm text-text-2">No errors. Everything&apos;s syncing cleanly.</p>
+        <p className="text-body-sm text-text-2">No errors. Everything&apos;s syncing cleanly.</p>
       )}
       <div className="flex flex-col gap-2">
         {errors.map((e) => (
