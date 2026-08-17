@@ -39,8 +39,10 @@ shell, and every dashboard page, ending with the marketing page and this documen
   `DayStrip`, a full-bleed guarantee section with a real two-visitor conflict race demo,
   a real `RuleEditor`-pattern preview, the four real booking-flow steps in a scroll-snap
   track, an asymmetric plans trio, single-CTA nav/hero/footer. Verified in a real browser
-  at 1280px — hero, guarantee, rules, visitor-steps, plans, and footer sections all render
-  correctly with no console errors.
+  at both 1280px and 375px (the latter via an injected same-origin iframe, since this
+  session's window-resize tool wasn't actually changing the browser viewport) — every
+  section stacks correctly, the visitor-steps track scrolls horizontally with a native
+  scrollbar, no console errors either width.
 - **Phase 11 — docs.** `theme_brand.md` rewritten as a pointer to `.design/DESIGN.md`;
   `CLAUDE.md` gained a Styling bullet in its Structure section.
 
@@ -51,10 +53,6 @@ shell, and every dashboard page, ending with the marketing page and this documen
   which is what shipped in Phase 10).
 - Light theme variant — explicitly out of scope for the whole pass.
 - A motion-reduced screenshot regression pass.
-- Mobile-width (375px) visual verification of the marketing page specifically — desktop
-  (1280px) was verified in a real browser; mobile relies on the same responsive Tailwind
-  patterns already verified across every other phase, but wasn't itself screenshotted due
-  to a window-resize tool limitation in that session.
 
 If picking this back up: read `.design/DESIGN.md` and `.design/PLAN.md` for the system, and
 `.design/SURFACES.md` section 5 for what's left. There is no phase 12 script — treat any of
