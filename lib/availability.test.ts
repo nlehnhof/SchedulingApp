@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { getAvailableSlots, nextAvailableSlot } from './availability';
-import type { Appointment, AppointmentReason, Rule } from './types';
+import { toNaiveISOString } from './date-format';
+import type { Appointment, AppointmentReason, GoogleBlock, Rule } from './types';
 
 const reason: AppointmentReason = {
   id: 'reason-1',
@@ -538,6 +539,59 @@ describe('getAvailableSlots', () => {
     });
     expect(afterOneBooking.find((s) => s.start.slice(11, 16) === '09:30')?.available).toBe(true);
     expect(afterOneBooking.find((s) => s.start.slice(11, 16) === '09:45')?.available).toBe(false);
+  });
+
+  it('sequential_fill does not deadlock on a leading Google Calendar block', () => {
+    // Regression: a practitioner with zero real bookings yet, but a
+    // recurring Google Calendar commitment sitting at the start of their
+    // available window (e.g. a standing Sunday meeting), got zero slots
+    // every single day forever — the frontier stayed pinned at dayStart
+    // (nothing booked to move it), but dayStart itself was inside the
+    // Google block, so nothing could ever pass both checks to book and
+    // advance the frontier. The frontier must walk forward past a leading
+    // Google block just like it does past a leading real booking.
+    const day = new Date('2026-08-17T00:00:00'); // Monday, 09:00-10:00 in 15-min slots
+    const sequentialFillRule: Rule = {
+      id: 'rule-sequential',
+      calendar_id: 'client-1',
+      rule_type: 'sequential_fill',
+      day_of_week: null,
+      start_time: null,
+      end_time: null,
+      max_concurrent: null,
+      config: { max_gap_minutes: 15 },
+    };
+    const leadingBlockStart = new Date(day);
+    leadingBlockStart.setHours(8, 45, 0, 0);
+    const leadingBlockEnd = new Date(day);
+    leadingBlockEnd.setHours(9, 20, 0, 0);
+    const googleBlocks: GoogleBlock[] = [
+      {
+        id: 'g1',
+        summary: 'Standing meeting',
+        start: toNaiveISOString(leadingBlockStart).slice(0, 19),
+        end: toNaiveISOString(leadingBlockEnd).slice(0, 19),
+      },
+    ];
+
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason,
+      rules: [allDaysHours, sequentialFillRule],
+      booked: [],
+      googleBlocks,
+    });
+
+    // Without the fix, every slot comes back unavailable (deadlocked).
+    expect(slots.some((s) => s.available)).toBe(true);
+    // 09:00-09:15 and 09:15-09:30 are still inside the Google block.
+    expect(slots.find((s) => s.start.slice(11, 16) === '09:00')?.available).toBe(false);
+    expect(slots.find((s) => s.start.slice(11, 16) === '09:15')?.available).toBe(false);
+    // The frontier walked to 09:20 (block end), so 09:20's slot opens up —
+    // 09:30 is the next slot boundary >= the block end.
+    expect(slots.find((s) => s.start.slice(11, 16) === '09:30')?.available).toBe(true);
+    expect(slots.find((s) => s.start.slice(11, 16) === '09:45')?.available).toBe(false);
   });
 });
 

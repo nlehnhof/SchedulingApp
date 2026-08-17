@@ -166,17 +166,44 @@ export function getAvailableSlots({
     // only offered within max_gap_minutes of the frontier, which nudges
     // visitors toward the earliest open slot instead of cherry-picking a
     // late one and leaving gaps behind it.
+    //
+    // The frontier also has to walk forward past any Google Calendar block
+    // that already occupies the start of the window, not just real
+    // bookings. Without this, a practitioner whose available window opens
+    // straight into an existing Google Calendar commitment (a standing
+    // meeting, etc.) with zero appointments booked yet hits a permanent
+    // deadlock: the frontier never leaves dayStart because nothing has been
+    // booked, but dayStart itself is never actually offerable (it's inside
+    // the Google block), so nothing is ever bookable to advance it either.
+    // This shipped as a live bug once — see the "sequential_fill deadlocks
+    // on a leading Google Calendar block" test.
     let sequentialFrontier: Date | null = null;
     if (
       sequentialFillRule?.config &&
       typeof sequentialFillRule.config.max_gap_minutes === 'number'
     ) {
       const dayKey = dateOnly(date);
-      sequentialFrontier = booked.reduce((frontier, apt) => {
-        if (dateOnly(new Date(apt.start_time)) !== dayKey) return frontier;
-        const aptEnd = new Date(apt.end_time);
-        return aptEnd > frontier ? aptEnd : frontier;
-      }, dayStart);
+      const dayBusyPeriods = [
+        ...booked
+          .filter((apt) => dateOnly(new Date(apt.start_time)) === dayKey)
+          .map((apt) => ({ start: new Date(apt.start_time), end: new Date(apt.end_time) })),
+        ...googleBlocks
+          .filter((block) => dateOnly(new Date(block.start)) === dayKey)
+          .map((block) => ({ start: new Date(block.start), end: new Date(block.end) })),
+      ];
+
+      let frontier = dayStart;
+      let advanced = true;
+      while (advanced) {
+        advanced = false;
+        for (const period of dayBusyPeriods) {
+          if (period.start <= frontier && period.end > frontier) {
+            frontier = period.end;
+            advanced = true;
+          }
+        }
+      }
+      sequentialFrontier = frontier;
     }
 
     const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, ruleFillDirection(availableHours));
