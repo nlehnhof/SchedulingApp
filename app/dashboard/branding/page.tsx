@@ -10,6 +10,9 @@ import PremiumLockCard from '@/components/PremiumLockCard';
 import Spinner from '@/components/Spinner';
 import { isAtLeast, type Tier } from '@/lib/tier';
 import { useCalendar } from '@/components/CalendarContext';
+import { contrastRatio, pickInkColor } from '@/lib/brand-color';
+
+const HEX_RE = /^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$/;
 
 interface BrandingData {
   id: string;
@@ -72,7 +75,7 @@ export default function BrandingPage() {
   }, [slug, data?.slug, calendarId]);
 
   if (isLoading) return <Spinner />;
-  if (error || !data) return <p className="text-sm text-rose">Failed to load branding settings.</p>;
+  if (error || !data) return <p className="text-body-sm text-rose">Failed to load branding settings.</p>;
 
   if (!isAtLeast(data.tier, 'premium')) {
     return (
@@ -85,6 +88,11 @@ export default function BrandingPage() {
 
   const slugInvalid = slugStatus === 'invalid';
   const slugTaken = slugStatus === 'taken';
+
+  const trimmedAccent = accentColor.trim();
+  const accentValid = HEX_RE.test(trimmedAccent);
+  const accentContrast = accentValid ? contrastRatio(trimmedAccent, '#0D0F17') : null;
+  const accentContrastLow = accentContrast !== null && accentContrast < 4.5;
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault();
@@ -123,8 +131,8 @@ export default function BrandingPage() {
 
   return (
     <form onSubmit={handleSave} className="flex max-w-xl flex-col gap-4">
-      <h1 className="font-display text-xl font-semibold text-text">Branding</h1>
-      <p className="text-sm text-text-2">
+      <h1 className="font-display text-display-md text-text">Branding</h1>
+      <p className="text-body-sm text-text-2">
         These show up on your public booking page instead of the default look.
       </p>
 
@@ -135,13 +143,34 @@ export default function BrandingPage() {
         placeholder="e.g. Dr. Smith Family Dentistry"
         disabled={!canWrite}
       />
-      <Input
-        label="Accent color (hex)"
-        value={accentColor}
-        onChange={(e) => setAccentColor(e.target.value)}
-        placeholder="#C4693A"
-        disabled={!canWrite}
-      />
+      <div className="flex flex-col gap-2">
+        <Input
+          label="Accent color (hex)"
+          value={accentColor}
+          onChange={(e) => setAccentColor(e.target.value)}
+          placeholder="#C4693A"
+          disabled={!canWrite}
+        />
+        {accentValid && (
+          <div className="flex items-center gap-2 rounded-lg border border-hairline bg-canvas p-3">
+            <span
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-body-sm font-medium"
+              style={{ backgroundColor: trimmedAccent, color: pickInkColor(trimmedAccent) }}
+            >
+              Aa
+            </span>
+            <div className="flex flex-col">
+              <span className="text-body-sm text-text-2">Preview on your booking page&apos;s canvas</span>
+              {accentContrastLow && (
+                <span className="text-body-sm text-rose">
+                  Contrast is {accentContrast!.toFixed(1)}:1 against the canvas; Gather will
+                  lighten it automatically on your booking page to stay readable.
+                </span>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
       <Input
         label="Logo URL (https only)"
         value={logoUrl}
@@ -159,22 +188,22 @@ export default function BrandingPage() {
           disabled={!canWrite}
           error={
             slugInvalid
-              ? '3–30 lowercase letters, numbers, hyphens'
+              ? '3 to 30 lowercase letters, numbers, hyphens'
               : slugTaken
                 ? 'Already taken'
                 : undefined
           }
         />
         {slug && (
-          <p className="text-xs text-text-2">
+          <p className="font-mono text-data-sm text-text-2">
             {typeof window !== 'undefined' ? window.location.origin : ''}/visit/{slug}
-            {slugStatus === 'checking' && ' — checking availability…'}
-            {slugStatus === 'available' && ' — available'}
+            {slugStatus === 'checking' && ' (checking availability…)'}
+            {slugStatus === 'available' && ' (available)'}
           </p>
         )}
       </div>
 
-      <p className="text-xs text-text-2">
+      <p className="text-body-sm text-text-2">
         Looking for confirmation emails or text reminders?{' '}
         <Link href="/dashboard/reminders" className="text-lume-bright hover:underline">
           They moved to Reminders &amp; Confirmations
@@ -182,8 +211,8 @@ export default function BrandingPage() {
         .
       </p>
 
-      {saveError && <p className="text-sm text-rose">{saveError}</p>}
-      {saved && <p className="text-sm text-jade">Branding saved.</p>}
+      {saveError && <p className="text-body-sm text-rose">{saveError}</p>}
+      {saved && <p className="text-body-sm text-jade">Branding saved.</p>}
       {canWrite && (
         <Button type="submit" disabled={saving || slugInvalid || slugTaken}>
           {saving ? 'Saving…' : 'Save branding'}

@@ -37,13 +37,13 @@ export default function RemindersPage() {
   }, [data]);
 
   if (isLoading) return <Spinner />;
-  if (error || !data) return <p className="text-sm text-rose">Failed to load reminder settings.</p>;
+  if (error || !data) return <p className="text-body-sm text-rose">Failed to load reminder settings.</p>;
 
   if (!isAtLeast(data.tier, 'premium')) {
     return (
       <PremiumLockCard
         title="Reminders & Confirmations"
-        description="Upgrade to Premium and every visitor automatically gets a booking confirmation email under your business name — plus the option to send a text reminder before each appointment, to cut down on no-shows."
+        description="Upgrade to Premium and every visitor automatically gets a booking confirmation email under your business name, plus the option to send a text reminder before each appointment, to cut down on no-shows."
       />
     );
   }
@@ -75,26 +75,26 @@ export default function RemindersPage() {
   return (
     <div className="flex max-w-xl flex-col gap-6">
       <div>
-        <h1 className="font-display text-xl font-semibold text-text">Reminders &amp; Confirmations</h1>
-        <p className="mt-1 text-sm text-text-2">
+        <h1 className="font-display text-display-md text-text">Reminders &amp; Confirmations</h1>
+        <p className="mt-1 text-body-sm text-text-2">
           How visitors hear from you before and right after they book.
         </p>
       </div>
 
-      <section className="rounded-lg border border-hairline bg-surface p-4">
+      <section className="rounded-xl border border-hairline bg-surface p-4">
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-text">Booking confirmation emails</h2>
-          <span className="shrink-0 rounded-full bg-jade/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-jade">
+          <h2 className="text-body font-medium text-text">Booking confirmation emails</h2>
+          <span className="shrink-0 rounded-full bg-jade/14 px-2 py-0.5 text-micro font-semibold uppercase text-jade">
             Active
           </span>
         </div>
-        <p className="mt-2 text-sm text-text-2">
-          Every visitor who books gets an immediate confirmation email — sent under your business
+        <p className="mt-2 text-body-sm text-text-2">
+          Every visitor who books gets an immediate confirmation email, sent under your business
           name, with any reply routed straight to your inbox. This is included automatically with
           Premium; there&apos;s nothing to turn on or configure.
         </p>
-        <p className="mt-2 text-xs text-text-2">
-          If a confirmation email ever fails to send, the booking itself still goes through — the
+        <p className="mt-2 text-body-sm text-text-2">
+          If a confirmation email ever fails to send, the booking itself still goes through. The
           failure is logged to your{' '}
           <Link href="/dashboard/errors" className="text-lume-bright hover:underline">
             Error Log
@@ -105,35 +105,36 @@ export default function RemindersPage() {
 
       <form
         onSubmit={handleSave}
-        className="flex flex-col gap-3 rounded-lg border border-hairline bg-surface p-4"
+        className="flex flex-col gap-3 rounded-xl border border-hairline bg-surface p-4"
       >
         <div className="flex items-center justify-between gap-2">
-          <h2 className="text-sm font-semibold text-text">Text message reminders</h2>
-          <span className="shrink-0 rounded-full bg-text-2/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-text-2">
+          <h2 className="text-body font-medium text-text">Text message reminders</h2>
+          <span className="shrink-0 rounded-full bg-text-2/12 px-2 py-0.5 text-micro font-semibold uppercase text-text-2">
             Not yet live
           </span>
         </div>
-        <p className="text-sm text-text-2">
+        <p className="text-body-sm text-text-2">
           Sends an automatic text reminder to the visitor roughly 24 hours before their
           appointment, to cut down on no-shows.
         </p>
-        <label className="flex items-center gap-2 rounded-md border border-edge p-3 text-sm">
+        <label className="flex items-center gap-2 rounded-lg border border-edge p-3 text-body-sm text-text">
           <input
             type="checkbox"
             checked={smsRemindersEnabled}
             onChange={(e) => setSmsRemindersEnabled(e.target.checked)}
+            className="accent-lume"
           />
           <span>
             Enable text reminders
-            <span className="block text-xs text-text-2">
-              Not yet live in this deployment — this saves your preference now so reminders start
+            <span className="block text-body-sm text-text-2">
+              Not yet live in this deployment. This saves your preference now so reminders start
               as soon as text sending is wired up, with no further action from you.
             </span>
           </span>
         </label>
 
-        {saveError && <p className="text-sm text-rose">{saveError}</p>}
-        {saved && <p className="text-sm text-jade">Saved.</p>}
+        {saveError && <p className="text-body-sm text-rose">{saveError}</p>}
+        {saved && <p className="text-body-sm text-jade">Saved.</p>}
         <Button type="submit" disabled={saving} className="self-start">
           {saving ? 'Saving…' : 'Save'}
         </Button>

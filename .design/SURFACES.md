@@ -53,8 +53,8 @@ Update this when an iteration completes. Do not rebuild anything already marked 
 - [x] `dashboard-home` - `/dashboard`
 - [x] `dashboard-time` - `/dashboard/schedule`, `/dashboard/calendar` (the Lightline payoff)
 - [x] `dashboard-setup` - `/dashboard/reasons`, `/dashboard/rules`, `RuleEditor`
-- [ ] `dashboard-data` - `/dashboard/analytics`, `/dashboard/errors`, `/dashboard/export`
-- [ ] `dashboard-account` - `/dashboard/branding`, `/dashboard/reminders`, `/dashboard/billing`, `/dashboard/team`, `/dashboard/calendars`
+- [x] `dashboard-data` - `/dashboard/analytics`, `/dashboard/errors`, `/dashboard/export`
+- [x] `dashboard-account` - `/dashboard/branding`, `/dashboard/reminders`, `/dashboard/billing`, `/dashboard/team`, `/dashboard/calendars`
 - [ ] `marketing` - `/` home page
 - [ ] `docs` - rewrite `theme_brand.md`, update `CLAUDE.md` styling section
 
