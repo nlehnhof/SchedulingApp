@@ -1,9 +1,11 @@
+import type { CSSProperties } from 'react';
 import type { Metadata, Viewport } from 'next';
 import { cache } from 'react';
 import { createServiceClient } from '@/lib/supabase';
 import { resolveCalendarLink } from '@/lib/resolve-calendar-link';
 import { getEffectiveTier } from '@/lib/premium-grants';
 import { isAtLeast } from '@/lib/tier';
+import { brandAccentOverride, hexToRgbTriple } from '@/lib/brand-color';
 
 // cache() dedupes this across generateMetadata + generateViewport within the
 // same request — Next.js 14 splits theme-color out of `metadata` into a
@@ -65,6 +67,38 @@ export async function generateViewport({
   };
 }
 
-export default function VisitorLayout({ children }: { children: React.ReactNode }) {
-  return children;
+export default async function VisitorLayout({
+  children,
+  params,
+}: {
+  children: React.ReactNode;
+  params: { clientLink: string };
+}) {
+  const info = await getVisitorPageInfo(params.clientLink);
+
+  // Per DESIGN.md section 2.4: a premium client's accent overrides --lume/
+  // --lume-ink for the whole flow via a CSS variable on the root element,
+  // rather than the old per-control inline `accentStyle` patch. A free or
+  // downgraded client (or one who never set a color) gets no override and
+  // the flow renders with the default lume. Both the hex and the `<alpha-
+  // value>` RGB-triple forms are set — the focus ring reads the hex
+  // directly, every Tailwind `lume` utility (including opacity modifiers
+  // like `bg-lume/14`) reads the RGB triple.
+  const overrideStyle: CSSProperties | undefined = info?.accentColor
+    ? (() => {
+        const { lume, lumeInk } = brandAccentOverride(info.accentColor as string);
+        return {
+          '--lume': lume,
+          '--lume-rgb': hexToRgbTriple(lume),
+          '--lume-ink': lumeInk,
+          '--lume-ink-rgb': hexToRgbTriple(lumeInk),
+        } as CSSProperties;
+      })()
+    : undefined;
+
+  return (
+    <div style={overrideStyle} className="contents">
+      {children}
+    </div>
+  );
 }

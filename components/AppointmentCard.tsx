@@ -4,8 +4,8 @@ import { useId, useState } from 'react';
 import type { Appointment } from '@/lib/types';
 
 const statusStyles: Record<Appointment['status'], string> = {
-  confirmed: 'border-l-4 border-success bg-success/10',
-  red_flag: 'border-l-4 border-danger bg-danger/10',
+  confirmed: 'border-l-2 border-jade bg-surface-2',
+  red_flag: 'border-l-2 border-rose bg-rose/8',
 };
 
 export default function AppointmentCard({
@@ -25,16 +25,15 @@ export default function AppointmentCard({
   const detailsId = useId();
 
   return (
-    <div className={`relative rounded-md p-3 text-sm ${statusStyles[appointment.status]}`}>
+    <div className={`relative rounded-lg p-3 ${statusStyles[appointment.status]}`}>
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="font-medium">
-            {start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} –{' '}
+          <div className="font-mono text-data text-text">
+            {start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} to{' '}
             {end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
           </div>
-          <div className="text-text-secondary">
-            {appointment.visitor_name} — {reasonName ?? appointment.reason_id}
-          </div>
+          <div className="text-body text-text">{appointment.visitor_name}</div>
+          <div className="text-body-sm text-text-2">{reasonName ?? appointment.reason_id}</div>
         </div>
         {/* Previously only revealed via group-hover, which meant no
             keyboard-focus or touch-tap equivalent existed — unusable on a
@@ -47,14 +46,14 @@ export default function AppointmentCard({
             onClick={() => setExpanded((v) => !v)}
             aria-expanded={expanded}
             aria-controls={detailsId}
-            className="rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-white/70"
+            className="rounded px-1.5 py-0.5 text-xs text-text-2 hover:bg-lume/20"
           >
             {expanded ? 'Hide details' : 'Details'}
           </button>
           {onEdit && (
             <button
               onClick={() => onEdit(appointment)}
-              className="rounded px-1.5 py-0.5 text-xs text-text-secondary hover:bg-white/70"
+              className="rounded px-1.5 py-0.5 text-xs text-text-2 hover:bg-lume/20"
             >
               Edit
             </button>
@@ -62,7 +61,7 @@ export default function AppointmentCard({
           {onDelete && (
             <button
               onClick={() => onDelete(appointment)}
-              className="rounded px-1.5 py-0.5 text-xs text-danger hover:bg-white/70"
+              className="rounded px-1.5 py-0.5 text-xs text-rose hover:bg-lume/20"
             >
               Delete
             </button>
@@ -70,17 +69,18 @@ export default function AppointmentCard({
         </div>
       </div>
       {appointment.status === 'red_flag' && (
-        <div className="mt-1 text-xs font-medium text-danger">
+        <div className="mt-1 text-body-sm font-medium text-rose">
           Conflicts with a Google Calendar block
         </div>
       )}
       {expanded && (
-        <div id={detailsId} className="mt-2 rounded-md border border-border bg-surface p-2 text-xs">
+        <div id={detailsId} className="mt-2 rounded-lg border border-hairline bg-surface p-2 text-body-sm">
           <div>
             <span className="font-medium">Name:</span> {appointment.visitor_name}
           </div>
           <div>
-            <span className="font-medium">Phone:</span> {appointment.visitor_phone}
+            <span className="font-medium">Phone:</span>{' '}
+            <span className="font-mono">{appointment.visitor_phone}</span>
           </div>
           {appointment.visitor_email && (
             <div>

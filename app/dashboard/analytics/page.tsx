@@ -41,7 +41,7 @@ export default function AnalyticsPage() {
         />
       );
     }
-    return <p className="text-sm text-danger">Failed to load analytics.</p>;
+    return <p className="text-body-sm text-rose">Failed to load analytics.</p>;
   }
   if (!data) return null;
 
@@ -53,9 +53,10 @@ export default function AnalyticsPage() {
   return (
     <div className="flex max-w-5xl flex-col gap-8">
       <div>
-        <h1 className="font-serif text-xl font-semibold text-text-primary">Analytics</h1>
-        <p className="text-sm text-text-secondary">
-          Last {data.windowDays} days · {data.total} appointments
+        <h1 className="font-display text-display-md text-text">Analytics</h1>
+        <p className="text-body-sm text-text-2">
+          Last <span className="font-mono text-data">{data.windowDays}</span> days ·{' '}
+          <span className="font-mono text-data">{data.total}</span> appointments
         </p>
       </div>
 
@@ -76,37 +77,37 @@ export default function AnalyticsPage() {
       </Section>
 
       <Section title="Appointment status">
-        <ul className="flex flex-col gap-1 text-sm">
+        <ul className="flex flex-col gap-1 text-body">
           {data.statusBreakdown.map((s) => (
             <li key={s.status} className="flex justify-between">
-              <span className="capitalize">{s.status.replace('_', ' ')}</span>
-              <span className="font-medium">{s.count}</span>
+              <span className="capitalize text-text">{s.status.replace('_', ' ')}</span>
+              <span className="font-mono text-data-sm font-medium text-text">{s.count}</span>
             </li>
           ))}
           {data.statusBreakdown.length === 0 && (
-            <li className="text-text-secondary">No appointments in this window.</li>
+            <li className="text-text-2">No appointments in this window.</li>
           )}
         </ul>
       </Section>
 
       <Section title="Most-booked reasons">
-        <ul className="flex flex-col gap-3 text-sm">
+        <ul className="flex flex-col gap-3 text-body">
           {data.reasonPopularity.map((r) => (
             <li key={r.reason} className="flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-2">
-              <span className="sm:w-32 sm:shrink-0 sm:truncate">{r.reason}</span>
+              <span className="text-text sm:w-32 sm:shrink-0 sm:truncate">{r.reason}</span>
               <div className="flex items-center gap-2">
-                <div className="h-2 w-full min-w-24 flex-1 rounded-full bg-border sm:w-auto">
+                <div className="h-2 w-full min-w-24 flex-1 rounded-full bg-surface-2 sm:w-auto">
                   <div
-                    className="h-2 rounded-full bg-accent transition-all"
+                    className="h-2 rounded-full bg-lume transition-all"
                     style={{ width: `${(r.count / maxReason) * 100}%` }}
                   />
                 </div>
-                <span className="w-8 shrink-0 text-right text-text-secondary">{r.count}</span>
+                <span className="w-8 shrink-0 text-right font-mono text-data-sm text-text-2">{r.count}</span>
               </div>
             </li>
           ))}
           {data.reasonPopularity.length === 0 && (
-            <li className="text-text-secondary">No appointments in this window.</li>
+            <li className="text-text-2">No appointments in this window.</li>
           )}
         </ul>
       </Section>
@@ -117,7 +118,7 @@ export default function AnalyticsPage() {
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div>
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-secondary">{title}</h2>
+      <h2 className="mb-3 font-display text-display-sm text-text">{title}</h2>
       {children}
     </div>
   );
@@ -132,7 +133,7 @@ function BarRow({
   max: number;
   compact?: boolean;
 }) {
-  if (items.length === 0) return <p className="text-sm text-text-secondary">No data yet.</p>;
+  if (items.length === 0) return <p className="text-body-sm text-text-2">No data yet.</p>;
   return (
     <div className="relative">
       <div className="flex items-end gap-2 overflow-x-auto pb-2">
@@ -140,19 +141,19 @@ function BarRow({
           <div key={`${item.label}-${i}`} className="flex shrink-0 flex-col items-center gap-1">
             {/* Value shown as real text, not a `title` tooltip — those never
                 fire on touch, which made this data invisible on mobile. */}
-            <span className="text-[10px] font-medium text-text-secondary">{item.value}</span>
+            <span className="font-mono text-data-sm font-medium text-text-2">{item.value}</span>
             <div
-              className="w-5 rounded-t-md bg-accent transition-all hover:bg-accent-hover"
+              className="w-5 rounded-t-md bg-lume transition-all hover:bg-lume-bright"
               style={{ height: `${Math.max(2, (item.value / max) * 80)}px` }}
             />
-            {!compact && <span className="text-[10px] text-text-secondary">{item.label}</span>}
+            {!compact && <span className="font-mono text-data-sm text-text-2">{item.label}</span>}
           </div>
         ))}
       </div>
       {/* Fades the right edge when the row overflows, as a visual hint that
           there's more to scroll to (the old version had no such affordance
           — data could silently scroll off-screen with nothing to suggest it). */}
-      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-background to-transparent" />
+      <div className="pointer-events-none absolute inset-y-0 right-0 w-6 bg-gradient-to-l from-canvas to-transparent" />
     </div>
   );
 }

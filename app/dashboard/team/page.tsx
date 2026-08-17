@@ -38,7 +38,7 @@ export default function TeamPage() {
   const [actionError, setActionError] = useState<string | null>(null);
 
   if (isLoading) return <Spinner />;
-  if (error || !data) return <p className="text-sm text-danger">Failed to load your team.</p>;
+  if (error || !data) return <p className="text-body-sm text-rose">Failed to load your team.</p>;
 
   const collaborators = data.collaborators;
 
@@ -91,40 +91,36 @@ export default function TeamPage() {
   return (
     <div className="flex max-w-2xl flex-col gap-6">
       <div>
-        <h1 className="font-serif text-xl font-semibold text-text-primary">Team</h1>
-        <p className="mt-1 text-sm text-text-secondary">
+        <h1 className="font-display text-display-md text-text">Team</h1>
+        <p className="mt-1 text-body-sm text-text-2">
           Give other people access to <span className="font-medium">{calendarName}</span> without
-          sharing your Google login. Viewers can look but not touch; Editors can manage rules,
-          reasons, and appointments — billing and team access always stay owner-only.
+          sharing your Google login. Viewers can look but not touch. Editors can manage rules,
+          reasons, and appointments. Billing and team access always stay owner-only.
         </p>
       </div>
 
-      {actionError && <p className="text-sm text-danger">{actionError}</p>}
+      {actionError && <p className="text-body-sm text-rose">{actionError}</p>}
 
       <ul className="flex flex-col gap-3">
         {collaborators.map((c) => (
-          <li key={c.id} className="animate-fade-up">
-            <Card hoverable padding="sm" className="flex flex-col gap-3 text-sm sm:flex-row sm:items-center sm:justify-between">
+          <li key={c.id}>
+            <Card hoverable padding="sm" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col">
-                <span className="font-medium text-text-primary">{c.email}</span>
-                <span className="text-xs text-text-secondary">
+                <span className="text-body font-medium text-text">{c.email}</span>
+                <span className="text-body-sm text-text-2">
                   {c.accepted_at
                     ? `Accepted ${new Date(c.accepted_at).toLocaleDateString()}`
-                    : `Invited ${new Date(c.invited_at).toLocaleDateString()} — pending`}
+                    : `Invited ${new Date(c.invited_at).toLocaleDateString()}, pending`}
                 </span>
               </div>
 
               {confirmRevokeId === c.id ? (
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-xs text-danger">Revoke access?</span>
-                  <Button variant="danger" onClick={() => handleRevoke(c.id)} className="px-2 py-1 text-xs">
+                  <span className="text-body-sm text-rose">Revoke access?</span>
+                  <Button variant="danger" onClick={() => handleRevoke(c.id)}>
                     Confirm
                   </Button>
-                  <Button
-                    variant="ghost"
-                    onClick={() => setConfirmRevokeId(null)}
-                    className="px-2 py-1 text-xs"
-                  >
+                  <Button variant="ghost" onClick={() => setConfirmRevokeId(null)}>
                     Cancel
                   </Button>
                 </div>
@@ -133,7 +129,7 @@ export default function TeamPage() {
                   <Select
                     value={c.role}
                     onChange={(e) => handleRoleChange(c.id, e.target.value as 'viewer' | 'editor')}
-                    className="text-xs"
+                    className="text-body-sm"
                   >
                     <option value="viewer">Viewer</option>
                     <option value="editor">Editor</option>
@@ -141,7 +137,7 @@ export default function TeamPage() {
                   <Button
                     variant="ghost"
                     onClick={() => setConfirmRevokeId(c.id)}
-                    className="px-2 py-1 text-xs text-danger hover:bg-danger/10"
+                    className="text-rose hover:bg-rose/10"
                   >
                     Revoke
                   </Button>
@@ -151,9 +147,7 @@ export default function TeamPage() {
           </li>
         ))}
         {collaborators.length === 0 && (
-          <p className="text-sm text-text-secondary">
-            Nobody has access yet — invite someone below.
-          </p>
+          <p className="text-body-sm text-text-2">Nobody has access yet. Invite someone below.</p>
         )}
       </ul>
 
@@ -176,7 +170,7 @@ export default function TeamPage() {
           </Button>
         </form>
       </Card>
-      {inviteError && <p className="text-sm text-danger">{inviteError}</p>}
+      {inviteError && <p className="text-body-sm text-rose">{inviteError}</p>}
     </div>
   );
 }

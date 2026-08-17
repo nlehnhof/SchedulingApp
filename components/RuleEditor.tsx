@@ -58,19 +58,19 @@ const RULE_DESCRIPTIONS: Record<RuleFormValues['ruleType'], string> = {
   available_hours:
     "The hours you're open for bookings on a given day, or every day. A day-specific rule overrides the \"all days\" rule for that one day.",
   specific_dates:
-    'Opens exactly these calendar dates for booking, with their own start/end time — independent of your weekday hours. Use "Select whole month" to open a whole month at once.',
+    'Opens exactly these calendar dates for booking, with their own start/end time, independent of your weekday hours. Use "Select whole month" to open a whole month at once.',
   max_per_window:
-    'Caps how many appointments can land inside a rolling time window — e.g. at most 3 appointments in any 60-minute window — even if individual slots are still technically free.',
+    'Caps how many appointments can land inside a rolling time window (for example, at most 3 appointments in any 60-minute window), even if individual slots are still technically free.',
   first_n_only:
     'Keeps only the first N bookings open in each time window; once N appointments exist in a window, the rest of that window’s slots stop being offered. Good for strict "first come, first served" capacity.',
   blackout:
-    "Blocks an entire date range from bookings — vacations, holidays, or any days you're fully closed. No slots are generated on those days, regardless of your available hours.",
+    "Blocks an entire date range from bookings: vacations, holidays, or any days you're fully closed. No slots are generated on those days, regardless of your available hours.",
   buffer_time:
-    'Adds a cushion of minutes before and after every booked appointment during which no new appointment can be booked — handy for cleanup, prep, or travel time between visits.',
+    'Adds a cushion of minutes before and after every booked appointment during which no new appointment can be booked. Handy for cleanup, prep, or travel time between visits.',
   min_notice:
     "Requires visitors to book at least this many hours ahead of time, so a slot can't be booked at the last minute (e.g. 2 hours' notice hides anything starting within the next 2 hours).",
   sequential_fill:
-    'Only shows slots within this many minutes of the last booked appointment that day (or of the start of the day, if nothing is booked yet). Pushes visitors toward the earliest open time instead of leaving gaps — later slots reveal themselves as earlier ones fill up.',
+    'Only shows slots within this many minutes of the last booked appointment that day (or of the start of the day, if nothing is booked yet). Pushes visitors toward the earliest open time instead of leaving gaps. Later slots reveal themselves as earlier ones fill up.',
 };
 
 export default function RuleEditor({
@@ -115,7 +115,7 @@ export default function RuleEditor({
         </Select>
         <div className="flex items-center gap-1.5">
           <InfoTooltip text={RULE_DESCRIPTIONS[ruleType]} />
-          <span className="text-xs text-text-secondary">What does this do?</span>
+          <span className="text-body-sm text-text-2">What does this do?</span>
         </div>
       </div>
 

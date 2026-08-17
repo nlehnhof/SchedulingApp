@@ -3,8 +3,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import useSWR from 'swr';
+import { Lock } from '@phosphor-icons/react';
 import { fetcher } from '@/lib/fetcher';
 import AppointmentCard from '@/components/AppointmentCard';
+import Button from '@/components/Button';
+import DayStrip, { DayStripBlock } from '@/components/DayStrip';
 import { isAtLeast, type Tier } from '@/lib/tier';
 import { useCalendar } from '@/components/CalendarContext';
 import type { Appointment, ErrorLogEntry, Rule } from '@/lib/types';
@@ -39,7 +42,7 @@ export default function DashboardHome() {
   );
 
   if (isLoading) return <Spinner />;
-  if (error) return <p className="text-sm text-danger">Failed to load dashboard: {String(error.message)}</p>;
+  if (error) return <p className="text-body-sm text-rose">Failed to load dashboard: {String(error.message)}</p>;
   if (!data) return null;
 
   const now = new Date();
@@ -53,9 +56,22 @@ export default function DashboardHome() {
   const hasRules = data.rules.length > 0;
   const reasonNameById = new Map(data.reasons.map((r) => [r.id, r.name]));
 
+  const todayStr = now.toDateString();
+  const todayBlocks: DayStripBlock[] = data.appointments
+    .filter((a) => new Date(a.start_time).toDateString() === todayStr)
+    .map((a) => {
+      const start = new Date(a.start_time);
+      const end = new Date(a.end_time);
+      return {
+        startMin: start.getHours() * 60 + start.getMinutes(),
+        endMin: end.getHours() * 60 + end.getMinutes(),
+        booked: true,
+      };
+    });
+
   return (
     <div className="flex max-w-5xl flex-col gap-8">
-      <h1 className="font-serif text-xl font-semibold text-text-primary">Dashboard</h1>
+      <h1 className="font-display text-display-md text-text">Dashboard</h1>
 
       {/* Previously there was no way to find your own visitor booking link
           from the UI at all — it was only ever printed to the console by
@@ -65,10 +81,10 @@ export default function DashboardHome() {
       {data.calendar && !isAtLeast(data.calendar.tier, 'premium') && <PremiumFeaturesCard />}
 
       {(!data.hasReasons || !hasRules) && (
-        <div className="flex flex-col gap-2 rounded-md border border-accent/40 bg-accent-soft/25 p-4 text-sm">
+        <div className="flex flex-col gap-2 rounded-xl border border-lume/40 bg-lume/25 p-4 text-body-sm text-text">
           {!data.hasReasons && (
             <p>
-              <Link href="/dashboard/reasons" className="font-medium text-accent-hover hover:underline">
+              <Link href="/dashboard/reasons" className="font-medium text-lume-bright hover:underline">
                 Add your first appointment reason
               </Link>{' '}
               so visitors have something to book.
@@ -76,7 +92,7 @@ export default function DashboardHome() {
           )}
           {!hasRules && (
             <p>
-              <Link href="/dashboard/rules" className="font-medium text-accent-hover hover:underline">
+              <Link href="/dashboard/rules" className="font-medium text-lume-bright hover:underline">
                 Add your first availability rule
               </Link>{' '}
               so visitors can actually book you.
@@ -85,9 +101,9 @@ export default function DashboardHome() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <StatCard label="Appointments this month" value={data.stats.this_month} />
-        <StatCard
+      <div className="flex divide-x divide-hairline">
+        <Stat label="Appointments this month" value={data.stats.this_month} />
+        <Stat
           label="Next booked"
           value={
             data.stats.next_booked
@@ -97,10 +113,10 @@ export default function DashboardHome() {
                   hour: 'numeric',
                   minute: '2-digit',
                 })
-              : '—'
+              : 'None'
           }
         />
-        <StatCard label="Pending errors" value={data.stats.pending_errors} warn={data.stats.pending_errors > 0} />
+        <Stat label="Pending errors" value={data.stats.pending_errors} warn={data.stats.pending_errors > 0} />
       </div>
 
       <div className="flex flex-wrap gap-2">
@@ -108,7 +124,7 @@ export default function DashboardHome() {
           <Link
             key={action.href}
             href={action.href}
-            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent-soft/15"
+            className="rounded-lg border border-edge px-3 py-2 text-body-sm hover:bg-lume/15"
           >
             {action.label}
           </Link>
@@ -116,11 +132,10 @@ export default function DashboardHome() {
       </div>
 
       <div>
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-text-secondary">
-          Upcoming (next 7 days)
-        </h2>
+        <h2 className="mb-3 text-label uppercase text-text-2">Upcoming (next 7 days)</h2>
+        <DayStrip className="mb-4" blocks={todayBlocks} />
         {upcoming.length === 0 ? (
-          <p className="text-sm text-text-secondary">Nothing booked in the next 7 days.</p>
+          <p className="text-body-sm text-text-2">Nothing booked in the next 7 days.</p>
         ) : (
           <div className="flex flex-col gap-2">
             {upcoming.map((apt) => (
@@ -155,23 +170,20 @@ function BookingLinkCard({
   }
 
   return (
-    <div className="rounded-lg border border-border bg-surface p-4">
-      <div className="text-xs uppercase tracking-wide text-text-secondary">Your booking link</div>
+    <div className="rounded-xl border border-hairline bg-surface p-5 sm:p-6">
+      <div className="text-label uppercase text-text-2">Your booking link</div>
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        <code className="rounded bg-background px-2 py-1 text-sm text-text-primary">{link}</code>
-        <button
-          onClick={copyLink}
-          className="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent-soft/15"
-        >
-          {copied ? 'Copied!' : 'Copy link'}
-        </button>
+        <code className="rounded-lg bg-canvas px-3 py-1.5 font-mono text-data text-text">{link}</code>
+        <Button variant="secondary" onClick={copyLink}>
+          {copied ? 'Copied' : 'Copy link'}
+        </Button>
       </div>
-      <p className="mt-2 text-xs text-text-secondary">
-        Share this with visitors — anyone with this link can book an appointment with you.
+      <p className="mt-2 text-body-sm text-text-2">
+        Share this with visitors. Anyone with this link can book an appointment with you.
         {!isAtLeast(calendar.tier, 'premium') && (
           <>
             {' '}
-            <Link href="/dashboard/billing" className="text-accent-hover hover:underline">
+            <Link href="/dashboard/billing" className="text-lume-bright hover:underline">
               Upgrade to premium
             </Link>{' '}
             for a short, custom link instead of this long id.
@@ -200,7 +212,7 @@ const PREMIUM_FEATURES = [
   },
   {
     title: 'Booking confirmation emails',
-    description: 'Every visitor gets an automatic confirmation under your business name — no setup needed.',
+    description: 'Every visitor gets an automatic confirmation under your business name. No setup needed.',
     href: '/dashboard/reminders',
   },
   {
@@ -218,22 +230,22 @@ const PREMIUM_FEATURES = [
 // the server-side tier check).
 function PremiumFeaturesCard() {
   return (
-    <div className="rounded-lg border border-accent-soft bg-accent-soft/10 p-4">
+    <div className="rounded-xl border border-lume/14 bg-lume/10 p-4">
       <div className="flex items-center justify-between gap-2">
-        <div className="text-xs uppercase tracking-wide text-text-secondary">Premium features</div>
-        <Link href="/dashboard/billing" className="text-xs font-medium text-accent-hover hover:underline">
+        <div className="text-label uppercase text-text-2">Premium features</div>
+        <Link href="/dashboard/billing" className="text-body-sm font-medium text-lume-bright hover:underline">
           Upgrade to premium
         </Link>
       </div>
       <ul className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         {PREMIUM_FEATURES.map((f) => (
           <li key={f.title}>
-            <Link href={f.href} className="block rounded-md border border-border bg-surface p-3 hover:bg-accent-soft/15">
-              <div className="flex items-center gap-1.5 text-sm font-medium text-text-primary">
-                <span aria-hidden="true">🔒</span>
+            <Link href={f.href} className="block rounded-lg border border-edge bg-surface p-3 hover:bg-lume/15">
+              <div className="flex items-center gap-1.5 text-body font-medium text-text">
+                <Lock size={14} weight="regular" aria-hidden="true" />
                 {f.title}
               </div>
-              <p className="mt-1 text-xs text-text-secondary">{f.description}</p>
+              <p className="mt-1 text-body-sm text-text-2">{f.description}</p>
             </Link>
           </li>
         ))}
@@ -242,11 +254,11 @@ function PremiumFeaturesCard() {
   );
 }
 
-function StatCard({ label, value, warn }: { label: string; value: string | number; warn?: boolean }) {
+function Stat({ label, value, warn }: { label: string; value: string | number; warn?: boolean }) {
   return (
-    <div className="rounded-lg border border-border p-4">
-      <div className="text-xs uppercase tracking-wide text-text-secondary">{label}</div>
-      <div className={`mt-1 text-2xl font-semibold ${warn ? 'text-danger' : ''}`}>{value}</div>
+    <div className="flex-1 px-4 first:pl-0">
+      <div className={`font-mono text-data-xl ${warn ? 'text-rose' : 'text-text'}`}>{value}</div>
+      <div className="mt-1 text-label text-text-2">{label}</div>
     </div>
   );
 }

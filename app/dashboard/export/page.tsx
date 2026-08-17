@@ -49,7 +49,7 @@ export default function ExportPage() {
 
   return (
     <div className="flex max-w-xl flex-col gap-4">
-      <h1 className="font-serif text-xl font-semibold text-text-primary">Export</h1>
+      <h1 className="font-display text-display-md text-text">Export</h1>
       <Select
         label="Month"
         value={month}
@@ -70,8 +70,8 @@ export default function ExportPage() {
           Export this month
         </Button>
       ) : (
-        <div className="flex flex-col gap-2 rounded-md border border-accent/40 bg-accent-soft/25 p-3 text-sm">
-          <p>This will email a CSV of {month}&apos;s appointments to your account email — continue?</p>
+        <div className="flex flex-col gap-2 rounded-xl border border-lume/40 bg-lume/25 p-3 text-body-sm">
+          <p>This will email a CSV of {month}&apos;s appointments to your account email. Continue?</p>
           <div className="flex gap-2">
             <Button onClick={handleExport} disabled={sending}>
               {sending ? 'Sending…' : 'Yes, send it'}
@@ -83,8 +83,8 @@ export default function ExportPage() {
         </div>
       )}
 
-      {status === 'queued' && <p className="text-sm text-success">Sent — {message}</p>}
-      {status === 'error' && <p className="text-sm text-danger">{message}</p>}
+      {status === 'queued' && <p className="text-body-sm text-jade">{message}</p>}
+      {status === 'error' && <p className="text-body-sm text-rose">{message}</p>}
     </div>
   );
 }

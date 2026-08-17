@@ -10,8 +10,8 @@ export default function Spinner({
   className?: string;
 }) {
   return (
-    <div className={`flex items-center gap-2 text-sm text-text-secondary ${className}`} role="status">
-      <span className="h-4 w-4 animate-spin rounded-full border-2 border-border border-t-accent" />
+    <div className={`flex items-center gap-2 text-body-sm text-text-2 ${className}`} role="status">
+      <span className="h-4 w-4 animate-spin rounded-full border-2 border-hairline border-t-lume" />
       <span>{label}</span>
     </div>
   );

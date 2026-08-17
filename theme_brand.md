@@ -1,67 +1,62 @@
-# Gather brand — "Golden Hour"
+# Gather brand — "Nightshift"
 
-This is the design-system reference `tailwind.config.js` points to. It was missing from the
-repo (lost or never committed) until this pass reconstructed it from the palette already in
-use — treat this as the current source of truth going forward.
+This file is a pointer, not the source of truth. The actual design system — full color
+rationale, contrast verification, typography scale, motion rules, and every component
+spec — lives in **`.design/DESIGN.md`**, which `tailwind.config.js` and `app/globals.css`
+implement directly. Read that file first. This page is a short summary for anyone who
+lands here from the `tailwind.config.js` header comment without diving into `.design/`.
+
+Nightshift replaced the previous "Golden Hour" warm/cream system (dismantled across
+`.design/PLAN.md` phases 0-10 of the redesign). Golden Hour is gone: no `background`,
+`accent`, `highlight`, or `text-primary`/`text-secondary` tokens remain anywhere in
+`app/` or `components/`, and Inter/Fraunces were replaced by Space Grotesk/Geist. If you
+find a stray reference to any of those, it's a bug, not a fallback.
 
 ## Palette
 
-A warm, low-saturation palette — cream/parchment backgrounds, a terracotta accent, muted
-ink-brown text. The name "Golden Hour" refers to that terracotta-on-cream warmth, meant to feel
-more like a boutique studio than a generic SaaS dashboard.
+Dark, locked, no light mode. Booked time is dark and matte; open time is lit — see
+`.design/DESIGN.md` section 1 for the concept, section 2 for the full token table and
+verified contrast ratios.
 
 | Token | Hex | Role |
 |---|---|---|
-| `background` | `#FDF9F4` | page background |
-| `surface` | `#FFFDFB` | cards, nav, modals, inputs |
-| `border` | `#EFE3D2` | all borders |
-| `text-primary` | `#2E2620` | body/heading text |
-| `text-secondary` | `#7A6F60` | secondary/meta text |
-| `accent` | `#C4693A` | primary actions, selected states, links |
-| `accent-hover` | `#A8552C` | hover state of accent |
-| `accent-soft` | `#E3C9A0` | tints — used as `bg-accent-soft/10..40` for subtle backgrounds |
-| `highlight` | `#4F7A72` | secondary emphasis — badges, info callouts, alternate chart series |
-| `highlight-hover` | `#3D6058` | hover state of highlight |
-| `highlight-soft` | `#CBE0DA` | tints, same usage pattern as accent-soft |
-| `success` | `#6B7A4F` | confirmed/positive status |
-| `danger` | `#B84B3D` | errors, destructive actions, conflicts |
+| `canvas` | `#0D0F17` | app background |
+| `surface` | `#141826` | cards, nav, panels |
+| `surface-2` | `#1B2032` | modals, inputs, raised/hover surfaces |
+| `hairline` / `hairline-2` | `#242A3C` / `#333B52` | decorative / emphasized dividers |
+| `edge` | `#5D688A` | interactive control borders (meets 3:1) |
+| `text` / `text-2` / `text-3` | `#E9EBF4` / `#9AA1BA` / `#626A85` | primary / secondary / disabled |
+| `lume` / `lume-bright` / `lume-ink` | `#FFB454` / `#FFD199` / `#1A1206` | the only decorative accent |
+| `jade` / `rose` / `ice` | `#4FD6A4` / `#FF7286` / `#79ADFF` | confirmed / conflict / informational, product surfaces only |
 
-`highlight` was added alongside the original single-accent palette so the app isn't
-monochrome — a second, distinct hue for anything that shouldn't compete with the primary accent
-(status badges, secondary chart series, info affordances) while staying inside the same muted,
-low-saturation "Golden Hour" family rather than introducing a jarring bright color.
-
-No dark mode variant exists yet.
+`lume` is the single accent. `jade`/`rose`/`ice` are semantic status colors, never
+decoration, and never appear on the marketing page (`/`) at all — see `.design/DESIGN.md`
+section 2.2.
 
 ## Typography
 
-- **Sans (body/UI)**: Inter, loaded via `next/font/google` in `app/layout.tsx`, exposed as
-  `--font-inter`.
-- **Serif (headings, wordmark)**: Fraunces (weights 500/600/700), same mechanism, exposed as
-  `--font-fraunces`. Used for page `<h1>`s, modal titles, and the "Gather" wordmark — never for
-  body copy or form labels.
-- No custom type scale is defined — stock Tailwind sizes (`text-xs` through `text-5xl`) are used
-  directly, skewed toward `text-sm` for body/UI text.
+- **Display**: Space Grotesk, loaded via `next/font/google`, exposed as `--font-display`.
+- **UI and body**: Geist Sans, loaded from the `geist` npm package (not `next/font/google`
+  — this project is on Next 14.2, whose bundled Google Fonts data predates Geist), exposed
+  as `--font-sans`.
+- **Data**: Geist Mono, same package, exposed as `--font-mono`. Mandatory for every clock
+  time, date, duration, count, stat, phone number, booking link, and chart axis value —
+  see `.design/DESIGN.md` section 3.3.
+- Named type scale (`display-xl` through `micro`, `data-xl` through `data-sm`) defined in
+  `tailwind.config.js`'s `fontSize` block — use the named sizes, never improvise a raw
+  Tailwind text size.
 
 ## Shape & elevation
 
-- Inline controls (buttons, inputs, selects) stay `rounded-md` — enough softening without making
-  small tap targets feel mushy.
-- Cards, modals, and other standalone surfaces use `rounded-xl`/`rounded-2xl` — rounder than
-  controls, part of moving the app away from a flat/blocky look.
-- `shadow-soft` / `shadow-medium` (custom `boxShadow` tokens, warm-tinted rather than Tailwind's
-  default cool gray) give cards and modals real elevation — previously the dashboard had almost
-  no shadow usage anywhere and read as flat borders-on-cream.
+One radius system, applied everywhere: `rounded-lg` (10px) for controls, `rounded-xl`
+(14px) for cards/panels/callouts, `rounded-2xl` (20px) for modals and the booking shell,
+`rounded-full` for pills only. Two separate shadow families — neutral `lift1`/`lift2`/
+`lift3` for elevation, accent-tinted `glowSm`/`glow`/`glowLg` for the four things allowed
+to glow (the Lightline, available time, the in-view primary CTA, focus rings). Full detail
+in `.design/DESIGN.md` sections 4-5.
 
 ## Motion
 
-Tailwind/CSS only, no animation library. Custom keyframes live in `tailwind.config.js`:
-
-- `animate-fade-up` — entrance for content blocks (originally marketing-page-only, now a shared
-  utility).
-- `animate-scale-in` — entrance for modals/popovers.
-- `animate-slide-in` — entrance for the mobile nav drawer and similar off-canvas panels.
-- `animate-kenburns` / `animate-float` — marketing hero-specific, not for general reuse.
-
-Motion should stay subtle (short durations, `cubic-bezier(0.16, 1, 0.3, 1)` "ease-out-expo" feel)
-— this is a scheduling tool people use to get things done, not a showcase.
+`motion` (imported as `motion/react`), not CSS-only. Transform and opacity only, reduced
+motion mandatory. Full rules and the three animations that earn their place (the Lightline
+bloom, the booking confirmation, marketing scroll reveals) in `.design/DESIGN.md` section 6.

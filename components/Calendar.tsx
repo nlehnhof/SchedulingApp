@@ -57,27 +57,28 @@ export default function Calendar({
           if (meta?.confirmedCount) parts.push(`${meta.confirmedCount} confirmed`);
           if (meta?.redFlagCount) parts.push(`${meta.redFlagCount} conflict${meta.redFlagCount === 1 ? '' : 's'}`);
           if (meta && !meta.hasAvailability) parts.push('no availability');
+          const hasConfirmed = !!meta && meta.confirmedCount > 0;
+          const hasConflict = !!meta && meta.redFlagCount > 0;
           return (
             <button
               key={date}
               onClick={() => onSelectDate(date)}
               aria-label={parts.join(', ')}
-              className={`flex h-14 flex-col items-center justify-center rounded-md border text-sm transition-colors ${
+              className={`relative flex h-14 flex-col items-center justify-center gap-0.5 rounded-lg border font-mono text-data transition-colors duration-150 ${
                 isSelected
-                  ? 'border-accent bg-accent text-white'
-                  : `border-border hover:bg-accent-soft/20 ${
-                      meta?.hasAvailability ? 'text-text-primary' : 'text-text-secondary/50'
-                    }`
+                  ? 'border-lume bg-lume text-lume-ink'
+                  : meta?.hasAvailability
+                    ? 'border-lume/20 text-text hover:bg-lume/8'
+                    : 'border-hairline text-text-3 hover:bg-lume/8'
               }`}
             >
               <span>{Number(date.slice(8, 10))}</span>
-              {meta && (meta.confirmedCount > 0 || meta.redFlagCount > 0) && (
-                <span className="mt-0.5 flex gap-0.5">
-                  {meta.confirmedCount > 0 && (
-                    <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                  )}
-                  {meta.redFlagCount > 0 && <span className="h-1.5 w-1.5 rounded-full bg-danger" />}
-                </span>
+              {(hasConfirmed || hasConflict) && (
+                <span
+                  className={`absolute bottom-1 h-0.5 w-5 rounded-full ${
+                    hasConflict ? 'bg-rose' : 'bg-jade'
+                  }`}
+                />
               )}
             </button>
           );
