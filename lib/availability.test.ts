@@ -593,6 +593,52 @@ describe('getAvailableSlots', () => {
     expect(slots.find((s) => s.start.slice(11, 16) === '09:30')?.available).toBe(true);
     expect(slots.find((s) => s.start.slice(11, 16) === '09:45')?.available).toBe(false);
   });
+
+  it('supports multiple disjoint available_hours windows on the same day, each keeping its own fill direction', () => {
+    // Regression: a calendar with two Sunday windows (e.g. 8-11 and
+    // 12-2:30) only ever got slots from whichever rule the DB happened to
+    // return first — the other was silently dropped. Both must contribute
+    // slots, and each keeps its own fill_direction independently.
+    const day = new Date('2026-08-17T00:00:00'); // Monday
+    const reasonWithRemainder: AppointmentReason = { ...reason, duration_min: 25 };
+    const morningWindow: Rule = {
+      id: 'rule-morning',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 1,
+      start_time: '08:00:00',
+      end_time: '09:00:00',
+      max_concurrent: null,
+      config: { permanent: false, fill_direction: 'forward' },
+    };
+    const afternoonWindow: Rule = {
+      id: 'rule-afternoon',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 1,
+      start_time: '12:00:00',
+      end_time: '13:00:00',
+      max_concurrent: null,
+      config: { permanent: false, fill_direction: 'backward' },
+    };
+
+    const slots = getAvailableSlots({
+      startDate: day,
+      endDate: day,
+      reason: reasonWithRemainder,
+      rules: [morningWindow, afternoonWindow],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    // Forward window's remainder sits at the end (08:00-08:25, 08:25-08:50,
+    // 08:50-09:00 unused); backward window's remainder sits at the start
+    // (12:00-12:10 unused, 12:10-12:35, 12:35-13:00), all in chronological
+    // order across both windows.
+    const starts = slots.map((s) => s.start.slice(11, 16));
+    expect(starts).toEqual(['08:00', '08:25', '12:10', '12:35']);
+    expect(slots.every((s) => s.available)).toBe(true);
+  });
 });
 
 describe('nextAvailableSlot', () => {

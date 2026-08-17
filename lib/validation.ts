@@ -12,13 +12,17 @@ import { z } from 'zod';
 //   specific_dates  -> config.dates (string[] of 'YYYY-MM-DD') + startTime/endTime,
 //                      same time columns as available_hours but keyed by exact
 //                      calendar date instead of day_of_week — see
-//                      lib/availability.ts's findSpecificDateRule()
+//                      lib/availability.ts's findSpecificDateRules()
 //   available_hours and specific_dates also both read
 //   config.fill_direction ('forward' | 'backward', optional, defaults to
 //   'forward' when absent) — which end of that one rule's window slots get
 //   generated from. Per rule, not per calendar: each available-hours block
 //   picks its own direction independently — see
-//   lib/availability.ts's ruleFillDirection().
+//   lib/availability.ts's ruleFillDirection(). A calendar can also have
+//   several disjoint available_hours/specific_dates windows on the same
+//   day (e.g. an 8-11 block and a separate 12-2:30 block) — all of them
+//   apply, each with its own fill direction — see
+//   lib/availability.ts's findDayRules().
 export const ruleSchema = z
   .object({
     ruleType: z.enum([

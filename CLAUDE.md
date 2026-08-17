@@ -89,15 +89,21 @@ with an availability flag and reason (`booked`, `google_calendar_block`,
 `first_n_limit_reached`, `max_per_window_reached`). Callers own fetching/scoping the inputs.
 Keep it this way — it's what makes `lib/availability.test.ts` possible without a live DB.
 
-**Rule types** (`rules` table, discriminated by `rule_type`): `available_hours` (day-specific
-rule takes precedence over an "all days" rule with `day_of_week: null`), `first_n_only`
-(caps bookings within a rolling window via `config.first_n`/`config.window_minutes`), and
-`max_per_window` (caps concurrent bookings via `max_concurrent`/`config.window_minutes`).
-Both `available_hours` and `specific_dates` also read `config.fill_direction`
-(`'forward'`/`'backward'`, defaults to `'forward'` when absent) — which end of that one
-rule's window slot generation starts from when `duration_min` doesn't evenly divide it. This
-is a per-rule setting, not per-calendar (`0021` migration) — two different available-hours
-blocks on the same calendar can each pick their own direction independently.
+**Rule types** (`rules` table, discriminated by `rule_type`): `available_hours` (a calendar can
+have several disjoint `available_hours` rules on the same `day_of_week` — e.g. an 8-11 block
+and a separate 12-2:30 block — and all of them apply; day-specific rules take precedence over
+"all days" rules with `day_of_week: null` as a group, i.e. if any day-specific rule exists for
+a weekday the "all days" rules are ignored entirely for it, see `lib/availability.ts`'s
+`findDayRules()`), `first_n_only` (caps bookings within a rolling window via
+`config.first_n`/`config.window_minutes`), and `max_per_window` (caps concurrent bookings via
+`max_concurrent`/`config.window_minutes`). Both `available_hours` and `specific_dates` also
+read `config.fill_direction` (`'forward'`/`'backward'`, defaults to `'forward'` when absent) —
+which end of that one rule's window slot generation starts from when `duration_min` doesn't
+evenly divide it. This is a per-rule setting, not per-calendar (`0021` migration) — two
+different available-hours blocks on the same calendar (whether on different days or the same
+day) can each pick their own direction independently. `sequential_fill`'s frontier is a single
+per-day value shared across all of that day's windows, not recomputed per window — see
+`lib/availability.ts`'s frontier-calculation comment.
 
 **Google Calendar sync is one-way and polling-based**, not webhook-based: a cron job
 (`app/api/cron/google-sync`) polls every 30 min per booking calendar's `google_calendar_id`

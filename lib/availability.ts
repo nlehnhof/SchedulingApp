@@ -65,28 +65,32 @@ function dateOnly(d: Date): string {
 }
 
 /**
- * Picks the most specific available_hours rule for a given day of week:
- * a day-specific rule (day_of_week === dow) takes precedence over an
- * "all days" rule (day_of_week === null).
+ * Picks every available_hours rule that applies to a given day of week — a
+ * calendar can have several disjoint windows on the same day (e.g. an 8-11
+ * block and a separate 12-2:30 block), each with its own fill direction. Any
+ * day-specific rule (day_of_week === dow) takes precedence over "all days"
+ * rules (day_of_week === null) — if at least one day-specific rule exists
+ * for this day, the all-days rules are ignored entirely for it, same
+ * precedence as before this supported multiple rules per day.
  */
-function findAvailableHoursRule(rules: Rule[], dow: number): Rule | undefined {
-  const specific = rules.find(
+function findDayRules(rules: Rule[], dow: number): Rule[] {
+  const specific = rules.filter(
     (r) => r.rule_type === 'available_hours' && r.day_of_week === dow
   );
-  if (specific) return specific;
-  return rules.find((r) => r.rule_type === 'available_hours' && r.day_of_week === null);
+  if (specific.length > 0) return specific;
+  return rules.filter((r) => r.rule_type === 'available_hours' && r.day_of_week === null);
 }
 
 /**
- * Picks a `specific_dates` rule whose config.dates includes this exact
+ * Picks every `specific_dates` rule whose config.dates includes this exact
  * calendar date, if any. A match is authoritative for that date — it opens
- * the day using its own start/end time even if no available_hours rule
- * exists for that weekday at all (see findAvailableHoursRule above), which
- * is what lets a client open one specific date without changing their
- * weekday schedule.
+ * the day using its own start/end time(s) even if no available_hours rule
+ * exists for that weekday at all (see findDayRules above), which is what
+ * lets a client open one specific date without changing their weekday
+ * schedule.
  */
-function findSpecificDateRule(rules: Rule[], dateKey: string): Rule | undefined {
-  return rules.find((r) => {
+function findSpecificDateRules(rules: Rule[], dateKey: string): Rule[] {
+  return rules.filter((r) => {
     if (r.rule_type !== 'specific_dates') return false;
     const dates = r.config?.dates;
     return Array.isArray(dates) && dates.includes(dateKey);
@@ -154,18 +158,31 @@ export function getAvailableSlots({
 
     const dow = date.getDay();
     const dateKey = dateOnly(date);
-    const availableHours = findSpecificDateRule(rules, dateKey) ?? findAvailableHoursRule(rules, dow);
-    if (!availableHours || !availableHours.start_time || !availableHours.end_time) continue;
+    // A day can have several disjoint available_hours windows (e.g. an 8-11
+    // block and a separate 12-2:30 block) — specific_dates rules for this
+    // exact date are authoritative and fully replace the weekday rules when
+    // present, same override semantics as before multiple rules per day
+    // were supported.
+    const specificDateRules = findSpecificDateRules(rules, dateKey);
+    const dayRules = (specificDateRules.length > 0 ? specificDateRules : findDayRules(rules, dow)).filter(
+      (r) => r.start_time && r.end_time
+    );
+    if (dayRules.length === 0) continue;
 
-    const dayStart = parseTimeOnDate(date, availableHours.start_time);
-    const dayEnd = parseTimeOnDate(date, availableHours.end_time);
+    const windows = dayRules.map((rule) => ({
+      rule,
+      dayStart: parseTimeOnDate(date, rule.start_time as string),
+      dayEnd: parseTimeOnDate(date, rule.end_time as string),
+    }));
 
     // sequential_fill: the "frontier" is how far into the day bookings have
-    // progressed so far — the day's start until something is booked, then
-    // the latest booked appointment's end time on that same day. Slots are
-    // only offered within max_gap_minutes of the frontier, which nudges
-    // visitors toward the earliest open slot instead of cherry-picking a
-    // late one and leaving gaps behind it.
+    // progressed so far — the earliest of the day's window starts until
+    // something is booked, then the latest booked appointment's end time on
+    // that same day. Slots are only offered within max_gap_minutes of the
+    // frontier, which nudges visitors toward the earliest open slot instead
+    // of cherry-picking a late one and leaving gaps behind it. This is a
+    // single per-day value shared across all of the day's windows, not
+    // recomputed per window.
     //
     // The frontier also has to walk forward past any Google Calendar block
     // that already occupies the start of the window, not just real
@@ -192,7 +209,7 @@ export function getAvailableSlots({
           .map((block) => ({ start: new Date(block.start), end: new Date(block.end) })),
       ];
 
-      let frontier = dayStart;
+      let frontier = new Date(Math.min(...windows.map((w) => w.dayStart.getTime())));
       let advanced = true;
       while (advanced) {
         advanced = false;
@@ -206,115 +223,134 @@ export function getAvailableSlots({
       sequentialFrontier = frontier;
     }
 
-    const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, ruleFillDirection(availableHours));
-    for (const { start: slotStart, end: slotEnd } of intervals) {
-      const isBooked = booked.some((apt) =>
-        overlaps(slotStart, slotEnd, new Date(apt.start_time), new Date(apt.end_time))
-      );
+    const daySlots: Slot[] = [];
+    const seenStarts = new Set<number>();
 
-      const hasGoogleBlock = googleBlocks.some((block) =>
-        overlaps(slotStart, slotEnd, new Date(block.start), new Date(block.end))
-      );
+    for (const { rule, dayStart, dayEnd } of windows) {
+      const intervals = computeSlotIntervals(dayStart, dayEnd, durationMs, ruleFillDirection(rule));
+      for (const { start: slotStart, end: slotEnd } of intervals) {
+        // Guards against two windows on the same day producing the exact
+        // same slot start (shouldn't happen with sane, non-overlapping
+        // rule config, but stays defensive rather than emitting a
+        // duplicate the visitor UI would render twice).
+        if (seenStarts.has(slotStart.getTime())) continue;
+        seenStarts.add(slotStart.getTime());
 
-      let hasBufferConflict = false;
-      if (bufferRule?.config && typeof bufferRule.config.buffer_minutes === 'number') {
-        const bufferMs = bufferRule.config.buffer_minutes * 60 * 1000;
-        hasBufferConflict = booked.some((apt) => {
-          const paddedStart = new Date(new Date(apt.start_time).getTime() - bufferMs);
-          const paddedEnd = new Date(new Date(apt.end_time).getTime() + bufferMs);
-          return overlaps(slotStart, slotEnd, paddedStart, paddedEnd);
+        const isBooked = booked.some((apt) =>
+          overlaps(slotStart, slotEnd, new Date(apt.start_time), new Date(apt.end_time))
+        );
+
+        const hasGoogleBlock = googleBlocks.some((block) =>
+          overlaps(slotStart, slotEnd, new Date(block.start), new Date(block.end))
+        );
+
+        let hasBufferConflict = false;
+        if (bufferRule?.config && typeof bufferRule.config.buffer_minutes === 'number') {
+          const bufferMs = bufferRule.config.buffer_minutes * 60 * 1000;
+          hasBufferConflict = booked.some((apt) => {
+            const paddedStart = new Date(new Date(apt.start_time).getTime() - bufferMs);
+            const paddedEnd = new Date(new Date(apt.end_time).getTime() + bufferMs);
+            return overlaps(slotStart, slotEnd, paddedStart, paddedEnd);
+          });
+        }
+
+        let meetsMinNotice = true;
+        if (minNoticeRule?.config && typeof minNoticeRule.config.notice_hours === 'number') {
+          const cutoff = new Date(nowResolved.getTime() + minNoticeRule.config.notice_hours * 3600 * 1000);
+          meetsMinNotice = slotStart >= cutoff;
+        }
+
+        let withinFirstN = true;
+        if (firstNRule?.config && typeof firstNRule.config.first_n === 'number') {
+          const windowMinutes =
+            typeof firstNRule.config.window_minutes === 'number'
+              ? firstNRule.config.window_minutes
+              : 60;
+          const windowStart = new Date(slotStart);
+          windowStart.setMinutes(
+            Math.floor(windowStart.getMinutes() / windowMinutes) * windowMinutes,
+            0,
+            0
+          );
+          const windowEnd = new Date(windowStart.getTime() + windowMinutes * 60 * 1000);
+          const countInWindow = booked.filter((apt) => {
+            const aptStart = new Date(apt.start_time);
+            return aptStart >= windowStart && aptStart < windowEnd;
+          }).length;
+          withinFirstN = countInWindow < firstNRule.config.first_n;
+        }
+
+        let withinMaxPerWindow = true;
+        if (maxPerWindowRule?.max_concurrent != null) {
+          const windowMinutes =
+            typeof maxPerWindowRule.config?.window_minutes === 'number'
+              ? (maxPerWindowRule.config.window_minutes as number)
+              : 60;
+          const windowStart = new Date(slotStart);
+          windowStart.setMinutes(
+            Math.floor(windowStart.getMinutes() / windowMinutes) * windowMinutes,
+            0,
+            0
+          );
+          const windowEnd = new Date(windowStart.getTime() + windowMinutes * 60 * 1000);
+          const countInWindow = booked.filter((apt) => {
+            const aptStart = new Date(apt.start_time);
+            return aptStart >= windowStart && aptStart < windowEnd;
+          }).length;
+          withinMaxPerWindow = countInWindow < maxPerWindowRule.max_concurrent;
+        }
+
+        let withinSequentialFill = true;
+        if (sequentialFrontier && sequentialFillRule?.config) {
+          const maxGapMs = (sequentialFillRule.config.max_gap_minutes as number) * 60 * 1000;
+          withinSequentialFill = slotStart.getTime() <= sequentialFrontier.getTime() + maxGapMs;
+        }
+
+        const available =
+          !isBooked &&
+          !hasGoogleBlock &&
+          !hasBufferConflict &&
+          meetsMinNotice &&
+          withinFirstN &&
+          withinMaxPerWindow &&
+          withinSequentialFill;
+
+        daySlots.push({
+          // toNaiveISOString(), NOT .toISOString() — see lib/date-format.ts's
+          // header comment. `.toISOString()` converts to UTC, but
+          // appointments.start_time/end_time are Postgres `timestamp` (no
+          // time zone) columns that silently drop any offset on write and
+          // get re-read as local time — so a UTC-converted value here would
+          // come back shifted by the server's UTC offset, which for a
+          // late-enough slot rolls it into the next calendar day.
+          start: toNaiveISOString(slotStart),
+          end: toNaiveISOString(slotEnd),
+          available,
+          reason: available
+            ? null
+            : isBooked
+              ? 'booked'
+              : hasGoogleBlock
+                ? 'google_calendar_block'
+                : hasBufferConflict
+                  ? 'buffer_time_conflict'
+                  : !meetsMinNotice
+                    ? 'min_notice_not_met'
+                    : !withinFirstN
+                      ? 'first_n_limit_reached'
+                      : !withinMaxPerWindow
+                        ? 'max_per_window_reached'
+                        : 'sequential_fill_gap_exceeded',
         });
       }
-
-      let meetsMinNotice = true;
-      if (minNoticeRule?.config && typeof minNoticeRule.config.notice_hours === 'number') {
-        const cutoff = new Date(nowResolved.getTime() + minNoticeRule.config.notice_hours * 3600 * 1000);
-        meetsMinNotice = slotStart >= cutoff;
-      }
-
-      let withinFirstN = true;
-      if (firstNRule?.config && typeof firstNRule.config.first_n === 'number') {
-        const windowMinutes =
-          typeof firstNRule.config.window_minutes === 'number'
-            ? firstNRule.config.window_minutes
-            : 60;
-        const windowStart = new Date(slotStart);
-        windowStart.setMinutes(
-          Math.floor(windowStart.getMinutes() / windowMinutes) * windowMinutes,
-          0,
-          0
-        );
-        const windowEnd = new Date(windowStart.getTime() + windowMinutes * 60 * 1000);
-        const countInWindow = booked.filter((apt) => {
-          const aptStart = new Date(apt.start_time);
-          return aptStart >= windowStart && aptStart < windowEnd;
-        }).length;
-        withinFirstN = countInWindow < firstNRule.config.first_n;
-      }
-
-      let withinMaxPerWindow = true;
-      if (maxPerWindowRule?.max_concurrent != null) {
-        const windowMinutes =
-          typeof maxPerWindowRule.config?.window_minutes === 'number'
-            ? (maxPerWindowRule.config.window_minutes as number)
-            : 60;
-        const windowStart = new Date(slotStart);
-        windowStart.setMinutes(
-          Math.floor(windowStart.getMinutes() / windowMinutes) * windowMinutes,
-          0,
-          0
-        );
-        const windowEnd = new Date(windowStart.getTime() + windowMinutes * 60 * 1000);
-        const countInWindow = booked.filter((apt) => {
-          const aptStart = new Date(apt.start_time);
-          return aptStart >= windowStart && aptStart < windowEnd;
-        }).length;
-        withinMaxPerWindow = countInWindow < maxPerWindowRule.max_concurrent;
-      }
-
-      let withinSequentialFill = true;
-      if (sequentialFrontier && sequentialFillRule?.config) {
-        const maxGapMs = (sequentialFillRule.config.max_gap_minutes as number) * 60 * 1000;
-        withinSequentialFill = slotStart.getTime() <= sequentialFrontier.getTime() + maxGapMs;
-      }
-
-      const available =
-        !isBooked &&
-        !hasGoogleBlock &&
-        !hasBufferConflict &&
-        meetsMinNotice &&
-        withinFirstN &&
-        withinMaxPerWindow &&
-        withinSequentialFill;
-
-      slots.push({
-        // toNaiveISOString(), NOT .toISOString() — see lib/date-format.ts's
-        // header comment. `.toISOString()` converts to UTC, but
-        // appointments.start_time/end_time are Postgres `timestamp` (no
-        // time zone) columns that silently drop any offset on write and
-        // get re-read as local time — so a UTC-converted value here would
-        // come back shifted by the server's UTC offset, which for a
-        // late-enough slot rolls it into the next calendar day.
-        start: toNaiveISOString(slotStart),
-        end: toNaiveISOString(slotEnd),
-        available,
-        reason: available
-          ? null
-          : isBooked
-            ? 'booked'
-            : hasGoogleBlock
-              ? 'google_calendar_block'
-              : hasBufferConflict
-                ? 'buffer_time_conflict'
-                : !meetsMinNotice
-                  ? 'min_notice_not_met'
-                  : !withinFirstN
-                    ? 'first_n_limit_reached'
-                    : !withinMaxPerWindow
-                      ? 'max_per_window_reached'
-                      : 'sequential_fill_gap_exceeded',
-      });
     }
+
+    // Windows can be processed out of chronological order (their fill
+    // directions differ), so sort the day's slots back into ascending
+    // start-time order before appending — visitor UI groups by date/time
+    // and expects each date's slots ordered.
+    daySlots.sort((a, b) => (a.start < b.start ? -1 : a.start > b.start ? 1 : 0));
+    slots.push(...daySlots);
   }
 
   return slots;
