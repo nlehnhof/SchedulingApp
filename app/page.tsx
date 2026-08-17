@@ -104,7 +104,7 @@ function Hero() {
 
 function Guarantee() {
   return (
-    <section className="relative overflow-hidden py-24 sm:py-32">
+    <section className="relative isolate flex min-h-[100dvh] flex-col justify-center overflow-hidden py-24 sm:py-32">
       <Image
         src={tetons}
         alt=""
@@ -134,7 +134,7 @@ function Guarantee() {
 
 function HowRulesWork() {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-24 sm:px-10 sm:py-32">
+    <section className="mx-auto flex min-h-[100dvh] max-w-5xl flex-col justify-center px-6 py-24 sm:px-10 sm:py-32">
       <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:gap-16">
         <Reveal>
           <div className="rounded-2xl border border-hairline bg-surface p-6">
@@ -172,7 +172,7 @@ function WhatVisitorsSee() {
   const [selectedStart, setSelectedStart] = useState<string | undefined>(undefined);
 
   return (
-    <section className="py-24 sm:py-32">
+    <section className="flex min-h-[100dvh] flex-col justify-center py-24 sm:py-32">
       <Reveal className="mx-auto mb-10 max-w-5xl px-6 sm:px-10">
         <h2 className="font-display text-display-lg text-text">What the visitor sees.</h2>
       </Reveal>
@@ -232,7 +232,7 @@ function WhatVisitorsSee() {
 
 function Plans() {
   return (
-    <section className="mx-auto max-w-5xl px-6 py-24 sm:px-10 sm:py-32">
+    <section className="mx-auto flex min-h-[100dvh] max-w-5xl flex-col justify-center px-6 py-24 sm:px-10 sm:py-32">
       <Reveal className="mb-10">
         <h2 className="font-display text-display-lg text-text">Plans that grow with you.</h2>
       </Reveal>
@@ -267,7 +267,7 @@ function Plans() {
 
 function Summit() {
   return (
-    <section className="relative isolate overflow-hidden py-28 sm:py-36">
+    <section className="relative isolate flex min-h-[100dvh] flex-col justify-center overflow-hidden py-28 sm:py-36">
       <div className="absolute inset-0 motion-safe:animate-ken-burns">
         <Image
           src={everest}
@@ -275,7 +275,7 @@ function Summit() {
           aria-hidden="true"
           fill
           placeholder="blur"
-          className="object-cover contrast-[1.3] saturate-[1.15] brightness-[0.75]"
+          className="object-cover object-top contrast-[1.3] saturate-[1.15] brightness-[0.75]"
         />
       </div>
       <div className="absolute inset-0 bg-gradient-to-t from-canvas via-canvas/55 to-canvas/10" />
