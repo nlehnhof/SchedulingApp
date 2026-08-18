@@ -239,6 +239,9 @@ function Plans() {
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3 lg:items-end">
         <Reveal className="rounded-xl border border-hairline bg-surface p-6 lg:mb-6">
           <div className="font-display text-display-sm text-text">Free</div>
+          <div className="mt-3 flex items-baseline gap-1">
+            <span className="font-mono text-data-xl text-text">$0</span>
+          </div>
           <p className="mt-2 text-body-sm text-text-2">
             Rule-based availability, one booking calendar, and Google Calendar sync.
           </p>
@@ -248,16 +251,25 @@ function Plans() {
           className="rounded-2xl border border-lume bg-surface p-8 shadow-glow"
         >
           <div className="font-display text-display-md text-text">Premium</div>
+          <div className="mt-3 flex items-baseline gap-1">
+            <span className="font-mono text-data-xl text-text">$19</span>
+            <span className="text-body-sm text-text-2">/mo</span>
+          </div>
+          <p className="mt-1 text-body-sm text-text-2">Per organization, not per seat.</p>
           <p className="mt-2 text-body-sm text-text-2">
-            Custom branding, a custom booking link, analytics, and confirmation emails on top of
-            everything in Free.
+            Custom branding, a custom booking link, analytics, confirmation emails, and 3 seats
+            for your team, on top of everything in Free.
           </p>
         </Reveal>
         <Reveal delay={0.2} className="rounded-xl border border-hairline bg-surface p-6 lg:mb-6">
           <div className="font-display text-display-sm text-text">Elite</div>
+          <div className="mt-3 flex items-baseline gap-1">
+            <span className="font-mono text-data-xl text-text">$49</span>
+            <span className="text-body-sm text-text-2">/mo</span>
+          </div>
           <p className="mt-2 text-body-sm text-text-2">
-            Up to 5 booking calendars and shared dashboard access for your team, on top of
-            everything in Premium.
+            10 booking calendars included (up to 20, $5/mo each past 10) and unlimited team
+            access, on top of everything in Premium.
           </p>
         </Reveal>
       </div>
@@ -315,6 +327,19 @@ function Footer() {
         </Link>
         <p className="text-body-sm text-text-2">
           {new Date().getFullYear()} Gather. Rule-based booking, built to protect your calendar.
+        </p>
+        <p className="text-body-sm text-text-2">
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-text">
+            Privacy
+          </Link>
+          <span className="px-2 text-text-3">·</span>
+          <Link href="/terms" className="underline underline-offset-2 hover:text-text">
+            Terms
+          </Link>
+          <span className="px-2 text-text-3">·</span>
+          <a href="mailto:support@gathertime.com" className="underline underline-offset-2 hover:text-text">
+            support@gathertime.com
+          </a>
         </p>
       </div>
     </footer>

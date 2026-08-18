@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
-import { requireCalendarAccess, requireOwnerRole } from '@/lib/require-calendar';
+import { requireCalendarAccess, requireOwnerRole, calendarOwnerTier } from '@/lib/require-calendar';
 import { teamInviteSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 import { sendCollaboratorInviteEmail } from '@/lib/email';
+import { COLLABORATOR_LIMIT_BY_TIER } from '@/lib/tier';
 
 // Elite team access (0018 migration). Scoped to one calendar (?calendarId=)
 // — a collaborator's role can vary by calendar, so there's no
@@ -12,6 +13,20 @@ import { sendCollaboratorInviteEmail } from '@/lib/email';
 // can help manage bookings but must not see or change who else has access
 // (not explicitly stated in the original proposal, treated as the safer
 // default — "who can see/edit my dashboard" is itself sensitive).
+//
+// Seat limit is gated server-side (L2 launch phase — this used to be a live
+// bug: only DashboardNav hid the link, POST/PATCH never checked tier at
+// all, so a free client hitting the API directly got unlimited seats for
+// free). Gated on the CALENDAR OWNER's effective tier via calendarOwnerTier,
+// never the requester's own — an Editor with no subscription of their own
+// must not be blocked from a feature their access grant already covers.
+//
+// Downgrade behavior: collaborators already on a calendar are retained but
+// frozen when a downgrade drops the calendar under its current headcount —
+// they keep whatever access they had, the owner just can't add more until
+// they revoke someone first. We never auto-revoke on downgrade; silently
+// cutting off someone's access because a card failed is worse than an
+// owner temporarily stuck at their seat count.
 export async function GET(req: Request) {
   const client = await requireClient();
   if (client instanceof NextResponse) return client;
@@ -30,7 +45,13 @@ export async function GET(req: Request) {
     .order('invited_at', { ascending: true });
 
   if (error) return errorResponse(error, 'Could not load team members.');
-  return NextResponse.json({ collaborators: data });
+
+  const ownerTier = await calendarOwnerTier(calendar.calendarId);
+  return NextResponse.json({
+    collaborators: data,
+    tier: ownerTier,
+    seatLimit: COLLABORATOR_LIMIT_BY_TIER[ownerTier],
+  });
 }
 
 export async function POST(req: Request) {
@@ -45,6 +66,15 @@ export async function POST(req: Request) {
   if (calendar instanceof NextResponse) return calendar;
   const ownerError = requireOwnerRole(calendar.role);
   if (ownerError) return ownerError;
+
+  const ownerTier = await calendarOwnerTier(calendar.calendarId);
+  const seatLimit = COLLABORATOR_LIMIT_BY_TIER[ownerTier];
+  if (seatLimit === 0) {
+    return NextResponse.json(
+      { error: 'Team access is a Premium feature. Upgrade to Premium to invite collaborators.' },
+      { status: 403 }
+    );
+  }
 
   const parsed = teamInviteSchema.safeParse(await req.json());
   if (!parsed.success) {
@@ -65,6 +95,21 @@ export async function POST(req: Request) {
       { error: 'That email already has access to this calendar.' },
       { status: 409 }
     );
+  }
+
+  if (seatLimit !== null) {
+    const { count } = await supabase
+      .from('client_collaborators')
+      .select('id', { count: 'exact', head: true })
+      .eq('calendar_id', calendar.calendarId);
+    if ((count ?? 0) >= seatLimit) {
+      return NextResponse.json(
+        {
+          error: `You've reached the ${seatLimit}-seat limit for Premium. Upgrade to Elite for unlimited team access.`,
+        },
+        { status: 403 }
+      );
+    }
   }
 
   const [{ data: row, error }, { data: calendarRow }] = await Promise.all([

@@ -253,11 +253,6 @@ const PREMIUM_FEATURES = [
     description: 'Every visitor gets an automatic confirmation under your business name. No setup needed.',
     href: '/dashboard/reminders',
   },
-  {
-    title: 'Text message reminders',
-    description: 'Automatic text reminders before each appointment, to cut down on no-shows.',
-    href: '/dashboard/reminders',
-  },
 ];
 
 // Free-tier clients otherwise only discover premium features one at a time,

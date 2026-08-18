@@ -1,9 +1,11 @@
+import * as Sentry from '@sentry/nextjs';
 import { createServiceClient } from './supabase';
 import { getAvailableSlots, nextAvailableSlot } from './availability';
 import { sendBookingConfirmationEmail } from './email';
 import { createGoogleCalendarEvent, getGoogleCalendarEvents } from './google-calendar';
 import { getEffectiveTier } from './premium-grants';
 import { isAtLeast } from './tier';
+import { createAppointmentToken } from './appointment-token';
 import type { Appointment, AppointmentReason, BookingResult, GoogleBlock, Rule } from './types';
 
 export interface BookAppointmentInput {
@@ -45,6 +47,12 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
   const row = Array.isArray(data) ? data[0] : data;
 
   if (row?.result_status === 'booked') {
+    // L7 launch phase — always generated, regardless of tier or whether the
+    // visitor gave an email, since the booking confirmation screen itself
+    // (no email required) is the primary delivery channel; the email below
+    // is a second channel layered on top when one exists.
+    const manageUrl = `/manage/${createAppointmentToken(row.appointment_id)}`;
+
     // Premium-tier automatic confirmation email (feature request: "should
     // automatically come from the client's email"). Best-effort — a failed
     // send must never fail a booking that already succeeded, so this is
@@ -77,6 +85,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
       try {
         const start = new Date(input.startTime);
         const end = new Date(start.getTime() + reason.duration_min * 60_000);
+        const appUrl = process.env.NEXTAUTH_URL || 'http://localhost:3000';
         await sendBookingConfirmationEmail({
           visitorEmail: input.visitorEmail,
           visitorName: input.visitorName,
@@ -85,6 +94,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
           reasonName: reason.name,
           start,
           end,
+          manageUrl: `${appUrl}${manageUrl}`,
         });
         confirmationEmailSent = true;
       } catch (err: any) {
@@ -120,6 +130,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
           .update({ google_event_id: eventId })
           .eq('id', row.appointment_id);
       } catch (err: any) {
+        Sentry.captureException(err);
         await supabase.from('error_log').insert({
           calendar_id: input.calendarId,
           error_type: 'google_writeback_failed',
@@ -136,6 +147,7 @@ export async function bookAppointment(input: BookAppointmentInput): Promise<Book
         end: row.result_end,
       },
       confirmationEmailSent,
+      manageUrl,
     };
   }
 

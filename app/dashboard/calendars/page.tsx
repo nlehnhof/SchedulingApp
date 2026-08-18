@@ -9,6 +9,7 @@ import Modal from '@/components/Modal';
 import Card from '@/components/Card';
 import Spinner from '@/components/Spinner';
 import { useCalendar, type CalendarSummary } from '@/components/CalendarContext';
+import { detectBrowserTimezone } from '@/lib/timezone-options';
 
 const KEY = '/api/client/calendars';
 
@@ -51,7 +52,13 @@ export default function CalendarsPage() {
     setCreateError(null);
     setCreating(true);
     try {
-      const created = await postJSON<CalendarSummary>(KEY, {});
+      let timezone: string | undefined;
+      try {
+        timezone = detectBrowserTimezone();
+      } catch {
+        timezone = undefined;
+      }
+      const created = await postJSON<CalendarSummary>(KEY, { timezone });
       await mutate(KEY);
       setCalendarId(created.id);
     } catch (err: any) {

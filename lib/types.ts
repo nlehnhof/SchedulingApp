@@ -104,6 +104,12 @@ export interface BookingResult {
   // client). Absent entirely for a free-tier client — that's how the
   // visitor UI tells "not applicable" apart from "attempted and failed".
   confirmationEmailSent?: boolean;
+  // Path to the visitor's manage link (cancel/reschedule, L7 launch phase)
+  // — always present on a successful booking, even with no visitor email,
+  // since the confirmation screen itself is the primary delivery channel
+  // (see lib/booking.ts). Relative, not absolute — the caller already knows
+  // its own origin.
+  manageUrl?: string;
   message?: string;
   nextAvailable?: Slot;
 }

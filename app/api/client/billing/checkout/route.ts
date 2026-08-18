@@ -6,7 +6,7 @@ import { errorResponse } from '@/lib/error-response';
 import { isAtLeast, type Tier } from '@/lib/tier';
 
 // Which Stripe Price backs each paid tier's checkout. STRIPE_ELITE_PRICE_ID
-// is unset until the user creates the real $99/mo Price in their Stripe
+// is unset until the user creates the real $49/mo Price in their Stripe
 // dashboard and adds the env var — checkout for 'elite' 500s with a clear
 // message until then, rather than silently falling back to the Premium price.
 const PRICE_ENV_BY_TIER: Record<'premium' | 'elite', string | undefined> = {
@@ -29,8 +29,12 @@ export async function POST(req: Request) {
   const targetTier: Tier = body?.tier === 'elite' ? 'elite' : 'premium';
   const priceId = PRICE_ENV_BY_TIER[targetTier];
   if (!priceId) {
+    // Developer-facing detail stays server-side (a missing Price env var is
+    // an operational bug, not something a customer should see or act on) —
+    // L5 launch phase. The customer gets a generic, actionable message.
+    console.error(`Checkout for ${targetTier} isn't configured — STRIPE_${targetTier.toUpperCase()}_PRICE_ID is unset.`);
     return NextResponse.json(
-      { error: `Checkout for ${targetTier} isn't configured yet.` },
+      { error: "We couldn't start checkout. Email support@gathertime.com and we'll sort it out." },
       { status: 400 }
     );
   }
@@ -69,12 +73,19 @@ export async function POST(req: Request) {
       customer: customerId,
       client_reference_id: client.clientId,
       line_items: [{ price: priceId, quantity: 1 }],
+      // Premium only, per L5 — Cal.com is free and Acuity gives 7 days, so a
+      // self-serve launch with no trial loses on the first comparison.
+      // Elite buyers are talking to us directly anyway, so no trial there.
+      ...(targetTier === 'premium' ? { subscription_data: { trial_period_days: 14 } } : {}),
       success_url: `${appUrl}/dashboard/billing?checkout=success`,
       cancel_url: `${appUrl}/dashboard/billing?checkout=cancelled`,
     });
 
     return NextResponse.json({ url: checkoutSession.url });
   } catch (err) {
-    return errorResponse(err, 'Could not start checkout.');
+    return errorResponse(
+      err,
+      "We couldn't start checkout. Email support@gathertime.com and we'll sort it out."
+    );
   }
 }

@@ -1,5 +1,6 @@
 import { getServerSession } from 'next-auth';
 import { cookies } from 'next/headers';
+import Link from 'next/link';
 import { authOptions } from '@/lib/auth';
 import DashboardChrome from '@/components/DashboardChrome';
 import SignInButton from '@/components/SignInButton';
@@ -21,6 +22,19 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </p>
           <SignInButton />
         </div>
+        <p className="text-body-sm text-text-2">
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-text">
+            Privacy
+          </Link>
+          <span className="px-2 text-text-3">·</span>
+          <Link href="/terms" className="underline underline-offset-2 hover:text-text">
+            Terms
+          </Link>
+          <span className="px-2 text-text-3">·</span>
+          <a href="mailto:support@gathertime.com" className="underline underline-offset-2 hover:text-text">
+            support@gathertime.com
+          </a>
+        </p>
         {adminLoginEnabled && (
           <div className="flex w-full max-w-xs flex-col items-center gap-3 border-t border-hairline pt-6">
             <p className="text-center text-body-sm text-rose">

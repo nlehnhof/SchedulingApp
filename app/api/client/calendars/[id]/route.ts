@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { calendarCreateSchema } from '@/lib/validation';
@@ -86,6 +87,7 @@ export async function DELETE(_req: Request, { params }: { params: { id: string }
         .single();
       await syncExtraCalendarQuantity(row?.stripe_subscription_id ?? null, extraCount);
     } catch (err) {
+      Sentry.captureException(err);
       console.error(`Failed to sync extra-calendar billing for client ${client.clientId}.`, err);
     }
   }

@@ -6,8 +6,15 @@ import { safeCompare } from './safe-compare';
 import { isRateLimited } from './rate-limit';
 import { getEffectiveTier } from './premium-grants';
 
-// Client auth: Google OAuth with Calendar scopes (Constraints: client auth = Google OAuth,
-// scope calendar.readonly + calendar read/write per SCHEDULING_APP_ORCHESTRATION.md #7).
+// Client auth: Google OAuth with the narrowest Calendar scopes this app actually calls.
+// SCHEDULING_APP_ORCHESTRATION.md #7 specified `calendar.readonly` + full `calendar`. Both
+// are wider than anything in lib/google-calendar.ts needs, and full `calendar` renders on
+// the consent screen as "See, edit, share, and permanently delete all the calendars you can
+// access" - a hard sell to a church secretary, and a harder one to Google's sensitive-scope
+// reviewers, who require each requested scope to be the narrowest one that works. Every
+// Calendar scope is still "sensitive", so verification is required either way; narrowing
+// only makes the justification defensible and the consent screen honest. Scope-to-call-site
+// mapping is inline below - if you add a Google Calendar call, check it against this list.
 //
 // A second, admin/password provider is added below for click-through testing before a real
 // Google Cloud OAuth app exists. It is a fixed, low-entropy default credential — even with
@@ -24,8 +31,21 @@ const providers: NextAuthOptions['providers'] = [
           'openid',
           'email',
           'profile',
-          'https://www.googleapis.com/auth/calendar.readonly',
-          'https://www.googleapis.com/auth/calendar',
+          // Read + write events on whichever calendar the client picked: the
+          // 30-min poller (getGoogleCalendarEvents), the live availability
+          // fetch, and the booking write-back (create/update/delete
+          // GoogleCalendarEvent) - all in lib/google-calendar.ts. Deliberately
+          // NOT the narrower `calendar.events.owned`: this app supports polling
+          // and writing to a calendar that was *shared* with the client (a
+          // church's shared "Building" or "Counseling" calendar is the whole
+          // point of the picker), and `.owned` covers only calendars they own.
+          'https://www.googleapis.com/auth/calendar.events',
+          // Read-only list of the client's calendars, for the picker on
+          // /dashboard/calendar (listGoogleCalendars). Nothing in this app
+          // creates, renames, subscribes to, unsubscribes from, or changes the
+          // sharing of a calendar, so none of `calendar.calendars*`, the
+          // writable `calendar.calendarlist`, or `calendar.acls*` are requested.
+          'https://www.googleapis.com/auth/calendar.calendarlist.readonly',
         ].join(' '),
         access_type: 'offline', // required to receive a refresh_token
         prompt: 'consent', // force refresh_token on every sign-in (Google only sends it once otherwise)

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { calendarCreateSchema } from '@/lib/validation';
@@ -9,7 +10,7 @@ import { syncExtraCalendarQuantity } from '@/lib/stripe';
 // Premium stay at the pre-Elite behavior of exactly 1 calendar (created
 // automatically for every client — see lib/auth.ts's signIn callback and
 // the 0015 migration's backfill for existing clients); Elite includes 10 in
-// the base $99/mo plan. Calendars past the included 10 aren't blocked
+// the base $49/mo plan. Calendars past the included 10 aren't blocked
 // outright — each one adds $5/mo to the subscription (see
 // lib/stripe.ts's syncExtraCalendarQuantity) — up to a hard cap of 20 total,
 // which *is* a flat block (prevents runaway per-seat billing/abuse rather
@@ -99,7 +100,11 @@ export async function POST(req: Request) {
 
   const { data, error } = await supabase
     .from('booking_calendars')
-    .insert({ client_id: client.clientId, display_name: parsed.data.displayName ?? null })
+    .insert({
+      client_id: client.clientId,
+      display_name: parsed.data.displayName ?? null,
+      timezone: parsed.data.timezone ?? 'UTC',
+    })
     .select('id, display_name, slug, created_at')
     .single();
 
@@ -115,6 +120,7 @@ export async function POST(req: Request) {
         .single();
       await syncExtraCalendarQuantity(row?.stripe_subscription_id ?? null, extraCount);
     } catch (err) {
+      Sentry.captureException(err);
       console.error(`Failed to sync extra-calendar billing for client ${client.clientId}.`, err);
     }
   }

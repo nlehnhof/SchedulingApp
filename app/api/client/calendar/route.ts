@@ -30,7 +30,7 @@ export async function GET(req: Request) {
   const supabase = createServiceClient();
   const { data: calendarRow, error } = await supabase
     .from('booking_calendars')
-    .select('google_calendar_id, timezone, clients(google_refresh_token)')
+    .select('google_calendar_id, timezone, allow_visitor_management, clients(google_refresh_token)')
     .eq('id', calendar.calendarId)
     .single();
   if (error) return errorResponse(error, 'Could not load calendar settings.');
@@ -47,6 +47,7 @@ export async function GET(req: Request) {
       calendars: [],
       selected: calendarRow.google_calendar_id,
       timezone: calendarRow.timezone,
+      allowVisitorManagement: calendarRow.allow_visitor_management,
     });
   }
 
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
       calendars,
       selected: calendarRow.google_calendar_id,
       timezone: calendarRow.timezone,
+      allowVisitorManagement: calendarRow.allow_visitor_management,
     });
   } catch (err) {
     return errorResponse(
@@ -127,6 +129,10 @@ export async function PATCH(req: Request) {
     updates.timezone = body.timezone;
   }
 
+  if (body.allowVisitorManagement !== undefined) {
+    updates.allow_visitor_management = body.allowVisitorManagement;
+  }
+
   const { error: updateError } = await supabase
     .from('booking_calendars')
     .update(updates)
@@ -136,5 +142,6 @@ export async function PATCH(req: Request) {
   return NextResponse.json({
     selected: body.googleCalendarId,
     timezone: body.timezone,
+    allowVisitorManagement: body.allowVisitorManagement,
   });
 }

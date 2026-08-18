@@ -38,11 +38,13 @@ const PREMIUM_LINKS: NavLink[] = [
   { href: '/dashboard/branding', label: 'Branding', minTier: 'premium' },
   { href: '/dashboard/reminders', label: 'Reminders', minTier: 'premium' },
   { href: '/dashboard/analytics', label: 'Analytics', minTier: 'premium' },
+  // Team access moved down to Premium (2-seat cap) from Elite-only
+  // (launch-readiness phase L2 — see lib/tier.ts's COLLABORATOR_LIMIT_BY_TIER
+  // and CLAUDE.md's "Team access" section) — a $19 Premium plan with one
+  // calendar and one seat lost head-on to Cal.com's free tier otherwise.
+  { href: '/dashboard/team', label: 'Team', minTier: 'premium' },
 ];
-const ELITE_LINKS: NavLink[] = [
-  { href: '/dashboard/calendars', label: 'Calendars', minTier: 'elite' },
-  { href: '/dashboard/team', label: 'Team', minTier: 'elite' },
-];
+const ELITE_LINKS: NavLink[] = [{ href: '/dashboard/calendars', label: 'Calendars', minTier: 'elite' }];
 
 // Dev tier-toggle cycles free -> premium -> elite -> free, rather than a
 // boolean flip, now that there are three tiers to click through.

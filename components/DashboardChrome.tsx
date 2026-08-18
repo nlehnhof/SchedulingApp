@@ -5,6 +5,7 @@ import DashboardNav from './DashboardNav';
 import OnboardingTour from './OnboardingTour';
 import CalendarProvider from './CalendarContext';
 import CollaboratorBanner from './CollaboratorBanner';
+import TimezoneWarningBanner from './TimezoneWarningBanner';
 import type { Tier } from '@/lib/tier';
 
 // Client-side container so the nav's "Replay tutorial" button and the tour
@@ -49,6 +50,7 @@ export default function DashboardChrome({
         />
         <div className="flex flex-1 flex-col">
           <CollaboratorBanner />
+          <TimezoneWarningBanner />
           <main className="flex-1 p-4 md:p-8">{children}</main>
         </div>
         <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />

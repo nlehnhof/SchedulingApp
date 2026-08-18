@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
 import { requireCalendarAccess, requireWriteRole } from '@/lib/require-calendar';
 import { appointmentEditSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
-import { createGoogleCalendarEvent, deleteGoogleCalendarEvent, updateGoogleCalendarEvent } from '@/lib/google-calendar';
+import { createGoogleCalendarEvent, updateGoogleCalendarEvent } from '@/lib/google-calendar';
+import { cancelAppointment } from '@/lib/appointment-actions';
 
 function ownerOf(calendar: any): any {
   return Array.isArray(calendar?.clients) ? calendar.clients[0] : calendar?.clients;
@@ -93,6 +95,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         await supabase.from('appointments').update({ google_event_id: eventId }).eq('id', params.id);
       }
     } catch (err: any) {
+      Sentry.captureException(err);
       await supabase.from('error_log').insert({
         calendar_id: calendar.calendarId,
         error_type: 'google_writeback_failed',
@@ -117,49 +120,13 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
   const writeError = requireWriteRole(calendar.role);
   if (writeError) return writeError;
 
-  const supabase = createServiceClient();
-
-  const { data: existing } = await supabase
-    .from('appointments')
-    .select('google_event_id')
-    .eq('id', params.id)
-    .eq('calendar_id', calendar.calendarId)
-    .maybeSingle();
-
-  const { error, count } = await supabase
-    .from('appointments')
-    .delete({ count: 'exact' })
-    .eq('id', params.id)
-    .eq('calendar_id', calendar.calendarId); // scope to this calendar, no cross-tenant deletes
-
-  if (error) return errorResponse(error, 'Could not delete appointment.');
-  if (!count) return NextResponse.json({ error: 'not_found' }, { status: 404 });
-
-  // Best-effort: clean up the written-back Google event too, same
-  // never-fail-the-request pattern as the write-back on create/edit.
-  if (existing?.google_event_id) {
-    const { data: calendarRow } = await supabase
-      .from('booking_calendars')
-      .select('google_calendar_id, clients(google_refresh_token)')
-      .eq('id', calendar.calendarId)
-      .single();
-    const owner = ownerOf(calendarRow);
-    if (owner?.google_refresh_token) {
-      try {
-        await deleteGoogleCalendarEvent(
-          owner.google_refresh_token,
-          calendarRow?.google_calendar_id || 'primary',
-          existing.google_event_id
-        );
-      } catch (err: any) {
-        await supabase.from('error_log').insert({
-          calendar_id: calendar.calendarId,
-          error_type: 'google_writeback_failed',
-          message: err?.message ?? String(err),
-        });
-      }
-    }
+  let result;
+  try {
+    result = await cancelAppointment(params.id, calendar.calendarId);
+  } catch (err) {
+    return errorResponse(err, 'Could not delete appointment.');
   }
+  if (result.status === 'not_found') return NextResponse.json({ error: 'not_found' }, { status: 404 });
 
   return NextResponse.json({ status: 'deleted' });
 }

@@ -9,8 +9,8 @@ paying users) define availability rules; visitors book appointments through a ca
 public link (`/visit/[clientLink]`, where the link is a `booking_calendars` row's UUID or a
 premium-and-above custom slug); the system prevents double-booking via an atomic Postgres
 function and syncs busy blocks from Google Calendar. A client owns one or more independently
-configured **booking calendars** (Elite tier can have up to 5; free/premium always have exactly
-1) — see "Multi-calendar architecture" below.
+configured **booking calendars** (Elite tier includes 10, up to a hard cap of 20; free/premium
+always have exactly 1) — see "Multi-calendar architecture" below.
 
 Full original design doc is referenced in the README as `SCHEDULING_APP_ORCHESTRATION.md` but
 that file is not present in this checkout.
@@ -45,10 +45,16 @@ Migrations must be applied **in order**: `0001_init` → `0002_booking_function`
 `0014_booking_calendars` → `0015_booking_calendars_backfill` → `0016_calendar_id_fk_move` →
 `0017_booking_functions_calendar_scoped` → `0018_client_collaborators` →
 `0019_reason_notes_and_checkboxes` → `0020_slot_fill_direction` →
-`0021_slot_fill_direction_per_rule`. `0020` added a per-calendar `slot_fill_direction` column
+`0021_slot_fill_direction_per_rule` → `0022_billing_period_and_trial` →
+`0023_visitor_management`. `0020` added a per-calendar `slot_fill_direction` column
 that `0021` immediately superseded — see "Rule types" below; the column no longer exists,
-only its migration history does. `0013` also needs `STRIPE_ELITE_PRICE_ID` set
-(alongside the existing `STRIPE_PREMIUM_PRICE_ID`) once an Elite Price exists in Stripe — see
+only its migration history does. `0022` adds `stripe_current_period_end`/`stripe_trial_end` to
+`clients`, written only by the Stripe webhook, for the billing page's renewal/trial-remaining
+copy (launch-readiness phase L5). `0023` adds `booking_calendars.allow_visitor_management`
+(default `true`), the per-calendar opt-out for visitor-facing self-service cancel/reschedule —
+see "Visitor self-service" below (launch-readiness phase L7). `0013` also needs
+`STRIPE_ELITE_PRICE_ID` set (alongside the existing `STRIPE_PREMIUM_PRICE_ID`) once an Elite
+Price exists in Stripe — see
 its migration file header. `0014`-`0017` are the multi-calendar migration (see "Multi-calendar
 architecture" below) — `0016` is a genuinely destructive schema change (drops `client_id` off
 five tables and several columns off `clients`), so back up before applying it against a live
@@ -161,7 +167,7 @@ calendars — free/premium are capped at 1 (created automatically: `lib/auth.ts`
 callback creates one, same id as the client, on a brand-new signup; `0015`'s migration
 backfilled one for every pre-existing client the same way, which is also why an old client's
 `/visit/[uuid]` link kept resolving unchanged after the migration). Elite includes 10 calendars
-in the base $99/mo plan; calendars 11-20 aren't blocked, they're metered — each one adds
+in the base $49/mo plan; calendars 11-20 aren't blocked, they're metered — each one adds
 $5/mo to the subscription as a quantity-based Stripe subscription item
 (`STRIPE_ELITE_EXTRA_CALENDAR_PRICE_ID`, `lib/stripe.ts`'s `syncExtraCalendarQuantity()`), and
 20 total is a hard cap (`app/api/client/calendars/route.ts`'s `CALENDAR_INCLUDED_LIMIT_BY_TIER`/
@@ -205,12 +211,21 @@ have just removed the one that would've been referenced.
   `lib/validation.ts`'s `calendarSelectSchema` deliberately names its field `googleCalendarId`,
   not `calendarId`, to keep this distinction visible in code.
 
-## Team access (Elite tier)
+## Team access (Premium and Elite)
 
 A client can invite other emails to help manage one of their calendars without sharing their
 own Google login (`client_collaborators`, `0018` migration). Access is scoped per-**calendar**,
 not per-account — the same email can be an Editor on one calendar and have no access at all to
 another, even under the same owner, via `UNIQUE(calendar_id, email)`.
+
+**Seat limits by tier** (`COLLABORATOR_LIMIT_BY_TIER` in `lib/tier.ts`, launch-readiness phase
+L2): free gets 0 (no team access at all), Premium gets 2 collaborators (3 people total counting
+the owner), Elite is unlimited. Enforced server-side in `POST`/`PATCH /api/client/team*`
+against the *calendar owner's* effective tier (`calendarOwnerTier`, never the requester's own)
+— this used to be a live bug where only `DashboardNav` hid the nav link and the API itself
+enforced nothing, so a free-tier client hitting the route directly got unlimited collaborators
+for free. A downgrade never revokes existing collaborators — they're retained but frozen (kept
+access, owner just can't add more until they free up a seat) rather than silently cut off.
 
 - **A collaborator can have no `clients` row of their own at all.** `lib/require-client.ts`'s
   `clientId` is nullable for exactly this reason — `lib/auth.ts`'s `signIn` callback checks
@@ -252,8 +267,9 @@ another, even under the same owner, via `UNIQUE(calendar_id, email)`.
 
 **Tier is three-valued and ranked, not a boolean, and has two independent sources per read.**
 `clients.tier` (`'free' | 'premium' | 'elite'`, widened from two values by the `0013` migration
-— `elite` is $99/mo, unlocking multiple booking calendars and shared per-calendar dashboard
-access; see `gather-elite-proposal.md`) is the column every route ultimately checks, but it can
+— premium is $19/mo, elite is $49/mo, unlocking multiple booking calendars and shared
+per-calendar dashboard access; `gather-elite-proposal.md`'s own $29/mo Premium figure was an
+illustrative placeholder, superseded by these) is the column every route ultimately checks, but it can
 be set two ways: the Stripe webhook (`app/api/stripe/webhook/route.ts`, the only place that
 writes it for a real subscription — it derives tier from *which Stripe Price* the subscription's
 line item is on, via `STRIPE_PREMIUM_PRICE_ID`/`STRIPE_ELITE_PRICE_ID`, not just active/trialing
@@ -294,19 +310,48 @@ shared store (e.g. Upstash Redis) or the effective limit silently multiplies by 
 
 - `app/dashboard/*` — client-facing pages (rules, reasons, schedule, calendar, errors, export,
   billing, branding, reminders, analytics, calendars, team — branding/reminders/analytics are
-  premium+, calendars/team are Elite-only), gated by `app/dashboard/layout.tsx`'s server-side
-  session check. Every page except billing/reminders/calendars/team reads the
-  currently-selected calendar from `useCalendar()` (`components/CalendarContext.tsx`), which
-  also exposes the caller's `role` on it for viewer-role UI gating — see "Multi-calendar
-  architecture" and "Team access" above.
+  premium+, calendars is Elite-only, team is Premium+ with a seat cap, see "Team access"
+  above), gated by `app/dashboard/layout.tsx`'s server-side session check. Every page except
+  billing/reminders/calendars/team reads the currently-selected calendar from `useCalendar()`
+  (`components/CalendarContext.tsx`), which also exposes the caller's `role` on it for
+  viewer-role UI gating — see "Multi-calendar architecture" and "Team access" above. The
+  billing page's own "Danger zone" (launch-readiness phase L6) is account deletion
+  (`DELETE /api/client/account` — cancels Stripe, revokes the Google refresh token, deletes the
+  `clients` row and lets FK cascades take the rest) and a non-destructive "Disconnect Google"
+  (`POST /api/client/account/disconnect-google`), both owner-only.
 - `app/visit/[clientLink]` — 4-step visitor booking flow (reason → date/time → details →
   confirmation), including conflict "try this instead?" UI; `[clientLink]` resolves to a
   `booking_calendars` row via `lib/resolve-calendar-link.ts`, despite the param's name (kept for
   route-path/URL-scheme continuity with pre-multi-calendar links).
-- `app/api/client/*` / `app/api/visitor/[clientLink]/*` / `app/api/cron/*` — see auth section
-  above. `app/api/client/calendars/*` is calendar *management* (create/rename/delete a
-  `booking_calendars` row); every other calendar-scoped route takes an existing calendar's id
-  as a `?calendarId=` param instead.
+- `app/manage/[token]` (launch-readiness phase L7) — visitor-facing cancel/reschedule, no login.
+  `[token]` is a stateless HMAC over the appointment id (`lib/appointment-token.ts`, verified
+  with `lib/safe-compare.ts`'s constant-time compare), always shown on the booking confirmation
+  screen and included in the confirmation email when one was captured. Backed by
+  `app/api/manage/[token]/*`: cancel goes through `lib/appointment-actions.ts`'s
+  `cancelAppointment()` (shared with the owner's own `DELETE /api/client/appointments/[id]`, so
+  the Google write-back deletion only has one implementation); reschedule goes through the same
+  `update_appointment` Postgres function the owner's `PATCH` route calls, never a plain UPDATE.
+  Both are gated on a calendar's `allow_visitor_management` flag (`0023` migration, settable on
+  `app/dashboard/calendar`) and the calendar's own `min_notice` rule
+  (`lib/min-notice.ts`'s `meetsMinNotice()`, reused rather than reinvented).
+- `app/privacy`, `app/terms` — static legal pages (launch-readiness phase L1), linked from the
+  marketing footer and the dashboard's signed-out state. Required before Google OAuth
+  verification or Stripe activation will proceed.
+- `app/api/health` — unauthenticated liveness check (launch-readiness phase L8): 200 with a
+  cheap `clients` row query, 503 when the database is unreachable. Point an uptime monitor here.
+- **Error monitoring** — Sentry (`@sentry/nextjs`, launch-readiness phase L8), wired via
+  `sentry.client.config.ts` / `sentry.server.config.ts` / `sentry.edge.config.ts` and
+  `instrumentation.ts`; a no-op everywhere until `SENTRY_DSN`/`NEXT_PUBLIC_SENTRY_DSN` are set.
+  `sentry.server.config.ts`'s `beforeSend` drops request bodies on `/api/visitor/*` and strips
+  visitor name/phone/email fields before anything leaves the process — the privacy policy
+  commits to Sentry never seeing that data. `Sentry.captureException` is wired into the
+  highest-cost-to-miss failure paths: the Stripe webhook (the only place `tier` is written),
+  every `google_writeback_failed` site, and the cron routes — not blanket-added to every
+  `errorResponse()` call in the app.
+- `app/api/client/*` / `app/api/visitor/[clientLink]/*` / `app/api/manage/[token]/*` /
+  `app/api/cron/*` — see auth section above. `app/api/client/calendars/*` is calendar
+  *management* (create/rename/delete a `booking_calendars` row); every other calendar-scoped
+  route takes an existing calendar's id as a `?calendarId=` param instead.
 - `lib/` — all business logic and Supabase/Google/email/Stripe integration; UI components
   read/write through the `app/api/*` routes, not `lib/` directly, except where routes
   themselves import it

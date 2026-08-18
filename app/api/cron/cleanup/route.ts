@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import * as Sentry from '@sentry/nextjs';
 import { requireCron } from '@/lib/require-cron';
 import { createServiceClient } from '@/lib/supabase';
 import { errorResponse } from '@/lib/error-response';
@@ -24,6 +25,7 @@ export async function POST(req: Request) {
     ]);
 
   if (aptError || logError) {
+    Sentry.captureException(aptError ?? logError);
     return errorResponse(aptError ?? logError, 'Cleanup job failed.');
   }
 

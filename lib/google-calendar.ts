@@ -3,9 +3,28 @@ import { toNaiveISOString } from './date-format';
 import type { GoogleBlock } from './types';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
+const REVOKE_URL = 'https://oauth2.googleapis.com/revoke';
 const EVENTS_URL = (calendarId: string) =>
   `https://www.googleapis.com/calendar/v3/calendars/${encodeURIComponent(calendarId)}/events`;
 const CALENDAR_LIST_URL = 'https://www.googleapis.com/calendar/v3/users/me/calendarList';
+
+/**
+ * Revokes a refresh token with Google (used by both account deletion and the
+ * standalone "Disconnect Google" action, L6 launch phase). Best-effort by
+ * design — callers must catch and log, never let this block the DB write
+ * that actually clears `google_refresh_token`. A 400 from Google means the
+ * token was already invalid/revoked, which is the same end state we want,
+ * so it's treated as success rather than surfaced as a failure.
+ */
+export async function revokeGoogleToken(refreshToken: string): Promise<void> {
+  const res = await fetch(`${REVOKE_URL}?token=${encodeURIComponent(refreshToken)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  });
+  if (!res.ok && res.status !== 400) {
+    throw new Error(`Failed to revoke Google token: ${res.status} ${await res.text()}`);
+  }
+}
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
   const res = await fetch(TOKEN_URL, {
@@ -56,8 +75,9 @@ export interface GoogleCalendarListEntry {
 /**
  * Lists every calendar on the client's Google account (their own calendars
  * plus any they've been given access to), for the calendar-picker on
- * app/dashboard/calendar. Same `calendar.readonly` scope already granted at
- * sign-in (lib/auth.ts) covers this endpoint — no new consent needed.
+ * app/dashboard/calendar. Covered by the `calendar.calendarlist.readonly`
+ * scope granted at sign-in (lib/auth.ts) — read-only, and the only reason
+ * this app asks for anything beyond `calendar.events`.
  */
 export async function listGoogleCalendars(refreshToken: string): Promise<GoogleCalendarListEntry[]> {
   const accessToken = await refreshAccessToken(refreshToken);

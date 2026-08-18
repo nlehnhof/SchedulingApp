@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import Link from 'next/link';
 import { fetcher, postJSON } from '@/lib/fetcher';
 import { parseLocalDateOnly } from '@/lib/date-format';
 import { Check, X } from '@phosphor-icons/react';
@@ -69,6 +70,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
     start: string;
     end: string;
     confirmationEmailSent?: boolean;
+    manageUrl?: string;
   } | null>(null);
   const [conflict, setConflict] = useState<{ message?: string; nextAvailable?: { start: string; end: string } } | null>(
     null
@@ -135,6 +137,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
         status: 'booked' | 'conflict';
         appointment?: { start: string; end: string };
         confirmationEmailSent?: boolean;
+        manageUrl?: string;
         message?: string;
         nextAvailable?: { start: string; end: string };
       }>(`/api/visitor/${clientLink}/book`, {
@@ -148,7 +151,11 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
       });
 
       if (result.status === 'booked' && result.appointment) {
-        setConfirmed({ ...result.appointment, confirmationEmailSent: result.confirmationEmailSent });
+        setConfirmed({
+          ...result.appointment,
+          confirmationEmailSent: result.confirmationEmailSent,
+          manageUrl: result.manageUrl,
+        });
         setStep('confirmation');
       } else {
         setConflict({ message: result.message, nextAvailable: result.nextAvailable });
@@ -481,6 +488,14 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
               We tried to send a confirmation to {details?.visitorEmail} but it didn&apos;t go
               through. Your appointment is still booked, and{' '}
               {clientName ?? 'the client'} can see it.
+            </p>
+          )}
+          {confirmed.manageUrl && (
+            <p className="text-body-sm text-text-2">
+              Need to cancel or reschedule? Save this link:{' '}
+              <Link href={confirmed.manageUrl} className="text-lume-bright hover:underline">
+                Manage your appointment
+              </Link>
             </p>
           )}
           <Button variant="secondary" onClick={bookAnother} className="mt-4">

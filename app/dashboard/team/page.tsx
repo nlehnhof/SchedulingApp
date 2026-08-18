@@ -8,7 +8,9 @@ import Input from '@/components/Input';
 import Select from '@/components/Select';
 import Card from '@/components/Card';
 import Spinner from '@/components/Spinner';
+import PremiumLockCard from '@/components/PremiumLockCard';
 import { useCalendar } from '@/components/CalendarContext';
+import type { Tier } from '@/lib/tier';
 
 interface Collaborator {
   id: string;
@@ -16,6 +18,12 @@ interface Collaborator {
   role: 'viewer' | 'editor';
   invited_at: string;
   accepted_at: string | null;
+}
+
+interface TeamResponse {
+  collaborators: Collaborator[];
+  tier: Tier;
+  seatLimit: number | null;
 }
 
 // Elite feature: shared dashboard access for other emails, without sharing
@@ -26,7 +34,7 @@ interface Collaborator {
 export default function TeamPage() {
   const { calendarId, calendars } = useCalendar();
   const KEY = calendarId ? `/api/client/team?calendarId=${calendarId}` : null;
-  const { data, error, isLoading } = useSWR<{ collaborators: Collaborator[] }>(KEY, fetcher);
+  const { data, error, isLoading } = useSWR<TeamResponse>(KEY, fetcher);
 
   const calendarName = calendars.find((c) => c.id === calendarId)?.display_name || 'this calendar';
 
@@ -40,7 +48,19 @@ export default function TeamPage() {
   if (isLoading) return <Spinner />;
   if (error || !data) return <p className="text-body-sm text-rose">Failed to load your team.</p>;
 
+  if (data.seatLimit === 0) {
+    return (
+      <PremiumLockCard
+        title="Team"
+        description="Upgrade to Premium to give other people access to your dashboard without sharing your Google login."
+      />
+    );
+  }
+
   const collaborators = data.collaborators;
+  const seatLimit = data.seatLimit;
+  const seatsUsed = collaborators.length;
+  const atLimit = seatLimit !== null && seatsUsed >= seatLimit;
 
   async function handleInvite(e: React.FormEvent) {
     e.preventDefault();
@@ -97,6 +117,12 @@ export default function TeamPage() {
           sharing your Google login. Viewers can look but not touch. Editors can manage rules,
           reasons, and appointments. Billing and team access always stay owner-only.
         </p>
+        {seatLimit !== null && (
+          <p className="mt-1 text-body-sm text-text-2">
+            {seatsUsed} of {seatLimit} seats used.
+            {atLimit && ' Upgrade to Elite for unlimited team access.'}
+          </p>
+        )}
       </div>
 
       {actionError && <p className="text-body-sm text-rose">{actionError}</p>}
@@ -151,25 +177,32 @@ export default function TeamPage() {
         )}
       </ul>
 
-      <Card padding="sm">
-        <form onSubmit={handleInvite} className="flex flex-col gap-2 sm:flex-row sm:items-end">
-          <Input
-            label="Email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="colleague@example.com"
-            required
-          />
-          <Select label="Role" value={role} onChange={(e) => setRole(e.target.value as 'viewer' | 'editor')}>
-            <option value="editor">Editor</option>
-            <option value="viewer">Viewer</option>
-          </Select>
-          <Button type="submit" disabled={inviting}>
-            {inviting ? 'Sending…' : 'Send invite'}
-          </Button>
-        </form>
-      </Card>
+      {atLimit ? (
+        <p className="text-body-sm text-text-2">
+          You&apos;re at your seat limit. Revoke someone&apos;s access, or upgrade to Elite for
+          unlimited team access.
+        </p>
+      ) : (
+        <Card padding="sm">
+          <form onSubmit={handleInvite} className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <Input
+              label="Email"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="colleague@example.com"
+              required
+            />
+            <Select label="Role" value={role} onChange={(e) => setRole(e.target.value as 'viewer' | 'editor')}>
+              <option value="editor">Editor</option>
+              <option value="viewer">Viewer</option>
+            </Select>
+            <Button type="submit" disabled={inviting}>
+              {inviting ? 'Sending…' : 'Send invite'}
+            </Button>
+          </form>
+        </Card>
+      )}
       {inviteError && <p className="text-body-sm text-rose">{inviteError}</p>}
     </div>
   );

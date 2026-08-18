@@ -7,31 +7,15 @@ import Button from '@/components/Button';
 import Select from '@/components/Select';
 import Spinner from '@/components/Spinner';
 import { useCalendar } from '@/components/CalendarContext';
+import { TIMEZONE_OPTIONS } from '@/lib/timezone-options';
 
 interface GoogleCalendarData {
   linked: boolean;
   calendars: { id: string; summary: string; primary: boolean }[];
   selected: string;
   timezone: string;
+  allowVisitorManagement: boolean;
 }
-
-// A curated subset, not every IANA zone — Intl.supportedValuesOf('timeZone')
-// would be exhaustive but overwhelming for a dropdown; the server accepts
-// any valid IANA name regardless (lib/validation.ts's calendarSelectSchema
-// validates via Intl.DateTimeFormat, not against this list).
-const TIMEZONE_OPTIONS = [
-  { id: 'Pacific/Honolulu', label: 'Hawaii' },
-  { id: 'America/Anchorage', label: 'Alaska' },
-  { id: 'America/Los_Angeles', label: 'Pacific (US & Canada)' },
-  { id: 'America/Denver', label: 'Mountain (US & Canada)' },
-  { id: 'America/Phoenix', label: 'Arizona (no DST)' },
-  { id: 'America/Chicago', label: 'Central (US & Canada)' },
-  { id: 'America/New_York', label: 'Eastern (US & Canada)' },
-  { id: 'America/Puerto_Rico', label: 'Atlantic (Puerto Rico)' },
-  { id: 'Europe/London', label: 'London' },
-  { id: 'Europe/Paris', label: 'Paris/Berlin/Madrid' },
-  { id: 'UTC', label: 'UTC' },
-];
 
 export default function CalendarPage() {
   const { calendarId, role } = useCalendar();
@@ -44,6 +28,7 @@ export default function CalendarPage() {
   // it visually distinct from the booking-calendar id from context above.
   const [googleCalendarId, setGoogleCalendarId] = useState('');
   const [timezone, setTimezone] = useState('');
+  const [allowVisitorManagement, setAllowVisitorManagement] = useState(true);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -52,6 +37,7 @@ export default function CalendarPage() {
     if (!data) return;
     setGoogleCalendarId(data.selected);
     setTimezone(data.timezone);
+    setAllowVisitorManagement(data.allowVisitorManagement);
   }, [data]);
 
   if (isLoading) return <Spinner />;
@@ -64,7 +50,7 @@ export default function CalendarPage() {
     setSaved(false);
     setSaving(true);
     try {
-      const body: Record<string, string> = { timezone };
+      const body: Record<string, unknown> = { timezone, allowVisitorManagement };
       if (data!.linked) body.googleCalendarId = googleCalendarId;
       const res = await fetch(KEY, {
         method: 'PATCH',
@@ -140,6 +126,23 @@ export default function CalendarPage() {
           </p>
         </div>
       )}
+
+      <label className="flex items-center gap-2 rounded-lg border border-hairline p-3 text-body-sm text-text">
+        <input
+          type="checkbox"
+          checked={allowVisitorManagement}
+          onChange={(e) => setAllowVisitorManagement(e.target.checked)}
+          disabled={!canWrite}
+          className="accent-lume"
+        />
+        <span>
+          Let visitors cancel or reschedule their own appointments
+          <span className="block text-body-sm text-text-2">
+            When off, the link in the confirmation email tells them to contact you directly
+            instead.
+          </span>
+        </span>
+      </label>
 
       {saveError && <p className="text-body-sm text-rose">{saveError}</p>}
       {saved && <p className="text-body-sm text-jade">Saved.</p>}

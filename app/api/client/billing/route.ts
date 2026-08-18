@@ -17,7 +17,9 @@ export async function GET() {
   const supabase = createServiceClient();
   const { data, error } = await supabase
     .from('clients')
-    .select('email, tier, stripe_customer_id, stripe_subscription_status')
+    .select(
+      'email, tier, stripe_customer_id, stripe_subscription_status, stripe_current_period_end, stripe_trial_end'
+    )
     .eq('id', client.clientId)
     .single();
 
@@ -32,7 +34,10 @@ export async function GET() {
   const tier = await getEffectiveTier(data.tier, data.email);
   return NextResponse.json({
     tier,
+    email: data.email,
     stripe_customer_id: data.stripe_customer_id,
     stripe_subscription_status: data.stripe_subscription_status,
+    stripe_current_period_end: data.stripe_current_period_end,
+    stripe_trial_end: data.stripe_trial_end,
   });
 }

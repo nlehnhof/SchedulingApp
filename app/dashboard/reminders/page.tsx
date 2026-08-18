@@ -1,10 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import useSWR, { mutate } from 'swr';
+import useSWR from 'swr';
 import { fetcher } from '@/lib/fetcher';
-import Button from '@/components/Button';
 import PremiumLockCard from '@/components/PremiumLockCard';
 import Spinner from '@/components/Spinner';
 import { isAtLeast, type Tier } from '@/lib/tier';
@@ -12,29 +10,18 @@ import { isAtLeast, type Tier } from '@/lib/tier';
 interface RemindersData {
   id: string;
   tier: Tier;
-  sms_reminders_enabled: boolean;
 }
 
 const KEY = '/api/client/reminders';
 
-// Confirmation emails and SMS reminders share this one page because they're
-// the same product idea from the client's point of view — "keep the visitor
-// informed about their appointment" — even though only one of the two is
-// actually wired to a live provider yet. sms_reminders_enabled is a
-// client-level (not per-calendar) preference, unlike branding, which moved
-// to booking_calendars — see app/api/client/reminders/route.ts.
+// Confirmation emails are live; text reminders are not (L4 launch phase —
+// lib/sms.ts's sendSms() throws unconditionally by design, there is no
+// connected provider). This page used to offer a toggle that saved a
+// preference for a feature that could never actually send anything —
+// replaced with a plain "not available yet" statement rather than a form
+// that looks like it does something. See app/api/client/reminders/route.ts.
 export default function RemindersPage() {
   const { data, error, isLoading } = useSWR<RemindersData>(KEY, fetcher);
-
-  const [smsRemindersEnabled, setSmsRemindersEnabled] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [saved, setSaved] = useState(false);
-
-  useEffect(() => {
-    if (!data) return;
-    setSmsRemindersEnabled(data.sms_reminders_enabled);
-  }, [data]);
 
   if (isLoading) return <Spinner />;
   if (error || !data) return <p className="text-body-sm text-rose">Failed to load reminder settings.</p>;
@@ -43,33 +30,9 @@ export default function RemindersPage() {
     return (
       <PremiumLockCard
         title="Reminders & Confirmations"
-        description="Upgrade to Premium and every visitor automatically gets a booking confirmation email under your business name, plus the option to send a text reminder before each appointment, to cut down on no-shows."
+        description="Upgrade to Premium and every visitor automatically gets a booking confirmation email under your business name."
       />
     );
-  }
-
-  async function handleSave(e: React.FormEvent) {
-    e.preventDefault();
-    setSaveError(null);
-    setSaved(false);
-    setSaving(true);
-    try {
-      const res = await fetch(KEY, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ smsRemindersEnabled }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        throw new Error(json?.error ? JSON.stringify(json.error) : `Failed to save (${res.status})`);
-      }
-      setSaved(true);
-      mutate(KEY);
-    } catch (err: any) {
-      setSaveError(err.message ?? 'Failed to save reminder settings.');
-    } finally {
-      setSaving(false);
-    }
   }
 
   return (
@@ -103,42 +66,18 @@ export default function RemindersPage() {
         </p>
       </section>
 
-      <form
-        onSubmit={handleSave}
-        className="flex flex-col gap-3 rounded-xl border border-hairline bg-surface p-4"
-      >
+      <section className="rounded-xl border border-hairline bg-surface p-4">
         <div className="flex items-center justify-between gap-2">
           <h2 className="text-body font-medium text-text">Text message reminders</h2>
           <span className="shrink-0 rounded-full bg-text-2/12 px-2 py-0.5 text-micro font-semibold uppercase text-text-2">
-            Not yet live
+            Not available yet
           </span>
         </div>
-        <p className="text-body-sm text-text-2">
-          Sends an automatic text reminder to the visitor roughly 24 hours before their
-          appointment, to cut down on no-shows.
+        <p className="mt-2 text-body-sm text-text-2">
+          Text reminders aren&apos;t available in Gather yet. Nothing on this page needs to be
+          turned on or saved, and no messages will send.
         </p>
-        <label className="flex items-center gap-2 rounded-lg border border-edge p-3 text-body-sm text-text">
-          <input
-            type="checkbox"
-            checked={smsRemindersEnabled}
-            onChange={(e) => setSmsRemindersEnabled(e.target.checked)}
-            className="accent-lume"
-          />
-          <span>
-            Enable text reminders
-            <span className="block text-body-sm text-text-2">
-              Not yet live in this deployment. This saves your preference now so reminders start
-              as soon as text sending is wired up, with no further action from you.
-            </span>
-          </span>
-        </label>
-
-        {saveError && <p className="text-body-sm text-rose">{saveError}</p>}
-        {saved && <p className="text-body-sm text-jade">Saved.</p>}
-        <Button type="submit" disabled={saving} className="self-start">
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
-      </form>
+      </section>
     </div>
   );
 }

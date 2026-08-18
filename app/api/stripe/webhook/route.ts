@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
+import * as Sentry from '@sentry/nextjs';
 import { getStripe } from '@/lib/stripe';
 import { createServiceClient } from '@/lib/supabase';
 import type { Tier } from '@/lib/tier';
@@ -59,6 +60,7 @@ export async function POST(req: Request) {
       process.env.STRIPE_WEBHOOK_SECRET!
     );
   } catch (err) {
+    Sentry.captureException(err);
     console.error('Stripe webhook signature verification failed.', err);
     return NextResponse.json({ error: 'invalid_signature' }, { status: 400 });
   }
@@ -76,7 +78,10 @@ export async function POST(req: Request) {
         update.stripe_subscription_id = session.subscription;
       }
       const { error } = await supabase.from('clients').update(update).eq('id', clientId);
-      if (error) console.error('Failed to record Stripe customer on checkout completion.', error);
+      if (error) {
+        Sentry.captureException(error);
+        console.error('Failed to record Stripe customer on checkout completion.', error);
+      }
       break;
     }
 
@@ -87,6 +92,11 @@ export async function POST(req: Request) {
         typeof subscription.customer === 'string' ? subscription.customer : subscription.customer.id;
 
       const tier = tierFromSubscription(subscription);
+      // current_period_end lives on the subscription item, not the
+      // subscription itself, as of this SDK's API version — take the first
+      // line item's, which is correct for this app's single-price-per-
+      // subscription checkout (the only case that exists).
+      const periodEnd = subscription.items.data[0]?.current_period_end;
       const { error, count } = await supabase
         .from('clients')
         .update(
@@ -94,13 +104,22 @@ export async function POST(req: Request) {
             tier,
             stripe_subscription_id: subscription.id,
             stripe_subscription_status: subscription.status,
+            stripe_current_period_end: periodEnd ? new Date(periodEnd * 1000).toISOString() : null,
+            stripe_trial_end: subscription.trial_end
+              ? new Date(subscription.trial_end * 1000).toISOString()
+              : null,
           },
           { count: 'exact' }
         )
         .eq('stripe_customer_id', customerId);
 
-      if (error) console.error('Failed to sync tier from subscription update.', error);
-      else if (!count) console.error(`No client found for Stripe customer ${customerId}.`);
+      if (error) {
+        Sentry.captureException(error);
+        console.error('Failed to sync tier from subscription update.', error);
+      } else if (!count) {
+        Sentry.captureMessage(`No client found for Stripe customer ${customerId}.`, 'error');
+        console.error(`No client found for Stripe customer ${customerId}.`);
+      }
       break;
     }
 
@@ -112,13 +131,23 @@ export async function POST(req: Request) {
       const { error, count } = await supabase
         .from('clients')
         .update(
-          { tier: 'free', stripe_subscription_status: 'canceled' },
+          {
+            tier: 'free',
+            stripe_subscription_status: 'canceled',
+            stripe_current_period_end: null,
+            stripe_trial_end: null,
+          },
           { count: 'exact' }
         )
         .eq('stripe_customer_id', customerId);
 
-      if (error) console.error('Failed to downgrade tier on subscription deletion.', error);
-      else if (!count) console.error(`No client found for Stripe customer ${customerId}.`);
+      if (error) {
+        Sentry.captureException(error);
+        console.error('Failed to downgrade tier on subscription deletion.', error);
+      } else if (!count) {
+        Sentry.captureMessage(`No client found for Stripe customer ${customerId}.`, 'error');
+        console.error(`No client found for Stripe customer ${customerId}.`);
+      }
       break;
     }
 

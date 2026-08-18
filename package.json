@@ -15,6 +15,7 @@
   "dependencies": {
     "@hookform/resolvers": "^3.9.0",
     "@phosphor-icons/react": "^2.1.10",
+    "@sentry/nextjs": "^10.70.0",
     "@supabase/ssr": "^0.5.0",
     "@supabase/supabase-js": "^2.45.0",
     "dayjs": "^1.11.13",

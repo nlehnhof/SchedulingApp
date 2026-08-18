@@ -89,6 +89,7 @@ export async function sendBookingConfirmationEmail({
   reasonName,
   start,
   end,
+  manageUrl,
 }: {
   visitorEmail: string;
   visitorName: string;
@@ -97,6 +98,10 @@ export async function sendBookingConfirmationEmail({
   reasonName: string;
   start: Date;
   end: Date;
+  // Visitor-facing cancel/reschedule link (L7 launch phase, lib/booking.ts)
+  // — always passed for a real booking; optional only so a caller in a test
+  // context doesn't have to construct one.
+  manageUrl?: string;
 }) {
   const fmt = (d: Date) =>
     d.toLocaleString('en-US', {
@@ -119,6 +124,7 @@ export async function sendBookingConfirmationEmail({
       reasonName,
       `${fmt(start)} – ${fmt(end)}`,
       '',
+      ...(manageUrl ? [`Need to cancel or reschedule? ${manageUrl}`, ''] : []),
       `Questions? Just reply to this email — it goes straight to ${clientDisplayName}.`,
     ].join('\n'),
     fromName: clientDisplayName,

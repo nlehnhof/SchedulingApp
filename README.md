@@ -172,11 +172,11 @@ pass). Every premium-gated route checks it server-side via `requireClient()`
 - **Analytics** (`/dashboard/analytics`, `GET /api/client/analytics`) — booking volume by
   week, busiest days/hours, appointment status breakdown, and reason popularity over a rolling
   180-day window, aggregated server-side.
-- **SMS reminders — scaffolded, not functional.** `app/api/cron/sms-reminders/route.ts` and
-  `lib/sms.ts` exist and are wired into the same `tier`/opt-in-gated query + per-appointment
-  try/catch pattern as the rest of the cron jobs, but there's no real SMS provider connected —
-  `lib/sms.ts`'s `sendSms()` always throws (see its header comment for how to wire one up). Safe
-  to schedule as-is; it will just report `sent: 0` until a provider is configured.
+
+Nothing in the product claims to send SMS. `app/api/cron/sms-reminders/route.ts` and
+`lib/sms.ts` exist in the codebase but aren't wired to a real provider —
+`lib/sms.ts`'s `sendSms()` always throws by design (see its header comment) — and are not
+scheduled as a Render cron job or surfaced anywhere in the UI.
 
 ## Local development with Docker (optional)
 
@@ -210,7 +210,6 @@ option if Render is later pointed at the Dockerfile instead.
    curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/cleanup
    # 1st of the month
    curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/export-monthly
-   # optional — safe to schedule even before an SMS provider is configured;
-   # see "Premium tier" above. Once a provider is real, run this daily.
-   curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/sms-reminders
    ```
+
+   `sms-reminders` exists in the codebase but is not scheduled — see "Premium tier" above for why.

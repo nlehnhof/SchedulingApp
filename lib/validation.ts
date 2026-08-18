@@ -114,6 +114,13 @@ export const appointmentEditSchema = z.object({
   notes: z.string().max(2000).optional(),
 });
 
+// POST /api/manage/[token]/reschedule — visitor-facing (L7 launch phase).
+// Only the new time is ever taken from the request; visitor identity,
+// reason, and notes are re-read from the existing appointment row server-side.
+export const rescheduleSchema = z.object({
+  startTime: z.string().min(1),
+});
+
 // Slug format shared between the branding PATCH route and the
 // slug-availability GET route (PLAN.md Section 4 feature 2): lowercase
 // letters, digits, hyphens only, 3-30 chars. A canonical 36-char UUID
@@ -162,6 +169,24 @@ export const remindersSchema = z.object({
 // conceptually the same operation on the same booking_calendars columns.
 export const calendarCreateSchema = z.object({
   displayName: z.string().min(1).max(255).optional(),
+  // L3 launch phase — sent by the client-side create form
+  // (app/dashboard/calendars/page.tsx) via Intl.DateTimeFormat's detected
+  // zone, so calendar #2+ on an Elite account doesn't reintroduce the same
+  // UTC-default bug the onboarding step fixes for calendar #1. Validated
+  // the same way as calendarSelectSchema's timezone field, below.
+  timezone: z
+    .string()
+    .min(1)
+    .max(50)
+    .refine((tz) => {
+      try {
+        Intl.DateTimeFormat(undefined, { timeZone: tz });
+        return true;
+      } catch {
+        return false;
+      }
+    }, 'Not a recognized time zone')
+    .optional(),
 });
 
 // PATCH /api/client/calendar — not premium-gated (Google Calendar sync is a
@@ -196,10 +221,19 @@ export const calendarSelectSchema = z
         }
       }, 'Not a recognized time zone')
       .optional(),
+    // Visitor self-service cancel/reschedule (L7 launch phase) — a
+    // per-calendar opt-out for clients who want to handle changes
+    // themselves rather than have visitors act directly. See
+    // app/api/manage/[token]/* and the 0023 migration.
+    allowVisitorManagement: z.boolean().optional(),
   })
-  .refine((v) => v.googleCalendarId !== undefined || v.timezone !== undefined, {
-    message: 'At least one of googleCalendarId, timezone is required',
-  });
+  .refine(
+    (v) =>
+      v.googleCalendarId !== undefined || v.timezone !== undefined || v.allowVisitorManagement !== undefined,
+    {
+      message: 'At least one of googleCalendarId, timezone, allowVisitorManagement is required',
+    }
+  );
 
 // POST /api/client/team — Elite team access (0018 migration), owner-only.
 // Email is lowercased at validation time to match client_collaborators'
