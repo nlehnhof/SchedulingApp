@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: 'How Gather collects, uses, and protects data for clients and their visitors.',
 };
 
-const UPDATED = 'August 17, 2026';
+const UPDATED = 'August 23, 2026';
 
 export default function PrivacyPage() {
   return (
@@ -98,6 +98,24 @@ export default function PrivacyPage() {
                 email addresses are stripped before any error report is sent.
               </li>
             </ul>
+          </section>
+
+          <section className="flex flex-col gap-3">
+            <h2 className="font-display text-display-sm text-text">Data protection</h2>
+            <p className="text-body text-text-2">
+              We implement technical and organizational safeguards to protect the confidentiality,
+              integrity, and availability of your personal data. All data transmitted between your
+              browser and our application is encrypted using TLS/HTTPS. Data stored in our Supabase
+              database is encrypted at rest. Access to personal data and Google account data is
+              restricted to authorized personnel and automated systems necessary to operate Gather,
+              and is never sold or transferred for unrelated purposes.
+            </p>
+            <p className="text-body text-text-2">
+              Data obtained through Google OAuth (calendar events, calendar list) is used solely to
+              provide the scheduling and calendar-sync features described in this policy. We do not
+              use Google user data for advertising, analytics unrelated to Gather&apos;s operation,
+              or to train artificial-intelligence or machine-learning models outside of Gather itself.
+            </p>
           </section>
 
           <section className="flex flex-col gap-3">
