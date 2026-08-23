@@ -91,6 +91,14 @@ function Hero() {
         >
           Client sign in
         </Link>
+        <p className="text-body-sm text-text-2">
+          Gather connects to your Google Calendar to check for conflicts and add your
+          appointments — see our{' '}
+          <Link href="/privacy" className="underline underline-offset-2 hover:text-text">
+            Privacy Policy
+          </Link>{' '}
+          for details.
+        </p>
       </div>
       <div className="w-full lg:w-1/2">
         <div className="rounded-2xl border border-hairline bg-surface p-6 shadow-lift3">
