@@ -129,8 +129,8 @@ export default function PrivacyPage() {
             </p>
             <p className="text-body text-text-2">
               To request deletion, or to ask any question about your data, contact us at{' '}
-              <a href="mailto:support@gathertime.com" className="text-lume underline underline-offset-2">
-                support@gathertime.com
+              <a href="mailto:support@gathertime.org" className="text-lume underline underline-offset-2">
+                support@gathertime.org
               </a>
               .
             </p>

@@ -94,8 +94,8 @@ export default function TermsPage() {
             <h2 className="font-display text-display-sm text-text">Contact</h2>
             <p className="text-body text-text-2">
               Questions about these terms? Reach us at{' '}
-              <a href="mailto:support@gathertime.com" className="text-lume underline underline-offset-2">
-                support@gathertime.com
+              <a href="mailto:support@gathertime.org" className="text-lume underline underline-offset-2">
+                support@gathertime.org
               </a>
               .
             </p>

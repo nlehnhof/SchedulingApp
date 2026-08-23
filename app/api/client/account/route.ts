@@ -59,7 +59,7 @@ export async function DELETE() {
 
   const { error: deleteError } = await supabase.from('clients').delete().eq('id', client.clientId);
   if (deleteError) {
-    return NextResponse.json({ error: 'Could not delete your account. Email support@gathertime.com.' }, { status: 500 });
+    return NextResponse.json({ error: 'Could not delete your account. Email support@gathertime.org.' }, { status: 500 });
   }
 
   return NextResponse.json({ status: 'deleted' });

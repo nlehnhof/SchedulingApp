@@ -34,7 +34,7 @@ export async function POST(req: Request) {
     // L5 launch phase. The customer gets a generic, actionable message.
     console.error(`Checkout for ${targetTier} isn't configured — STRIPE_${targetTier.toUpperCase()}_PRICE_ID is unset.`);
     return NextResponse.json(
-      { error: "We couldn't start checkout. Email support@gathertime.com and we'll sort it out." },
+      { error: "We couldn't start checkout. Email support@gathertime.org and we'll sort it out." },
       { status: 400 }
     );
   }
@@ -85,7 +85,7 @@ export async function POST(req: Request) {
   } catch (err) {
     return errorResponse(
       err,
-      "We couldn't start checkout. Email support@gathertime.com and we'll sort it out."
+      "We couldn't start checkout. Email support@gathertime.org and we'll sort it out."
     );
   }
 }

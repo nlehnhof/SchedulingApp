@@ -18,7 +18,7 @@ export default function GlobalError({ error }: { error: Error & { digest?: strin
     <html lang="en">
       <body style={{ background: '#0D0F17', color: '#F5F5F5', fontFamily: 'sans-serif', padding: '2rem' }}>
         <h1>Something went wrong</h1>
-        <p>Please refresh the page. If this keeps happening, email support@gathertime.com.</p>
+        <p>Please refresh the page. If this keeps happening, email support@gathertime.org.</p>
       </body>
     </html>
   );

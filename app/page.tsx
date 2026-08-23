@@ -337,8 +337,8 @@ function Footer() {
             Terms
           </Link>
           <span className="px-2 text-text-3">·</span>
-          <a href="mailto:support@gathertime.com" className="underline underline-offset-2 hover:text-text">
-            support@gathertime.com
+          <a href="mailto:support@gathertime.org" className="underline underline-offset-2 hover:text-text">
+            support@gathertime.org
           </a>
         </p>
       </div>
