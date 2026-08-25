@@ -23,6 +23,14 @@ import { z } from 'zod';
 //   day (e.g. an 8-11 block and a separate 12-2:30 block) — all of them
 //   apply, each with its own fill direction — see
 //   lib/availability.ts's findDayRules().
+//   available_hours also optionally reads config.starts_on ('YYYY-MM-DD')
+//   + config.duration ('forever' | '1_week' | '2_weeks' | 'every_2_weeks' |
+//   '1_month') to scope how long the rule stays active and on what day it
+//   starts — see lib/availability.ts's isRuleActiveOnDate(). Omitting
+//   starts_on (every rule created before this existed) means "always
+//   active", same as before.
+const RULE_DURATIONS = ['forever', '1_week', '2_weeks', 'every_2_weeks', '1_month'] as const;
+
 export const ruleSchema = z
   .object({
     ruleType: z.enum([
@@ -50,6 +58,30 @@ export const ruleSchema = z
           (d: unknown) => typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d)
         )),
     { message: 'specific_dates rules require config.dates as a non-empty array of YYYY-MM-DD strings' }
+  )
+  .refine(
+    (v) => {
+      const startsOn = (v.config as any)?.starts_on;
+      if (startsOn === undefined) return true;
+      return typeof startsOn === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(startsOn);
+    },
+    { message: 'config.starts_on must be a YYYY-MM-DD string' }
+  )
+  .refine(
+    (v) => {
+      const duration = (v.config as any)?.duration;
+      if (duration === undefined) return true;
+      return RULE_DURATIONS.includes(duration);
+    },
+    { message: `config.duration must be one of: ${RULE_DURATIONS.join(', ')}` }
+  )
+  .refine(
+    (v) => {
+      const duration = (v.config as any)?.duration;
+      if (duration === undefined || duration === 'forever') return true;
+      return typeof (v.config as any)?.starts_on === 'string';
+    },
+    { message: 'config.duration requires config.starts_on to be set' }
   );
 
 export const reasonSchema = z.object({

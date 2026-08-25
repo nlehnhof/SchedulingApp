@@ -98,9 +98,9 @@ Keep it this way — it's what makes `lib/availability.test.ts` possible without
 **Rule types** (`rules` table, discriminated by `rule_type`): `available_hours` (a calendar can
 have several disjoint `available_hours` rules on the same `day_of_week` — e.g. an 8-11 block
 and a separate 12-2:30 block — and all of them apply; day-specific rules take precedence over
-"all days" rules with `day_of_week: null` as a group, i.e. if any day-specific rule exists for
-a weekday the "all days" rules are ignored entirely for it, see `lib/availability.ts`'s
-`findDayRules()`), `first_n_only` (caps bookings within a rolling window via
+"all days" rules with `day_of_week: null` as a group, i.e. if any currently-active day-specific
+rule exists for a weekday the "all days" rules are ignored entirely for it, see
+`lib/availability.ts`'s `findDayRules()`), `first_n_only` (caps bookings within a rolling window via
 `config.first_n`/`config.window_minutes`), and `max_per_window` (caps concurrent bookings via
 `max_concurrent`/`config.window_minutes`). Both `available_hours` and `specific_dates` also
 read `config.fill_direction` (`'forward'`/`'backward'`, defaults to `'forward'` when absent) —
@@ -115,7 +115,17 @@ direction independently. `sequential_fill`'s frontier is computed independently 
 seeded at that window's own edge (its start if forward, its end if backward) — a booking or
 Google event that's progressed one window (e.g. 8-11) doesn't hold a separate disjoint window
 (e.g. 12-2:30) on the same day hostage; see `lib/availability.ts`'s `windowFrontierForward()`/
-`windowFrontierBackward()`.
+`windowFrontierBackward()`. `available_hours` also optionally reads `config.starts_on`
+(`'YYYY-MM-DD'`) and `config.duration` (`'forever'` (default when `starts_on` is absent —
+every rule created before this existed keeps behaving as always-active) | `'1_week'` |
+`'2_weeks'` | `'every_2_weeks'` | `'1_month'`) to scope how long the rule stays active and on
+what day it starts — see `lib/availability.ts`'s `isRuleActiveOnDate()`. `'1_week'`/`'2_weeks'`/
+`'1_month'` are one-shot windows that start at `starts_on` and then never match again;
+`'every_2_weeks'` recurs indefinitely on alternating 7-day blocks counted from `starts_on`, so
+the rule's own `day_of_week` (e.g. "Mondays") ends up firing every OTHER occurrence rather than
+every one. This filtering runs before the day-specific-vs-all-days precedence grouping above, so
+a day-specific rule whose window has lapsed correctly falls back to an all-days rule instead of
+leaving the day with no rule at all.
 
 **Google Calendar sync is one-way and polling-based**, not webhook-based: a cron job
 (`app/api/cron/google-sync`) polls every 30 min per booking calendar's `google_calendar_id`

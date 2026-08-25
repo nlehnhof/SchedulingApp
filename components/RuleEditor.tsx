@@ -24,6 +24,8 @@ const formSchema = z.object({
   startTime: z.string().optional(),
   endTime: z.string().optional(),
   fillDirection: z.enum(['forward', 'backward']).optional(),
+  startsOn: z.string().optional(), // 'YYYY-MM-DD', available_hours only
+  duration: z.enum(['forever', '1_week', '2_weeks', 'every_2_weeks', '1_month']).optional(),
   maxConcurrent: z.string().optional(),
   firstN: z.string().optional(),
   windowMinutes: z.string().optional(),
@@ -38,6 +40,14 @@ const formSchema = z.object({
 export type RuleFormValues = z.infer<typeof formSchema>;
 
 const DAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+const DURATION_LABELS: Record<NonNullable<RuleFormValues['duration']>, string> = {
+  forever: 'Forever (no end date)',
+  '1_week': '1 week',
+  '2_weeks': '2 weeks',
+  every_2_weeks: 'Every 2 weeks (recurring)',
+  '1_month': '1 month',
+};
 
 // Plain-language explanations shown two ways: as a native `title` tooltip
 // on each <option> (hover while the dropdown is open) and as a persistent
@@ -98,12 +108,17 @@ export default function RuleEditor({
       dayOfWeek: 'all',
       specificDates: [],
       fillDirection: 'forward',
+      duration: 'forever',
       ...initialValues,
     },
   });
 
   const ruleType = watch('ruleType');
   const specificDates = watch('specificDates') ?? [];
+  const duration = watch('duration');
+  const startsOn = watch('startsOn');
+  const durationNeedsStart = ruleType === 'available_hours' && duration && duration !== 'forever';
+  const durationMissingStart = durationNeedsStart && !startsOn;
 
   return (
     <form onSubmit={handleSubmit(async (v) => onSubmit(v))} className="flex flex-col gap-4">
@@ -147,6 +162,28 @@ export default function RuleEditor({
               end absorbs leftover unbooked time when your appointment length doesn&apos;t
               evenly divide this window.
             </p>
+          </div>
+          <div className="flex flex-col gap-1">
+            <div className="flex gap-2">
+              <Input type="date" label="Starts on" {...register('startsOn')} />
+              <Select label="Duration" {...register('duration')}>
+                {(Object.keys(DURATION_LABELS) as RuleFormValues['duration'][]).map((d) => (
+                  <option key={d} value={d}>
+                    {DURATION_LABELS[d as NonNullable<RuleFormValues['duration']>]}
+                  </option>
+                ))}
+              </Select>
+            </div>
+            <p className="text-body-sm text-text-2">
+              Leave duration as &quot;Forever&quot; for a rule that never expires. Otherwise pick
+              the day this rule starts and how long it runs — &quot;1 week&quot;/&quot;2
+              weeks&quot;/&quot;1 month&quot; run once and then stop (falling back to your
+              all-days hours, if any); &quot;Every 2 weeks&quot; repeats indefinitely on
+              alternating weeks starting from that date.
+            </p>
+            {durationMissingStart && (
+              <p className="text-body-sm text-rose">A duration other than &quot;Forever&quot; needs a start date.</p>
+            )}
           </div>
         </>
       )}
@@ -234,7 +271,11 @@ export default function RuleEditor({
         )}
         <Button
           type="submit"
-          disabled={isSubmitting || (ruleType === 'specific_dates' && specificDates.length === 0)}
+          disabled={
+            isSubmitting ||
+            (ruleType === 'specific_dates' && specificDates.length === 0) ||
+            durationMissingStart
+          }
         >
           {isSubmitting ? 'Saving…' : submitLabel}
         </Button>

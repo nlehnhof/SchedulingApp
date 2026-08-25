@@ -38,6 +38,7 @@ export default function SchedulePage() {
     return { year: d.getFullYear(), month: d.getMonth() };
   });
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [showAllMonth, setShowAllMonth] = useState(false);
   const [editingAppointment, setEditingAppointment] = useState<Appointment | null>(null);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
@@ -53,7 +54,12 @@ export default function SchedulePage() {
   const { startDate, endDate } = useMemo(() => {
     const start = new Date(monthCursor.year, monthCursor.month, 1);
     const end = new Date(monthCursor.year, monthCursor.month + 1, 0);
-    return { startDate: start.toISOString().slice(0, 10), endDate: end.toISOString().slice(0, 10) };
+    // formatLocalDateOnly, NOT .toISOString().slice(0, 10) — the latter
+    // converts to UTC first, which in any timezone ahead of UTC rolls
+    // both boundaries back a day (e.g. August becomes Jul 31-Aug 30), a
+    // trap this file's own date-format.ts import already exists to avoid
+    // elsewhere (see todayStr below).
+    return { startDate: formatLocalDateOnly(start), endDate: formatLocalDateOnly(end) };
   }, [monthCursor]);
 
   const scheduleUrl =
@@ -79,6 +85,64 @@ export default function SchedulePage() {
         day: 'numeric',
       })
     : 'Select a date';
+
+  const monthLabel = new Date(monthCursor.year, monthCursor.month, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  // "All" view: every appointment in the currently-viewed month, past and
+  // future, in one chronological list — an alternative to clicking through
+  // each day individually. `data.days` already covers the whole month (the
+  // schedule API fetches every non-expired appointment for the calendar,
+  // unfiltered by date), so this is a client-side filter/sort, not a
+  // separate fetch.
+  const monthDays = (data?.days ?? [])
+    .filter((d) => d.date >= startDate && d.date <= endDate && d.appointments.length > 0)
+    .slice()
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  function selectDate(date: string | null) {
+    setShowAllMonth(false);
+    setSelectedDate(date);
+  }
+
+  function renderAppointment(apt: Appointment) {
+    if (canWrite && confirmDeleteId === apt.id) {
+      return (
+        <div
+          key={apt.id}
+          className="flex items-center justify-between rounded-lg border border-rose/30 bg-rose/10 p-3 text-body-sm"
+        >
+          <span className="text-rose">Delete this appointment?</span>
+          <div className="flex gap-2">
+            <Button variant="danger" onClick={() => handleDelete(apt.id)}>
+              Confirm
+            </Button>
+            <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
+              Cancel
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <AppointmentCard
+        key={apt.id}
+        appointment={apt}
+        reasonName={reasonNameById.get(apt.reason_id)}
+        onEdit={
+          canWrite
+            ? (a) => {
+                setEditError(null);
+                setEditingAppointment(a);
+              }
+            : undefined
+        }
+        onDelete={canWrite ? (a) => setConfirmDeleteId(a.id) : undefined}
+      />
+    );
+  }
 
   // The Lightline payoff (DESIGN.md section 1.1 item 2): today's real
   // availability, not just its bookings, so open gaps render lit and booked
@@ -154,7 +218,7 @@ export default function SchedulePage() {
         <Calendar
           days={calendarDays}
           selectedDate={selectedDate}
-          onSelectDate={setSelectedDate}
+          onSelectDate={selectDate}
           onMonthChange={(year, month) => setMonthCursor({ year, month })}
         />
         <div className="mt-3 flex flex-wrap gap-4 text-label text-text-2">
@@ -177,48 +241,52 @@ export default function SchedulePage() {
           <DayStrip blocks={todayBlocks} />
         </div>
 
-        <h2 className="mb-3 text-label text-text-2">{selectedDateLabel}</h2>
-        {!selectedDate && <p className="text-body-sm text-text-2">Click a day to see its appointments.</p>}
-        {selectedDate && selectedBucket && selectedBucket.appointments.length === 0 && (
-          <p className="text-body-sm text-text-2">No appointments booked on this day.</p>
-        )}
-        <div className="flex flex-col gap-2">
-          {selectedBucket?.appointments
-            .sort((a, b) => a.start_time.localeCompare(b.start_time))
-            .map((apt) =>
-              canWrite && confirmDeleteId === apt.id ? (
-                <div
-                  key={apt.id}
-                  className="flex items-center justify-between rounded-lg border border-rose/30 bg-rose/10 p-3 text-body-sm"
-                >
-                  <span className="text-rose">Delete this appointment?</span>
-                  <div className="flex gap-2">
-                    <Button variant="danger" onClick={() => handleDelete(apt.id)}>
-                      Confirm
-                    </Button>
-                    <Button variant="ghost" onClick={() => setConfirmDeleteId(null)}>
-                      Cancel
-                    </Button>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <h2 className="text-label text-text-2">{showAllMonth ? `All appointments — ${monthLabel}` : selectedDateLabel}</h2>
+          <Button variant={showAllMonth ? 'primary' : 'ghost'} onClick={() => setShowAllMonth((v) => !v)}>
+            {showAllMonth ? 'Back to single day' : `All (${monthLabel})`}
+          </Button>
+        </div>
+
+        {showAllMonth ? (
+          <>
+            {monthDays.length === 0 && (
+              <p className="text-body-sm text-text-2">No appointments booked this month.</p>
+            )}
+            <div className="flex flex-col gap-5">
+              {monthDays.map((day) => (
+                <div key={day.date}>
+                  <h3 className="mb-2 text-label uppercase text-text-2">
+                    {parseLocalDateOnly(day.date).toLocaleDateString(undefined, {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </h3>
+                  <div className="flex flex-col gap-2">
+                    {day.appointments
+                      .slice()
+                      .sort((a, b) => a.start_time.localeCompare(b.start_time))
+                      .map((apt) => renderAppointment(apt))}
                   </div>
                 </div>
-              ) : (
-                <AppointmentCard
-                  key={apt.id}
-                  appointment={apt}
-                  reasonName={reasonNameById.get(apt.reason_id)}
-                  onEdit={
-                    canWrite
-                      ? (a) => {
-                          setEditError(null);
-                          setEditingAppointment(a);
-                        }
-                      : undefined
-                  }
-                  onDelete={canWrite ? (a) => setConfirmDeleteId(a.id) : undefined}
-                />
-              )
+              ))}
+            </div>
+          </>
+        ) : (
+          <>
+            {!selectedDate && <p className="text-body-sm text-text-2">Click a day to see its appointments.</p>}
+            {selectedDate && selectedBucket && selectedBucket.appointments.length === 0 && (
+              <p className="text-body-sm text-text-2">No appointments booked on this day.</p>
             )}
-        </div>
+            <div className="flex flex-col gap-2">
+              {selectedBucket?.appointments
+                .slice()
+                .sort((a, b) => a.start_time.localeCompare(b.start_time))
+                .map((apt) => renderAppointment(apt))}
+            </div>
+          </>
+        )}
       </div>
 
       <Modal

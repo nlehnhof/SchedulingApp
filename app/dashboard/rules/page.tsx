@@ -18,10 +18,25 @@ function fillDirectionSuffix(rule: Rule): string {
   return (rule.config as any)?.fill_direction === 'backward' ? ' (fills backward)' : '';
 }
 
+const DURATION_SUMMARY_LABELS: Record<string, string> = {
+  '1_week': 'for 1 week',
+  '2_weeks': 'for 2 weeks',
+  every_2_weeks: 'every 2 weeks',
+  '1_month': 'for 1 month',
+};
+
+function durationSuffix(rule: Rule): string {
+  const startsOn = (rule.config as any)?.starts_on;
+  const duration = (rule.config as any)?.duration;
+  if (typeof startsOn !== 'string' || !duration || duration === 'forever') return '';
+  const label = DURATION_SUMMARY_LABELS[duration] ?? duration;
+  return ` (starting ${startsOn}, ${label})`;
+}
+
 function summarize(rule: Rule): string {
   if (rule.rule_type === 'available_hours') {
     const day = rule.day_of_week === null ? 'Every day' : DAY_LABELS[rule.day_of_week];
-    return `${day}: ${rule.start_time?.slice(0, 5)} to ${rule.end_time?.slice(0, 5)}${fillDirectionSuffix(rule)}`;
+    return `${day}: ${rule.start_time?.slice(0, 5)} to ${rule.end_time?.slice(0, 5)}${fillDirectionSuffix(rule)}${durationSuffix(rule)}`;
   }
   if (rule.rule_type === 'specific_dates') {
     const dates = ((rule.config as any)?.dates ?? []) as string[];
@@ -78,6 +93,8 @@ function toFormValues(rule: Rule): RuleFormValues {
         : '',
     specificDates: ((rule.config as any)?.dates ?? []) as string[],
     fillDirection: (rule.config as any)?.fill_direction === 'backward' ? 'backward' : 'forward',
+    startsOn: (rule.config as any)?.starts_on ?? '',
+    duration: (rule.config as any)?.duration ?? 'forever',
   };
 }
 
@@ -116,7 +133,14 @@ function toRequestBody(values: RuleFormValues): Record<string, unknown> {
     body.dayOfWeek = dayOfWeek;
     body.startTime = values.startTime;
     body.endTime = values.endTime;
-    body.config = { permanent: dayOfWeek === null, fill_direction: values.fillDirection || 'forward' };
+    const duration = values.duration || 'forever';
+    body.config = {
+      permanent: dayOfWeek === null,
+      fill_direction: values.fillDirection || 'forward',
+      ...(duration !== 'forever' && values.startsOn
+        ? { starts_on: values.startsOn, duration }
+        : {}),
+    };
   } else if (values.ruleType === 'specific_dates') {
     body.startTime = values.startTime;
     body.endTime = values.endTime;

@@ -274,6 +274,122 @@ describe('getAvailableSlots', () => {
     expect(slots[0].start.slice(11, 16)).not.toBe('09:00');
   });
 
+  it('an available_hours rule with no config.starts_on is always active (back-compat)', () => {
+    const monday = new Date('2026-08-17T00:00:00');
+    const slots = getAvailableSlots({
+      startDate: monday,
+      endDate: monday,
+      reason,
+      rules: [allDaysHours], // config: { permanent: true }, no starts_on
+      booked: [],
+      googleBlocks: [],
+    });
+    expect(slots.length).toBeGreaterThan(0);
+  });
+
+  it('a "2_weeks" duration rule stops applying after its window and falls back to the all-days rule', () => {
+    const withinWindow = new Date('2026-08-17T00:00:00'); // Monday, day 0 of the window
+    const afterWindow = new Date('2026-08-31T00:00:00'); // Monday, 14 days later — outside 2-week window
+    const mondayOverride: Rule = {
+      id: 'rule-monday-temp',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 1,
+      start_time: '13:00:00',
+      end_time: '14:00:00',
+      max_concurrent: null,
+      config: { starts_on: '2026-08-17', duration: '2_weeks' },
+    };
+
+    const within = getAvailableSlots({
+      startDate: withinWindow,
+      endDate: withinWindow,
+      reason,
+      rules: [allDaysHours, mondayOverride],
+      booked: [],
+      googleBlocks: [],
+    });
+    expect(within[0].start.slice(11, 16)).toBe('13:00');
+
+    const after = getAvailableSlots({
+      startDate: afterWindow,
+      endDate: afterWindow,
+      reason,
+      rules: [allDaysHours, mondayOverride],
+      booked: [],
+      googleBlocks: [],
+    });
+    // Override has lapsed — falls back to the all-days 09:00-10:00 rule.
+    expect(after[0].start.slice(11, 16)).toBe('09:00');
+  });
+
+  it('a "1_week" duration rule has not started before its starts_on date', () => {
+    const beforeStart = new Date('2026-08-10T00:00:00'); // Monday, before starts_on
+    const mondayOverride: Rule = {
+      id: 'rule-monday-temp',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 1,
+      start_time: '13:00:00',
+      end_time: '14:00:00',
+      max_concurrent: null,
+      config: { starts_on: '2026-08-17', duration: '1_week' },
+    };
+
+    const slots = getAvailableSlots({
+      startDate: beforeStart,
+      endDate: beforeStart,
+      reason,
+      rules: [allDaysHours, mondayOverride],
+      booked: [],
+      googleBlocks: [],
+    });
+    // Override hasn't started yet — falls back to the all-days rule.
+    expect(slots[0].start.slice(11, 16)).toBe('09:00');
+  });
+
+  it('an "every_2_weeks" duration rule recurs on alternating occurrences', () => {
+    const mondayOverride: Rule = {
+      id: 'rule-monday-biweekly',
+      calendar_id: 'client-1',
+      rule_type: 'available_hours',
+      day_of_week: 1,
+      start_time: '13:00:00',
+      end_time: '14:00:00',
+      max_concurrent: null,
+      config: { starts_on: '2026-08-17', duration: 'every_2_weeks' },
+    };
+
+    const week0 = getAvailableSlots({
+      startDate: new Date('2026-08-17T00:00:00'), // active week
+      endDate: new Date('2026-08-17T00:00:00'),
+      reason,
+      rules: [allDaysHours, mondayOverride],
+      booked: [],
+      googleBlocks: [],
+    });
+    const week1 = getAvailableSlots({
+      startDate: new Date('2026-08-24T00:00:00'), // inactive week
+      endDate: new Date('2026-08-24T00:00:00'),
+      reason,
+      rules: [allDaysHours, mondayOverride],
+      booked: [],
+      googleBlocks: [],
+    });
+    const week2 = getAvailableSlots({
+      startDate: new Date('2026-08-31T00:00:00'), // active again
+      endDate: new Date('2026-08-31T00:00:00'),
+      reason,
+      rules: [allDaysHours, mondayOverride],
+      booked: [],
+      googleBlocks: [],
+    });
+
+    expect(week0[0].start.slice(11, 16)).toBe('13:00');
+    expect(week1[0].start.slice(11, 16)).toBe('09:00'); // falls back to all-days rule
+    expect(week2[0].start.slice(11, 16)).toBe('13:00');
+  });
+
   it('a specific_dates rule opens a date with no matching weekday rule', () => {
     const sunday = new Date('2026-08-16T00:00:00'); // a Sunday; allDaysHours also covers it,
     // so use a calendar with only a Wednesday rule to prove the specific date needs no

@@ -1,5 +1,5 @@
 import type { Appointment, AppointmentReason, GoogleBlock, Rule, Slot } from './types';
-import { toNaiveISOString } from './date-format';
+import { parseLocalDateOnly, toNaiveISOString } from './date-format';
 
 export interface GetAvailableSlotsParams {
   startDate: Date; // inclusive, local midnight in client's timezone
@@ -65,20 +65,68 @@ function dateOnly(d: Date): string {
 }
 
 /**
+ * An available_hours rule optionally scopes itself to a limited span via
+ * config.starts_on ('YYYY-MM-DD') + config.duration — see RuleEditor.tsx's
+ * "Starts on" / "Duration" fields. Absent config.starts_on (the default for
+ * every rule created before this existed) means "always active", so old
+ * rules keep behaving exactly as before. 'forever' behaves the same way
+ * even with a starts_on set (a start date with no end).
+ */
+export type RuleDuration = 'forever' | '1_week' | '2_weeks' | 'every_2_weeks' | '1_month';
+
+/**
+ * True when `date` (a local-midnight Date) falls within a rule's active
+ * span, per its config.starts_on/config.duration. '1_week'/'2_weeks'/
+ * '1_month' are one-shot windows starting at starts_on; 'every_2_weeks'
+ * recurs indefinitely, active on alternating 7-day blocks counted from
+ * starts_on (so the rule's own day_of_week — e.g. "Mondays" — ends up
+ * firing every OTHER occurrence rather than every one).
+ */
+function isRuleActiveOnDate(rule: Rule, date: Date): boolean {
+  const startsOn = rule.config?.starts_on;
+  if (typeof startsOn !== 'string') return true;
+
+  const start = parseLocalDateOnly(startsOn);
+  if (date < start) return false;
+
+  const duration = (rule.config?.duration as RuleDuration | undefined) ?? 'forever';
+  if (duration === 'forever') return true;
+
+  const dayIndex = Math.round((date.getTime() - start.getTime()) / 86400000);
+  switch (duration) {
+    case '1_week':
+      return dayIndex < 7;
+    case '2_weeks':
+      return dayIndex < 14;
+    case '1_month':
+      return date < new Date(start.getFullYear(), start.getMonth() + 1, start.getDate());
+    case 'every_2_weeks':
+      return Math.floor(dayIndex / 7) % 2 === 0;
+    default:
+      return true;
+  }
+}
+
+/**
  * Picks every available_hours rule that applies to a given day of week — a
  * calendar can have several disjoint windows on the same day (e.g. an 8-11
  * block and a separate 12-2:30 block), each with its own fill direction. Any
  * day-specific rule (day_of_week === dow) takes precedence over "all days"
  * rules (day_of_week === null) — if at least one day-specific rule exists
  * for this day, the all-days rules are ignored entirely for it, same
- * precedence as before this supported multiple rules per day.
+ * precedence as before this supported multiple rules per day. Rules whose
+ * active span (see isRuleActiveOnDate above) doesn't cover `date` are
+ * dropped before that precedence grouping runs, so a day-specific rule that
+ * has lapsed (e.g. a temporary 2-week override) correctly falls back to the
+ * all-days rule instead of leaving the day with no rules at all.
  */
-function findDayRules(rules: Rule[], dow: number): Rule[] {
-  const specific = rules.filter(
-    (r) => r.rule_type === 'available_hours' && r.day_of_week === dow
+function findDayRules(rules: Rule[], dow: number, date: Date): Rule[] {
+  const activeHoursRules = rules.filter(
+    (r) => r.rule_type === 'available_hours' && isRuleActiveOnDate(r, date)
   );
+  const specific = activeHoursRules.filter((r) => r.day_of_week === dow);
   if (specific.length > 0) return specific;
-  return rules.filter((r) => r.rule_type === 'available_hours' && r.day_of_week === null);
+  return activeHoursRules.filter((r) => r.day_of_week === null);
 }
 
 /**
@@ -164,7 +212,9 @@ export function getAvailableSlots({
     // present, same override semantics as before multiple rules per day
     // were supported.
     const specificDateRules = findSpecificDateRules(rules, dateKey);
-    const dayRules = (specificDateRules.length > 0 ? specificDateRules : findDayRules(rules, dow)).filter(
+    const dayRules = (
+      specificDateRules.length > 0 ? specificDateRules : findDayRules(rules, dow, date)
+    ).filter(
       (r) => r.start_time && r.end_time
     );
     if (dayRules.length === 0) continue;
