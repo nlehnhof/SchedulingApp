@@ -101,19 +101,27 @@ export async function listGoogleCalendars(refreshToken: string): Promise<GoogleC
  * Fetch events on one of the client's Google calendars — which calendar is
  * controlled by `clients.google_calendar_id` (0011 migration; defaults to
  * 'primary' for every client that hasn't picked one) — from 30 days ago to
- * 30 days from now (matches the polling window in
- * SCHEDULING_APP_ORCHESTRATION.md #5).
+ * 30 days from now by default (matches the polling window in
+ * SCHEDULING_APP_ORCHESTRATION.md #5). Callers that need a different window
+ * (e.g. the dashboard schedule page showing a month further out) can pass
+ * their own `timeMin`/`timeMax`.
  */
 export async function getGoogleCalendarEvents(
   refreshToken: string,
-  calendarId: string = 'primary'
+  calendarId: string = 'primary',
+  timeMin?: Date,
+  timeMax?: Date
 ): Promise<GoogleBlock[]> {
   const accessToken = await refreshAccessToken(refreshToken);
 
-  const timeMin = new Date();
-  timeMin.setDate(timeMin.getDate() - 30);
-  const timeMax = new Date();
-  timeMax.setDate(timeMax.getDate() + 30);
+  if (!timeMin) {
+    timeMin = new Date();
+    timeMin.setDate(timeMin.getDate() - 30);
+  }
+  if (!timeMax) {
+    timeMax = new Date();
+    timeMax.setDate(timeMax.getDate() + 30);
+  }
 
   const url = new URL(EVENTS_URL(calendarId));
   url.searchParams.set('timeMin', timeMin.toISOString());

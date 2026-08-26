@@ -153,10 +153,17 @@ never auto-set, so a client must set it per-calendar manually) rather than conve
 `.toISOString()` — appointment times are naive local wall-clock values everywhere in this app
 (see `lib/date-format.ts`), so relabeling one as UTC without a real conversion silently shifts
 the event on Google's side by the calendar's actual UTC offset. The visitor-facing availability
-route and `lib/booking.ts`'s conflict-suggestion path also live-fetch the calendar's Google
-Calendar (`getGoogleCalendarEvents`, best-effort — falls back to no blocks on a Google outage)
-so a slot that's already taken on Google is never offered in the first place, rather than only
-being caught after the fact by the 30-min cron's `red_flag`. `getGoogleCalendarEvents()` strips
+route, `lib/booking.ts`'s conflict-suggestion path, and `app/api/client/schedule/route.ts` (the
+dashboard schedule page) also live-fetch the calendar's Google Calendar (`getGoogleCalendarEvents`,
+best-effort — falls back to no blocks/events on a Google outage) so a slot that's already taken
+on Google is never offered in the first place, rather than only being caught after the fact by
+the 30-min cron's `red_flag`; the schedule route additionally renders those events directly in
+the day/month appointment lists (dashed "Google Calendar" cards, excluding this app's own
+written-back `google_event_id`s to avoid double-showing a booking) so an event a client adds
+straight on Google shows up there immediately rather than waiting for the cron to red-flag a
+conflict. `getGoogleCalendarEvents()` accepts optional `timeMin`/`timeMax` (defaulting to the
+usual ±30-day window) so a caller viewing a month further out isn't silently truncated to that
+window. `getGoogleCalendarEvents()` strips
 the UTC offset Google always includes on `event.start/end.dateTime` (`stripTimeZoneOffset()`)
 before returning it as a `GoogleBlock` — `getAvailableSlots()`'s overlap check does
 `new Date(block.start)`, and unlike the naive DB timestamps everywhere else in this app, a real

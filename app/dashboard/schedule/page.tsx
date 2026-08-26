@@ -5,7 +5,7 @@ import useSWR, { mutate } from 'swr';
 import { useReducedMotion } from 'motion/react';
 import { fetcher } from '@/lib/fetcher';
 import { formatLocalDateOnly, parseLocalDateOnly } from '@/lib/date-format';
-import type { Appointment, AppointmentReason } from '@/lib/types';
+import type { Appointment, AppointmentReason, GoogleBlock } from '@/lib/types';
 import Calendar, { CalendarDayMeta } from '@/components/Calendar';
 import AppointmentCard from '@/components/AppointmentCard';
 import AppointmentEditor, { AppointmentEditValues } from '@/components/AppointmentEditor';
@@ -14,12 +14,14 @@ import Modal from '@/components/Modal';
 import Button from '@/components/Button';
 import Select from '@/components/Select';
 import Spinner from '@/components/Spinner';
+import Badge from '@/components/Badge';
 import { useCalendar } from '@/components/CalendarContext';
 
 interface DayBucket {
   date: string;
   slots: { start: string; end: string; available: boolean }[];
   appointments: Appointment[];
+  googleEvents: GoogleBlock[];
 }
 
 function toDatetimeLocal(iso: string): string {
@@ -98,13 +100,49 @@ export default function SchedulePage() {
   // unfiltered by date), so this is a client-side filter/sort, not a
   // separate fetch.
   const monthDays = (data?.days ?? [])
-    .filter((d) => d.date >= startDate && d.date <= endDate && d.appointments.length > 0)
+    .filter(
+      (d) => d.date >= startDate && d.date <= endDate && (d.appointments.length > 0 || d.googleEvents.length > 0)
+    )
     .slice()
     .sort((a, b) => a.date.localeCompare(b.date));
 
   function selectDate(date: string | null) {
     setShowAllMonth(false);
     setSelectedDate(date);
+  }
+
+  // Merges booked appointments + live Google Calendar events into one
+  // chronological list for a day — so an event the client added straight
+  // on Google (never going through the app) shows up right alongside their
+  // bookings instead of only surfacing later as a red-flagged conflict.
+  function renderDayItems(day: Pick<DayBucket, 'appointments' | 'googleEvents'>) {
+    const items = [
+      ...day.appointments.map((apt) => ({ start: apt.start_time, node: renderAppointment(apt) })),
+      ...day.googleEvents.map((event) => ({ start: event.start, node: renderGoogleEvent(event) })),
+    ].sort((a, b) => a.start.localeCompare(b.start));
+    return items.map((item) => item.node);
+  }
+
+  function renderGoogleEvent(event: GoogleBlock) {
+    const start = new Date(event.start);
+    const end = new Date(event.end);
+    return (
+      <div
+        key={event.id}
+        className="rounded-lg border border-dashed border-ice/40 bg-ice/8 p-3"
+      >
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <div className="font-mono text-data text-text">
+              {start.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} to{' '}
+              {end.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
+            </div>
+            <div className="text-body text-text">{event.summary}</div>
+          </div>
+          <Badge tone="ice">Google Calendar</Badge>
+        </div>
+      </div>
+    );
   }
 
   function renderAppointment(apt: Appointment) {
@@ -242,10 +280,37 @@ export default function SchedulePage() {
         </div>
 
         <div className="mb-3 flex items-center justify-between gap-2">
-          <h2 className="text-label text-text-2">{showAllMonth ? `All appointments — ${monthLabel}` : selectedDateLabel}</h2>
-          <Button variant={showAllMonth ? 'primary' : 'ghost'} onClick={() => setShowAllMonth((v) => !v)}>
-            {showAllMonth ? 'Back to single day' : `All (${monthLabel})`}
-          </Button>
+          <h2 className="text-label text-text-2">
+            {showAllMonth ? `All appointments — ${monthLabel}` : selectedDateLabel}
+          </h2>
+          <div
+            role="tablist"
+            aria-label="Schedule view"
+            className="inline-flex shrink-0 gap-0.5 rounded-lg border border-edge bg-surface-2 p-0.5"
+          >
+            <button
+              type="button"
+              role="tab"
+              aria-selected={!showAllMonth}
+              onClick={() => setShowAllMonth(false)}
+              className={`rounded-md px-3 py-1.5 text-body-sm font-medium transition-colors ${
+                !showAllMonth ? 'bg-lume text-lume-ink' : 'text-text-2 hover:text-text'
+              }`}
+            >
+              Day
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={showAllMonth}
+              onClick={() => setShowAllMonth(true)}
+              className={`rounded-md px-3 py-1.5 text-body-sm font-medium transition-colors ${
+                showAllMonth ? 'bg-lume text-lume-ink' : 'text-text-2 hover:text-text'
+              }`}
+            >
+              All ({monthLabel})
+            </button>
+          </div>
         </div>
 
         {showAllMonth ? (
@@ -263,12 +328,7 @@ export default function SchedulePage() {
                       day: 'numeric',
                     })}
                   </h3>
-                  <div className="flex flex-col gap-2">
-                    {day.appointments
-                      .slice()
-                      .sort((a, b) => a.start_time.localeCompare(b.start_time))
-                      .map((apt) => renderAppointment(apt))}
-                  </div>
+                  <div className="flex flex-col gap-2">{renderDayItems(day)}</div>
                 </div>
               ))}
             </div>
@@ -276,14 +336,14 @@ export default function SchedulePage() {
         ) : (
           <>
             {!selectedDate && <p className="text-body-sm text-text-2">Click a day to see its appointments.</p>}
-            {selectedDate && selectedBucket && selectedBucket.appointments.length === 0 && (
-              <p className="text-body-sm text-text-2">No appointments booked on this day.</p>
-            )}
+            {selectedDate &&
+              selectedBucket &&
+              selectedBucket.appointments.length === 0 &&
+              selectedBucket.googleEvents.length === 0 && (
+                <p className="text-body-sm text-text-2">No appointments booked on this day.</p>
+              )}
             <div className="flex flex-col gap-2">
-              {selectedBucket?.appointments
-                .slice()
-                .sort((a, b) => a.start_time.localeCompare(b.start_time))
-                .map((apt) => renderAppointment(apt))}
+              {selectedBucket && renderDayItems(selectedBucket)}
             </div>
           </>
         )}
