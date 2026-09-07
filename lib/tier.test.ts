@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isAtLeast, COLLABORATOR_LIMIT_BY_TIER } from './tier';
+import { isAtLeast, COLLABORATOR_LIMIT_BY_TIER, CALENDAR_INCLUDED_LIMIT_BY_TIER, CALENDAR_MAX_LIMIT_BY_TIER } from './tier';
 
 describe('isAtLeast', () => {
   it('ranks free < premium < elite', () => {
@@ -22,5 +22,22 @@ describe('COLLABORATOR_LIMIT_BY_TIER', () => {
 
   it('gives elite unlimited seats', () => {
     expect(COLLABORATOR_LIMIT_BY_TIER.elite).toBeNull();
+  });
+});
+
+describe('CALENDAR_INCLUDED_LIMIT_BY_TIER / CALENDAR_MAX_LIMIT_BY_TIER', () => {
+  it('gives free tier exactly 1 calendar, no overage path', () => {
+    expect(CALENDAR_INCLUDED_LIMIT_BY_TIER.free).toBe(1);
+    expect(CALENDAR_MAX_LIMIT_BY_TIER.free).toBe(1);
+  });
+
+  it('gives premium 3 calendars, hard-capped (no overage path)', () => {
+    expect(CALENDAR_INCLUDED_LIMIT_BY_TIER.premium).toBe(3);
+    expect(CALENDAR_MAX_LIMIT_BY_TIER.premium).toBe(3);
+  });
+
+  it('gives elite 10 included with room to meter up to 20', () => {
+    expect(CALENDAR_INCLUDED_LIMIT_BY_TIER.elite).toBe(10);
+    expect(CALENDAR_MAX_LIMIT_BY_TIER.elite).toBe(20);
   });
 });

@@ -141,13 +141,13 @@ export default function BillingPage() {
         {!isPremiumOrAbove && (
           <p className="mt-2 text-body-sm text-text-2">
             Upgrade to Premium (14-day free trial) to unlock custom branding, a custom booking
-            link, analytics, and up to 3 team seats, or go straight to Elite for multiple booking
-            calendars and unlimited team access too.
+            link, analytics, up to 3 booking calendars, and up to 3 team seats, or go straight to
+            Elite for 10 calendars and unlimited team access.
           </p>
         )}
         {isPremiumOrAbove && !isElite && (
           <p className="mt-2 text-body-sm text-text-2">
-            Want Elite&apos;s multiple booking calendars and unlimited team access? Switching plans
+            Want Elite&apos;s 10 booking calendars and unlimited team access? Switching plans
             happens in the billing portal below, not a new checkout.
           </p>
         )}

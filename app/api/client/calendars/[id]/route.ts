@@ -5,11 +5,12 @@ import { requireClient } from '@/lib/require-client';
 import { calendarCreateSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 import { syncExtraCalendarQuantity } from '@/lib/stripe';
+import { CALENDAR_INCLUDED_LIMIT_BY_TIER } from '@/lib/tier';
 
-// Kept in sync with app/api/client/calendars/route.ts's
-// CALENDAR_INCLUDED_LIMIT_BY_TIER — only used here to recompute the
-// extra-calendar billing quantity after a delete, not to gate anything.
-const CALENDAR_INCLUDED_LIMIT_BY_TIER: Record<string, number> = { free: 1, premium: 1, elite: 10 };
+// CALENDAR_INCLUDED_LIMIT_BY_TIER lives in lib/tier.ts, shared with
+// app/api/client/calendars/route.ts so the two can't drift — only used
+// here to recompute the extra-calendar billing quantity after a delete,
+// not to gate anything.
 
 // Quick rename from the "Manage calendars" list — full branding
 // (accent color, logo, slug) still goes through PATCH /api/client/branding

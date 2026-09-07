@@ -43,8 +43,13 @@ const PREMIUM_LINKS: NavLink[] = [
   // and CLAUDE.md's "Team access" section) — a $19 Premium plan with one
   // calendar and one seat lost head-on to Cal.com's free tier otherwise.
   { href: '/dashboard/team', label: 'Team', minTier: 'premium' },
+  // Calendars moved down to Premium (3-calendar cap) the same way, same
+  // reasoning — see CALENDAR_INCLUDED_LIMIT_BY_TIER in lib/tier.ts. Elite
+  // has no exclusive dashboard pages left; its distinction is quantity
+  // (10 calendars / unlimited seats vs Premium's 3 / 2), surfaced on the
+  // pages themselves, not gated by nav visibility.
+  { href: '/dashboard/calendars', label: 'Calendars', minTier: 'premium' },
 ];
-const ELITE_LINKS: NavLink[] = [{ href: '/dashboard/calendars', label: 'Calendars', minTier: 'elite' }];
 
 // Dev tier-toggle cycles free -> premium -> elite -> free, rather than a
 // boolean flip, now that there are three tiers to click through.
@@ -94,10 +99,10 @@ export default function DashboardNav({
         <span className="truncate text-body-sm text-text-2">{email}</span>
 
         {/* Only shown once there's actually something to switch between —
-            free/premium clients always have exactly 1 calendar, so this
-            stays out of their way entirely. Grouped by role: a person can be
-            both an owner and an accepted collaborator elsewhere (Elite team
-            access, 0018 migration) and needs to tell those apart. */}
+            hidden entirely for a client with just one calendar. Grouped by
+            role: a person can be both an owner and an accepted collaborator
+            elsewhere (Elite team access, 0018 migration) and needs to tell
+            those apart. */}
         {calendars.length > 1 && (
           <div className="mt-1">
             <Select
@@ -207,7 +212,6 @@ export default function DashboardNav({
         {renderGroup('Setup', SETUP_LINKS, onNavigate)}
         {renderGroup('Operate', OPERATE_LINKS, onNavigate)}
         {renderGroup('Premium', PREMIUM_LINKS, onNavigate)}
-        {renderGroup('Elite', ELITE_LINKS, onNavigate)}
       </ul>
     );
   }

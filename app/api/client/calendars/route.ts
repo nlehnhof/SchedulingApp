@@ -5,18 +5,18 @@ import { requireClient } from '@/lib/require-client';
 import { calendarCreateSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
 import { syncExtraCalendarQuantity } from '@/lib/stripe';
+import { CALENDAR_INCLUDED_LIMIT_BY_TIER, CALENDAR_MAX_LIMIT_BY_TIER } from '@/lib/tier';
 
-// Elite feature: multiple booking calendars per client account. Free and
-// Premium stay at the pre-Elite behavior of exactly 1 calendar (created
+// Multiple booking calendars per client account. Free stays at 1 (created
 // automatically for every client — see lib/auth.ts's signIn callback and
-// the 0015 migration's backfill for existing clients); Elite includes 10 in
-// the base $49/mo plan. Calendars past the included 10 aren't blocked
-// outright — each one adds $5/mo to the subscription (see
-// lib/stripe.ts's syncExtraCalendarQuantity) — up to a hard cap of 20 total,
-// which *is* a flat block (prevents runaway per-seat billing/abuse rather
-// than metering indefinitely).
-const CALENDAR_INCLUDED_LIMIT_BY_TIER: Record<string, number> = { free: 1, premium: 1, elite: 10 };
-const CALENDAR_MAX_LIMIT_BY_TIER: Record<string, number> = { free: 1, premium: 1, elite: 20 };
+// the 0015 migration's backfill for existing clients); Premium includes 3,
+// hard-capped there (no overage path); Elite includes 10 in the base
+// $49/mo plan, and calendars past the included 10 aren't blocked outright
+// — each one adds $5/mo to the subscription (see lib/stripe.ts's
+// syncExtraCalendarQuantity) — up to a hard cap of 20 total, which *is* a
+// flat block (prevents runaway per-seat billing/abuse rather than
+// metering indefinitely). Limits themselves live in lib/tier.ts, shared
+// with app/api/client/calendars/[id]/route.ts so the two can't drift.
 const EXTRA_CALENDAR_PRICE_PER_MONTH = 5;
 
 // Powers both the "Manage calendars" page (owned calendars only, via
@@ -58,7 +58,11 @@ export async function GET() {
     // subject to the owner's calendar cap. `limit` stays the hard max for
     // backward compat with existing consumers (gates "can I even create
     // another one at all"); `includedLimit` is the free-with-plan count,
-    // and only differs from `limit` for Elite.
+    // and only differs from `limit` for Premium and Elite. `tier` lets the
+    // UI tell a Premium client at their cap ("upgrade to Elite") apart
+    // from an Elite client at theirs (nothing left to upsell) — same
+    // pattern as GET /api/client/team.
+    tier: client.clientId ? client.tier : null,
     limit: client.clientId ? CALENDAR_MAX_LIMIT_BY_TIER[client.tier] ?? 1 : 0,
     includedLimit: client.clientId ? CALENDAR_INCLUDED_LIMIT_BY_TIER[client.tier] ?? 1 : 0,
     extraCalendarPricePerMonth: EXTRA_CALENDAR_PRICE_PER_MONTH,
@@ -92,7 +96,9 @@ export async function POST(req: Request) {
         error:
           client.tier === 'elite'
             ? `You've reached the ${max}-calendar limit.`
-            : 'Upgrade to Elite to add more than one booking calendar.',
+            : client.tier === 'premium'
+              ? `Upgrade to Elite to add more than ${max} booking calendars.`
+              : 'Upgrade to Premium to add more than one booking calendar.',
       },
       { status: 403 }
     );

@@ -265,8 +265,8 @@ function Plans() {
           </div>
           <p className="mt-1 text-body-sm text-text-2">Per organization, not per seat.</p>
           <p className="mt-2 text-body-sm text-text-2">
-            Custom branding, a custom booking link, analytics, confirmation emails, and 3 seats
-            for your team, on top of everything in Free.
+            Custom branding, a custom booking link, analytics, confirmation emails, up to 3
+            booking calendars, and 3 seats for your team, on top of everything in Free.
           </p>
         </Reveal>
         <Reveal delay={0.2} className="rounded-xl border border-hairline bg-surface p-6 lg:mb-6">

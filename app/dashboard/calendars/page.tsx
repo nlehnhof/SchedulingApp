@@ -10,19 +10,22 @@ import Card from '@/components/Card';
 import Spinner from '@/components/Spinner';
 import { useCalendar, type CalendarSummary } from '@/components/CalendarContext';
 import { detectBrowserTimezone } from '@/lib/timezone-options';
+import type { Tier } from '@/lib/tier';
 
 const KEY = '/api/client/calendars';
 
-// Elite feature: multiple independently-configured booking calendars per
-// client account. Elite includes 10 in the base plan; calendars 11-20 each
-// add $5/mo to the subscription instead of being blocked outright, with 20
-// as a hard cap — see app/api/client/calendars/route.ts. This page manages
+// Multiple independently-configured booking calendars per client account
+// — Premium includes 3 (hard cap, no overage), Elite includes 10 in the
+// base plan with calendars 11-20 each adding $5/mo instead of being
+// blocked outright, 20 as a hard cap — see
+// app/api/client/calendars/route.ts and lib/tier.ts. This page manages
 // the list; picking which one is "active" for every other dashboard page
 // happens via the switcher in the nav (components/DashboardNav.tsx), both
 // backed by the same CalendarContext.
 export default function CalendarsPage() {
   const { data, error, isLoading } = useSWR<{
     calendars: CalendarSummary[];
+    tier: Tier | null;
     limit: number;
     includedLimit: number;
     extraCalendarPricePerMonth: number;
@@ -131,12 +134,18 @@ export default function CalendarsPage() {
         </Button>
       </div>
 
-      {atLimit && data.includedLimit === 1 && (
+      {atLimit && data.tier === 'free' && (
         <p className="rounded-xl border border-lume/40 bg-lume/25 p-3 text-body-sm text-text">
-          Upgrade to Elite to create more than one booking calendar.
+          Upgrade to Premium to create more than one booking calendar.
         </p>
       )}
-      {atLimit && data.includedLimit > 1 && (
+      {atLimit && data.tier === 'premium' && (
+        <p className="rounded-xl border border-lume/40 bg-lume/25 p-3 text-body-sm text-text">
+          You&apos;ve reached the {data.limit}-calendar limit for Premium. Upgrade to Elite for up
+          to 10 (20 with add-ons).
+        </p>
+      )}
+      {atLimit && data.tier === 'elite' && (
         <p className="rounded-xl border border-hairline bg-surface p-3 text-body-sm text-text-2">
           You&apos;ve reached the {data.limit}-calendar limit for your plan.
         </p>
