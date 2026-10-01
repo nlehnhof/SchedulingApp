@@ -1,3 +1,4 @@
+import * as Sentry from '@sentry/nextjs';
 import { NextResponse } from 'next/server';
 import { bookAppointment } from '@/lib/booking';
 import { bookSchema } from '@/lib/validation';
@@ -69,6 +70,32 @@ export async function POST(
       startTime: body.startTime,
       notes: body.notes,
     });
+    // L10: saved in a separate update AFTER the booking succeeds, so a
+    // failure here never fails (or touches the locking of) the booking.
+    // Only honored while the calendar's toggle is on.
+    if (body.marketingOptin === true && result.status === 'booked' && result.appointment) {
+      try {
+        const { data: cal } = await supabase
+          .from('booking_calendars')
+          .select('collect_marketing_optin')
+          .eq('id', resolved.calendarId)
+          .maybeSingle();
+        if (cal?.collect_marketing_optin === true) {
+          const { error: optinError } = await supabase
+            .from('appointments')
+            .update({ email_marketing_optin: true, email_marketing_optin_at: new Date().toISOString() })
+            .eq('id', result.appointment.id);
+          if (optinError) throw optinError;
+        }
+      } catch (err: any) {
+        Sentry.captureException(err);
+        await supabase.from('error_log').insert({
+          calendar_id: resolved.calendarId,
+          error_type: 'marketing_optin_save_failed',
+          message: err?.message ?? String(err),
+        });
+      }
+    }
     return NextResponse.json(result);
   } catch (err) {
     // Previously leaked the raw Postgres/Supabase error message to an

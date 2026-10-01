@@ -17,14 +17,23 @@ export async function GET(
   }
 
   const supabase = createServiceClient();
-  const { data: reasons, error } = await supabase
-    .from('appointment_reasons')
-    .select('id, name, duration_min, info_note, required_checkboxes')
-    .eq('calendar_id', resolved.calendarId)
-    .order('order', { ascending: true });
+  const [{ data: reasons, error }, { data: cal }] = await Promise.all([
+    supabase
+      .from('appointment_reasons')
+      .select('id, name, duration_min, info_note, required_checkboxes')
+      .eq('calendar_id', resolved.calendarId)
+      .order('order', { ascending: true }),
+    supabase
+      .from('booking_calendars')
+      .select('collect_marketing_optin')
+      .eq('id', resolved.calendarId)
+      .maybeSingle(),
+  ]);
 
   if (error) return errorResponse(error, 'Could not load booking options.');
   return NextResponse.json({
+    // L10: absent/false by default so older clients never show the checkbox.
+    collectMarketingOptin: cal?.collect_marketing_optin === true,
     reasons: (reasons ?? []).map((r) => ({
       id: r.id,
       name: r.name,

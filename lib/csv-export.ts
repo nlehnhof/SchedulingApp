@@ -19,6 +19,33 @@ export function csvEscape(value: string): string {
   return value;
 }
 
+export interface OptInContact {
+  visitor_name: string;
+  visitor_email: string | null;
+  email_marketing_optin_at: string | null;
+}
+
+/**
+ * Marketing contacts CSV (L10): one row per lowercased email, earliest
+ * opt-in date kept. Rows without an email or opt-in timestamp are skipped.
+ */
+export function buildContactsCsv(rows: OptInContact[]): string {
+  const byEmail = new Map<string, { name: string; email: string; at: string }>();
+  for (const r of rows) {
+    const email = r.visitor_email?.trim().toLowerCase();
+    if (!email || !r.email_marketing_optin_at) continue;
+    const prev = byEmail.get(email);
+    if (!prev || new Date(r.email_marketing_optin_at) < new Date(prev.at)) {
+      byEmail.set(email, { name: r.visitor_name, email, at: r.email_marketing_optin_at });
+    }
+  }
+  const lines = [['name', 'email', 'opted_in_at']];
+  Array.from(byEmail.values())
+    .sort((a, b) => a.at.localeCompare(b.at))
+    .forEach((c) => lines.push([c.name, c.email, c.at]));
+  return lines.map((row) => row.map((v) => csvEscape(v)).join(',')).join('\n');
+}
+
 /**
  * Generates the previous/target month's appointment CSV for one booking
  * calendar, emails it to the owning client, and records the export. Mirrors

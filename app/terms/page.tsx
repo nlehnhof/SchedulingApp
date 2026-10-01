@@ -45,6 +45,11 @@ export default function TermsPage() {
               consent or legal basis your own use requires, and for complying with laws that
               apply to your business or organization.
             </p>
+            <p className="text-body text-text-2">
+              If you enable the email opt-in on a calendar, Gather stores opt-in emails on your
+              behalf and does not send marketing email for you. You are responsible for lawful
+              use of those emails, for keeping consent records, and for honoring unsubscribes.
+            </p>
           </section>
 
           <section className="flex flex-col gap-3">

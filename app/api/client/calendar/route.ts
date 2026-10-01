@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server';
 import { createServiceClient } from '@/lib/supabase';
 import { requireClient } from '@/lib/require-client';
-import { requireCalendarAccess, requireWriteRole } from '@/lib/require-calendar';
+import { requireCalendarAccess, requireWriteRole, calendarOwnerTier } from '@/lib/require-calendar';
 import { listGoogleCalendars } from '@/lib/google-calendar';
 import { calendarSelectSchema } from '@/lib/validation';
 import { errorResponse } from '@/lib/error-response';
+import { isAtLeast } from '@/lib/tier';
 
 function ownerOf(calendar: any): any {
   return Array.isArray(calendar?.clients) ? calendar.clients[0] : calendar?.clients;
@@ -30,11 +31,12 @@ export async function GET(req: Request) {
   const supabase = createServiceClient();
   const { data: calendarRow, error } = await supabase
     .from('booking_calendars')
-    .select('google_calendar_id, timezone, allow_visitor_management, clients(google_refresh_token)')
+    .select('google_calendar_id, timezone, allow_visitor_management, collect_marketing_optin, clients(google_refresh_token)')
     .eq('id', calendar.calendarId)
     .single();
   if (error) return errorResponse(error, 'Could not load calendar settings.');
   const owner = ownerOf(calendarRow);
+  const marketingOptinAllowed = isAtLeast(await calendarOwnerTier(calendar.calendarId), 'premium');
 
   // No Google account linked at all (e.g. the admin test-credentials login,
   // or a client who hasn't reconnected since enabling Calendar scopes) —
@@ -48,6 +50,8 @@ export async function GET(req: Request) {
       selected: calendarRow.google_calendar_id,
       timezone: calendarRow.timezone,
       allowVisitorManagement: calendarRow.allow_visitor_management,
+      collectMarketingOptin: calendarRow.collect_marketing_optin,
+      marketingOptinAllowed,
     });
   }
 
@@ -59,6 +63,8 @@ export async function GET(req: Request) {
       selected: calendarRow.google_calendar_id,
       timezone: calendarRow.timezone,
       allowVisitorManagement: calendarRow.allow_visitor_management,
+      collectMarketingOptin: calendarRow.collect_marketing_optin,
+      marketingOptinAllowed,
     });
   } catch (err) {
     return errorResponse(
@@ -83,6 +89,16 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
   }
   const body = parsed.data;
+
+  // Enabling the opt-in is Premium+, gated on the calendar OWNER's tier (an
+  // editor has no plan of their own). Turning it off is always allowed so a
+  // downgraded calendar can still switch it off.
+  if (
+    body.collectMarketingOptin === true &&
+    !isAtLeast(await calendarOwnerTier(calendar.calendarId), 'premium')
+  ) {
+    return NextResponse.json({ error: 'Marketing opt-in is a Premium feature.' }, { status: 403 });
+  }
 
   const supabase = createServiceClient();
   const updates: Record<string, unknown> = {};
@@ -133,6 +149,10 @@ export async function PATCH(req: Request) {
     updates.allow_visitor_management = body.allowVisitorManagement;
   }
 
+  if (body.collectMarketingOptin !== undefined) {
+    updates.collect_marketing_optin = body.collectMarketingOptin;
+  }
+
   const { error: updateError } = await supabase
     .from('booking_calendars')
     .update(updates)
@@ -143,5 +163,6 @@ export async function PATCH(req: Request) {
     selected: body.googleCalendarId,
     timezone: body.timezone,
     allowVisitorManagement: body.allowVisitorManagement,
+    collectMarketingOptin: body.collectMarketingOptin,
   });
 }

@@ -63,6 +63,12 @@ export default function PrivacyPage() {
               person who booked. It is retained until the client deletes the appointment, or
               until the client deletes their account.
             </p>
+            <p className="text-body text-text-2">
+              If a client turns on the optional email-updates checkbox, a visitor who ticks it
+              has their email stored with that booking on the client&apos;s behalf. Gather does
+              not send marketing email. The client is responsible for lawful use of those
+              emails, for keeping consent records, and for handling unsubscribes.
+            </p>
           </section>
 
           <section className="flex flex-col gap-3">

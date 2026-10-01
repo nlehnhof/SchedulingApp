@@ -58,6 +58,8 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
   const [clientName, setClientName] = useState<string | null>(null);
   const [branding, setBranding] = useState<Branding | null>(null);
   const [reasons, setReasons] = useState<VisitorReason[]>([]);
+  const [collectOptin, setCollectOptin] = useState(false);
+  const [optedIn, setOptedIn] = useState(false);
   const [reasonsLoading, setReasonsLoading] = useState(true);
   const [selectedReason, setSelectedReason] = useState<VisitorReason | null>(null);
   const [slots, setSlots] = useState<VisitorSlot[]>([]);
@@ -85,9 +87,10 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
 
   useEffect(() => {
     setReasonsLoading(true);
-    fetcher<{ reasons: VisitorReason[] }>(`/api/visitor/${clientLink}/reasons`)
+    fetcher<{ reasons: VisitorReason[]; collectMarketingOptin?: boolean }>(`/api/visitor/${clientLink}/reasons`)
       .then((r) => {
         setReasons(r.reasons);
+        setCollectOptin(r.collectMarketingOptin === true);
         setReasonsLoading(false);
       })
       .catch(() => {
@@ -125,6 +128,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
     register,
     handleSubmit,
     reset: resetDetailsForm,
+    watch,
     formState: { errors },
   } = useForm<DetailsForm>({ resolver: zodResolver(detailsSchema) });
 
@@ -148,6 +152,8 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
         startTime,
         notes: details.notes,
         checkedRequiredCheckboxes: Object.keys(checkedBoxes).filter((label) => checkedBoxes[label]),
+        // Only present when the calendar collects opt-ins and the visitor ticked it.
+        ...(collectOptin && optedIn ? { marketingOptin: true } : {}),
       });
 
       if (result.status === 'booked' && result.appointment) {
@@ -177,6 +183,7 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
     setSelectedSlot(null);
     setDetails(null);
     setCheckedBoxes({});
+    setOptedIn(false);
     setConfirmed(null);
     setConflict(null);
     resetDetailsForm();
@@ -377,6 +384,18 @@ export default function VisitorBookingPage({ params }: { params: { clientLink: s
                 </label>
               ))}
             </div>
+          )}
+
+          {collectOptin && !!watch('visitorEmail')?.trim() && (
+            <label className="flex min-h-11 items-center gap-2 rounded-lg text-body text-text hover:bg-lume/10">
+              <input
+                type="checkbox"
+                checked={optedIn}
+                onChange={(e) => setOptedIn(e.target.checked)}
+                className="h-5 w-5 shrink-0 accent-lume"
+              />
+              <span>Email me updates from {clientName ?? 'this business'}</span>
+            </label>
           )}
 
           {conflict && (

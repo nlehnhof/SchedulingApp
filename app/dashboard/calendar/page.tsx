@@ -6,6 +6,7 @@ import { fetcher } from '@/lib/fetcher';
 import Button from '@/components/Button';
 import Select from '@/components/Select';
 import Spinner from '@/components/Spinner';
+import PremiumLockCard from '@/components/PremiumLockCard';
 import { useCalendar } from '@/components/CalendarContext';
 import { TIMEZONE_OPTIONS } from '@/lib/timezone-options';
 
@@ -15,6 +16,8 @@ interface GoogleCalendarData {
   selected: string;
   timezone: string;
   allowVisitorManagement: boolean;
+  collectMarketingOptin: boolean;
+  marketingOptinAllowed: boolean;
 }
 
 export default function CalendarPage() {
@@ -29,6 +32,7 @@ export default function CalendarPage() {
   const [googleCalendarId, setGoogleCalendarId] = useState('');
   const [timezone, setTimezone] = useState('');
   const [allowVisitorManagement, setAllowVisitorManagement] = useState(true);
+  const [collectMarketingOptin, setCollectMarketingOptin] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -38,6 +42,7 @@ export default function CalendarPage() {
     setGoogleCalendarId(data.selected);
     setTimezone(data.timezone);
     setAllowVisitorManagement(data.allowVisitorManagement);
+    setCollectMarketingOptin(data.collectMarketingOptin);
   }, [data]);
 
   if (isLoading) return <Spinner />;
@@ -51,6 +56,7 @@ export default function CalendarPage() {
     setSaving(true);
     try {
       const body: Record<string, unknown> = { timezone, allowVisitorManagement };
+      if (data!.marketingOptinAllowed) body.collectMarketingOptin = collectMarketingOptin;
       if (data!.linked) body.googleCalendarId = googleCalendarId;
       const res = await fetch(KEY, {
         method: 'PATCH',
@@ -143,6 +149,40 @@ export default function CalendarPage() {
           </span>
         </span>
       </label>
+
+      {data.marketingOptinAllowed ? (
+        <div className="flex flex-col gap-2">
+          <label className="flex items-center gap-2 rounded-lg border border-hairline p-3 text-body-sm text-text">
+            <input
+              type="checkbox"
+              checked={collectMarketingOptin}
+              onChange={(e) => setCollectMarketingOptin(e.target.checked)}
+              disabled={!canWrite}
+              className="accent-lume"
+            />
+            <span>
+              Ask visitors if they want email updates
+              <span className="block text-body-sm text-text-2">
+                Adds an unchecked opt-in box to the booking form. Gather only collects these
+                emails; you send and handle unsubscribes.
+              </span>
+            </span>
+          </label>
+          {canWrite && (
+            <a
+              href={`/api/client/marketing-contacts?calendarId=${calendarId}`}
+              className="text-body-sm text-lume underline"
+            >
+              Download contacts (CSV)
+            </a>
+          )}
+        </div>
+      ) : (
+        <PremiumLockCard
+          title="Email opt-in"
+          description="Collect email opt-ins from visitors and download them as a CSV. Available on Premium and above."
+        />
+      )}
 
       {saveError && <p className="text-body-sm text-rose">{saveError}</p>}
       {saved && <p className="text-body-sm text-jade">Saved.</p>}

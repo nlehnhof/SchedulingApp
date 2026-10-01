@@ -132,6 +132,8 @@ export const bookSchema = z.object({
   // required_checkboxes — the book route re-verifies this against the
   // reason's actual stored list rather than trusting it outright.
   checkedRequiredCheckboxes: z.array(z.string()).optional(),
+  // L10: only sent when the calendar's collect_marketing_optin is on.
+  marketingOptin: z.boolean().optional(),
 });
 
 export const exportSchema = z.object({
@@ -258,12 +260,18 @@ export const calendarSelectSchema = z
     // themselves rather than have visitors act directly. See
     // app/api/manage/[token]/* and the 0023 migration.
     allowVisitorManagement: z.boolean().optional(),
+    // L10: Premium+ marketing opt-in checkbox on the visitor form (0024).
+    collectMarketingOptin: z.boolean().optional(),
   })
   .refine(
     (v) =>
-      v.googleCalendarId !== undefined || v.timezone !== undefined || v.allowVisitorManagement !== undefined,
+      v.googleCalendarId !== undefined ||
+      v.timezone !== undefined ||
+      v.allowVisitorManagement !== undefined ||
+      v.collectMarketingOptin !== undefined,
     {
-      message: 'At least one of googleCalendarId, timezone, allowVisitorManagement is required',
+      message:
+        'At least one of googleCalendarId, timezone, allowVisitorManagement, collectMarketingOptin is required',
     }
   );
 
