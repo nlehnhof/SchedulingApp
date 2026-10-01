@@ -77,6 +77,14 @@ Supabase SQL Editor don't inherit default `service_role` grants, which surfaces 
 - **Cron endpoints** (`app/api/cron/*`) use neither — they're guarded by a shared
   `x-cron-secret` header checked in `lib/require-cron.ts` via constant-time comparison
   (`lib/safe-compare.ts`), since Render's cron scheduler hits them directly, not a browser.
+  Render runs ONE cron job (`*/30 * * * *`, `curl -fsS -X POST -H "x-cron-secret: $CRON_SECRET"
+  https://gathertime.com/api/cron/tick`) to avoid per-job minimum billing. `app/api/cron/tick`
+  asks `lib/cron-schedule.ts`'s `dueJobs(now)` (UTC) which of `google-sync` (every tick),
+  `cleanup` (daily, 03:00 UTC window) and `export-monthly` (day 1, every tick from 03:00 UTC so a
+  missed window catches up) are due, then runs the shared bodies in `lib/cron-jobs.ts`; one job
+  failing never stops the others. `exportMonthlyCSVForAllClients` skips calendars already in
+  `csv_exports` for the month, which is what makes repeated ticks safe. The per-job routes stay
+  for manual triggering; `sms-reminders` is not part of the tick.
 
 **Booking concurrency is handled in Postgres, not application code.** `lib/booking.ts` calls
 the `book_appointment` RPC (`supabase/migrations/0017_booking_functions_calendar_scoped.sql`,

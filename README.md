@@ -124,8 +124,8 @@ a whole DnD dependency for four list items.
 - `app/visit/[clientLink]` — visitor booking flow
 - `app/api/client/*` — authenticated client API routes
 - `app/api/visitor/[clientLink]/*` — link-scoped visitor API routes
-- `app/api/cron/*` — internal jobs (Google sync, cleanup, monthly export) — guarded by
-  `CRON_SECRET` via `lib/require-cron.ts`
+- `app/api/cron/*` — internal jobs (Google sync, cleanup, monthly export) run via the single
+  `/api/cron/tick` — guarded by `CRON_SECRET` via `lib/require-cron.ts`
 - `lib/supabase.ts`, `lib/email.ts` — service clients
 - `lib/availability.ts` — pure, unit-tested slot calculator (rules + bookings + Google blocks → slots)
 - `lib/booking.ts` — calls the `book_appointment` Postgres function; falls back to the
@@ -201,15 +201,16 @@ option if Render is later pointed at the Dockerfile instead.
 3. Build command: `npm install && npm run build`. Start command: `npm start`.
 4. Instance type: Starter ($7/mo) for always-on (free tier spins down after 15 min idle).
 5. Add environment variables from `.env.example` in the Render dashboard.
-6. Add Render **Cron Jobs** (a different resource type from the Web Service), each guarded by
-   the `x-cron-secret` header `lib/require-cron.ts` checks for:
+6. Add ONE Render **Cron Job** (a different resource type from the Web Service; Render bills a
+   per-job minimum, so everything shares a single job). Schedule `*/30 * * * *`, command below,
+   guarded by the `x-cron-secret` header `lib/require-cron.ts` checks for:
    ```bash
-   # every 30 min
-   curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/google-sync
-   # daily
-   curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/cleanup
-   # 1st of the month
-   curl -X POST -H "x-cron-secret: $CRON_SECRET" https://yourapp.onrender.com/api/cron/export-monthly
+   curl -fsS -X POST -H "x-cron-secret: $CRON_SECRET" https://gathertime.com/api/cron/tick
    ```
+   `/api/cron/tick` runs `google-sync` every call, `cleanup` once a day (03:00 UTC window), and
+   `export-monthly` on the 1st from 03:00 UTC (retried every tick that day; calendars already in
+   `csv_exports` are skipped, so it never emails twice). The schedule lives in
+   `lib/cron-schedule.ts`. The per-job routes (`/api/cron/google-sync`, `cleanup`,
+   `export-monthly`) still work for manual triggering.
 
    `sms-reminders` exists in the codebase but is not scheduled — see "Premium tier" above for why.

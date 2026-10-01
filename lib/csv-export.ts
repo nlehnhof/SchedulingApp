@@ -110,14 +110,38 @@ export async function exportMonthlyCSV(calendarId: string, month: string): Promi
     );
 }
 
-/** Runs the monthly export for every booking calendar. Used by the cron job on the 1st of the month. */
-export async function exportMonthlyCSVForAllClients(month: string): Promise<{ exported: number }> {
+/**
+ * Runs the monthly export for every booking calendar. Used by the cron tick on
+ * the 1st of the month. Idempotent per (calendar, month): calendars already in
+ * csv_exports are skipped, so a repeated tick never emails twice and a later
+ * tick catches up any calendar that failed. One calendar failing does not stop
+ * the rest; the first error is rethrown at the end so the job reports failure.
+ */
+export async function exportMonthlyCSVForAllClients(
+  month: string
+): Promise<{ exported: number; skipped: number }> {
   const supabase = createServiceClient();
-  const { data: calendars } = await supabase.from('booking_calendars').select('id');
+  const [{ data: calendars }, { data: done }] = await Promise.all([
+    supabase.from('booking_calendars').select('id'),
+    supabase.from('csv_exports').select('calendar_id').eq('month', `${month}-01`),
+  ]);
+  const alreadyExported = new Set((done ?? []).map((d) => d.calendar_id));
   let exported = 0;
+  let skipped = 0;
+  let firstError: unknown;
   for (const calendar of calendars ?? []) {
-    await exportMonthlyCSV(calendar.id, month);
-    exported++;
+    if (alreadyExported.has(calendar.id)) {
+      skipped++;
+      continue;
+    }
+    try {
+      await exportMonthlyCSV(calendar.id, month);
+      exported++;
+    } catch (err) {
+      console.error(`export-monthly failed for calendar ${calendar.id}`, err);
+      firstError ??= err;
+    }
   }
-  return { exported };
+  if (firstError) throw firstError;
+  return { exported, skipped };
 }
